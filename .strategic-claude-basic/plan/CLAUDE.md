@@ -47,9 +47,9 @@ This ensures phase-specific plans are easily identifiable and searchable.
 
 ## Existing Documents
 
-1. **document-name** - **subject**
+1. **PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md** - Go-based batch downloader for Gexbot Historical API
 
-Next document number: **0001**
+Next document number: **0002**
 
 ## Plan Type Guidelines
 
