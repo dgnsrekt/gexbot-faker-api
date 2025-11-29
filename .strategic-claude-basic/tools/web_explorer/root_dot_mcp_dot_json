@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "chromium": {
+            "command": "./scripts/start-chromium-mcp.sh",
+            "args": []
+        }
+    }
+}

@@ -1,0 +1,9 @@
+{
+    "gemini": {
+        "command": "npx",
+        "args": [
+            "-y",
+            "gemini-mcp-tool"
+        ]
+    }
+}

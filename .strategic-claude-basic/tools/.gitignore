@@ -1,0 +1,8 @@
+# Downloaded zip file
+web-search-mcp-v0.3.2.zip
+
+# Extracted and built MCP package
+web-search-mcp-v0.3.2/
+
+# Python type checking cache
+.mypy_cache/

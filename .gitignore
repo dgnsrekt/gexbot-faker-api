@@ -1,0 +1,6 @@
+# browser automation
+.env
+chromium-profile*/
+logs/
+
+.playwright-mcp

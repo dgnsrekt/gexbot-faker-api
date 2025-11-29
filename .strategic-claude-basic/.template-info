@@ -1,0 +1,20 @@
+{
+  "template": {
+    "id": "web-explorer",
+    "name": "Claude Web Explorer Template",
+    "description": "A template for browser automation projects using Chromium with MCP (Model Context Protocol) integration for Claude Code",
+    "repo_url": "https://github.com/Fomo-Driven-Development/strategic-claude-base.git",
+    "branch": "web-explorer",
+    "commit": "75fcec16184e46e9aa49cef1850401ab2db63d57",
+    "tags": [
+      "web",
+      "explorer"
+    ]
+  },
+  "installed_at": "2025-11-29T15:43:49-06:00",
+  "installed_commit": "75fcec16184e46e9aa49cef1850401ab2db63d57",
+  "metadata": {
+    "cli_version": "0.1.0",
+    "installation_type": "cli"
+  }
+}
