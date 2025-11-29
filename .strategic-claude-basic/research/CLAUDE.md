@@ -24,9 +24,9 @@ Where:
 
 ## Existing Documents
 
-1. **document-name** - **subject**
+1. **RESEARCH_0001_29-11-2025_sat_quant-historical-analysis.md** - Analysis of the quant-historical repository and Gexbot API structure
 
-Next document number: **0001**
+Next document number: **0002**
 
 ## Instructions for Claude Code
 
