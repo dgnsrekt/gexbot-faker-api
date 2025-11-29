@@ -33,16 +33,16 @@ Or create a `configs/default.yaml` file (see `configs/default.yaml` for template
 
 ### Configuration Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `api.base_url` | `https://api.gex.bot` | API base URL |
-| `api.timeout_sec` | 300 | Request timeout in seconds |
-| `api.retry_count` | 3 | Number of retries on failure |
-| `api.retry_delay_sec` | 5 | Base delay between retries |
-| `download.workers` | 3 | Concurrent download workers |
-| `download.rate_per_second` | 2 | Rate limit (requests/second) |
-| `download.resume_enabled` | true | Skip existing files |
-| `output.directory` | `data` | Output directory |
+| Option                     | Default               | Description                  |
+| -------------------------- | --------------------- | ---------------------------- |
+| `api.base_url`             | `https://api.gex.bot` | API base URL                 |
+| `api.timeout_sec`          | 300                   | Request timeout in seconds   |
+| `api.retry_count`          | 3                     | Number of retries on failure |
+| `api.retry_delay_sec`      | 5                     | Base delay between retries   |
+| `download.workers`         | 3                     | Concurrent download workers  |
+| `download.rate_per_second` | 2                     | Rate limit (requests/second) |
+| `download.resume_enabled`  | true                  | Skip existing files          |
+| `output.directory`         | `data`                | Output directory             |
 
 ## Usage
 
@@ -92,11 +92,11 @@ data/
 
 ### Packages and Categories
 
-| Package | Categories |
-|---------|------------|
-| state | gex_full, gex_zero, gex_one, delta_zero, delta_one, gamma_zero, gamma_one, vanna_zero, vanna_one, charm_zero, charm_one |
-| classic | gex_full |
-| orderflow | orderflow |
+| Package   | Categories                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- |
+| state     | gex_full, gex_zero, gex_one, delta_zero, delta_one, gamma_zero, gamma_one, vanna_zero, vanna_one, charm_zero, charm_one |
+| classic   | gex_full, gex_zero, gex_one                                                                                             |
+| orderflow | orderflow                                                                                                               |
 
 ### Default Tickers
 

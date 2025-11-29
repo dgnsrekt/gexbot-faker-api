@@ -19,16 +19,19 @@ tickers:
   # - IWM
 
 packages:
-  state:
-    enabled: true
-    categories:
-      - gex_full
-      - gex_zero
   classic:
     enabled: true
     categories:
       - gex_full
+      - gex_one
       - gex_zero
+  state:
+    enabled: true
+    categories:
+      - gex_full
+      - gex_one
+      - gex_zero
+      # - charm_zero
   orderflow:
     enabled: false
     categories:

@@ -48,7 +48,7 @@ func generateTasks(cfg *config.Config, dates []string, tickerOverride, packageOv
 		tickers = tickerOverride
 	}
 	if len(tickers) == 0 {
-		tickers = config.DefaultTickers
+		tickers = config.DefaultTickers()
 	}
 
 	// Build package/category map

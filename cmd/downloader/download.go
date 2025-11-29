@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/api"
+	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/staging"
 )
@@ -45,6 +46,20 @@ Examples:
 			// Parse dates
 			dates, err := parseDates(args)
 			if err != nil {
+				return err
+			}
+
+			// Determine effective tickers for validation
+			effectiveTickers := cfg.Tickers
+			if len(tickers) > 0 {
+				effectiveTickers = tickers
+			}
+			if len(effectiveTickers) == 0 {
+				effectiveTickers = config.DefaultTickers()
+			}
+
+			// Validate configuration before downloading
+			if err := config.ValidateDownloadConfig(effectiveTickers, cfg.Packages); err != nil {
 				return err
 			}
 
