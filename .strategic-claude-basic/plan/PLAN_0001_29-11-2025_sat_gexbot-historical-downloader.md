@@ -188,14 +188,14 @@ lint:
 
 #### Automated Verification:
 
-- [ ] `go mod tidy` runs without errors
-- [ ] `go build ./...` compiles successfully
-- [ ] Directory structure exists: `ls internal/api internal/config internal/download internal/staging`
+- [x] `go mod tidy` runs without errors
+- [x] `go build ./...` compiles successfully
+- [x] Directory structure exists: `ls internal/api internal/config internal/download internal/staging`
 
 #### Manual Verification:
 
-- [ ] Project structure matches the design
-- [ ] Types are properly defined with documentation
+- [x] Project structure matches the design
+- [x] Types are properly defined with documentation
 
 ---
 
@@ -365,14 +365,14 @@ output:
 
 #### Automated Verification:
 
-- [ ] `go build ./...` compiles with config package
-- [ ] Config loads with `GEXBOT_API_KEY` env var set
-- [ ] Config validation fails without API key
+- [x] `go build ./...` compiles with config package
+- [x] Config loads with `GEXBOT_API_KEY` env var set
+- [x] Config validation fails without API key
 
 #### Manual Verification:
 
-- [ ] YAML structure is readable and well-documented
-- [ ] Environment variable substitution works correctly
+- [x] YAML structure is readable and well-documented
+- [x] Environment variable substitution works correctly
 
 ---
 
@@ -553,14 +553,14 @@ var (
 
 #### Automated Verification:
 
-- [ ] `go build ./...` compiles with api package
-- [ ] `go test ./internal/api/...` passes (mock tests)
+- [x] `go build ./...` compiles with api package
+- [x] `go test ./internal/api/...` passes (mock tests)
 
 #### Manual Verification:
 
-- [ ] Client properly adds Basic Auth header
-- [ ] Retry logic works with exponential backoff
-- [ ] Rate limiter prevents request floods
+- [x] Client properly adds Basic Auth header
+- [x] Retry logic works with exponential backoff
+- [x] Rate limiter prevents request floods
 
 ---
 
@@ -777,14 +777,14 @@ func (m *Manager) processTask(ctx context.Context, task Task) TaskResult {
 
 #### Automated Verification:
 
-- [ ] `go build ./...` compiles with download package
-- [ ] `go test ./internal/download/...` passes
+- [x] `go build ./...` compiles with download package
+- [x] `go test ./internal/download/...` passes
 
 #### Manual Verification:
 
-- [ ] Worker pool processes tasks concurrently
-- [ ] Progress logging shows download status
-- [ ] Graceful shutdown works on SIGINT
+- [x] Worker pool processes tasks concurrently
+- [x] Progress logging shows download status
+- [x] Graceful shutdown works on SIGINT
 
 ---
 
@@ -907,14 +907,14 @@ func (m *Manager) CleanupStaging(date string) error {
 
 #### Automated Verification:
 
-- [ ] `go build ./...` compiles with staging package
-- [ ] `go test ./internal/staging/...` passes
+- [x] `go build ./...` compiles with staging package
+- [x] `go test ./internal/staging/...` passes
 
 #### Manual Verification:
 
-- [ ] Files download to `.staging/` first
-- [ ] Temp files use `.tmp` suffix
-- [ ] Commit moves files to final directory
+- [x] Files download to `.staging/` first
+- [x] Temp files use `.tmp` suffix
+- [x] Commit moves files to final directory
 
 ---
 
@@ -1098,15 +1098,15 @@ func downloadCmd() *cobra.Command {
 
 #### Automated Verification:
 
-- [ ] `go build ./cmd/downloader` produces executable
-- [ ] `./bin/gexbot-downloader --help` shows usage
-- [ ] `./bin/gexbot-downloader download --dry-run 2025-11-14` lists tasks
+- [x] `go build ./cmd/downloader` produces executable
+- [x] `./bin/gexbot-downloader --help` shows usage
+- [x] `./bin/gexbot-downloader download --dry-run 2025-11-14` lists tasks
 
 #### Manual Verification:
 
-- [ ] SIGINT gracefully stops downloads
-- [ ] Progress logging is clear and informative
-- [ ] Config overrides work via flags
+- [x] SIGINT gracefully stops downloads
+- [x] Progress logging is clear and informative
+- [x] Config overrides work via flags
 
 ---
 
@@ -1148,13 +1148,13 @@ data/
 
 #### Automated Verification:
 
-- [ ] `make build` succeeds
-- [ ] `make test` passes
+- [x] `make build` succeeds
+- [x] `make test` passes
 - [ ] `make lint` passes (if golangci-lint installed)
 
 #### Manual Verification:
 
-- [ ] README contains clear usage examples
+- [x] README contains clear usage examples
 - [ ] Real API download works for single date
 - [ ] Resume capability works when re-running
 

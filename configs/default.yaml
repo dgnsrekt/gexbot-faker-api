@@ -1,0 +1,43 @@
+api:
+  base_url: "https://api.gex.bot"
+  api_key: "${GEXBOT_API_KEY}"
+  timeout_sec: 300
+  retry_count: 3
+  retry_delay_sec: 5
+
+download:
+  workers: 3
+  rate_per_second: 2
+  resume_enabled: true
+
+tickers:
+  - SPX
+  # - NDX
+  # - RUT
+  # - SPY
+  # - QQQ
+  # - IWM
+
+packages:
+  state:
+    enabled: true
+    categories:
+      - gex_full
+      - gex_zero
+  classic:
+    enabled: true
+    categories:
+      - gex_full
+      - gex_zero
+  orderflow:
+    enabled: false
+    categories:
+      - orderflow
+
+output:
+  directory: "data"
+
+logging:
+  enabled: true
+  directory: "logs"
+  level: "info"  # debug, info, warn, error

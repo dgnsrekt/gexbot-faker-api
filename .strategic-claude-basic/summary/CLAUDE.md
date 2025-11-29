@@ -58,9 +58,9 @@ Where:
 
 ## Existing Documents
 
-1. **document-name** - **subject**
+1. **SUMMARY_PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md** - Go-based batch downloader implementation summary
 
-Next document number: **0001** (or match existing plan number)
+Next document number: **0002** (or match existing plan number)
 
 ## Instructions for Claude Code
 

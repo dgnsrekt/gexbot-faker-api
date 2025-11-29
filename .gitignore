@@ -4,3 +4,17 @@ chromium-profile*/
 logs/
 
 .playwright-mcp
+
+# Go binaries
+bin/
+*.exe
+
+# Downloaded data
+data/
+
+# IDE
+.idea/
+.vscode/
+
+# Test output
+coverage.out
