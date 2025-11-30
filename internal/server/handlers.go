@@ -417,7 +417,7 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 	status := "success"
 	message := "All cache positions reset to index 0"
 	if apiKey != "" {
-		message = "Cache positions reset for key: " + apiKey
+		message = "Cache positions reset for key: " + maskAPIKey(apiKey)
 	}
 
 	s.logger.Info("cache reset",
