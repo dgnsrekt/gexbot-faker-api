@@ -13,6 +13,8 @@ servers:
 tags:
   - name: classic
     description: Classic GEX data endpoints
+  - name: state
+    description: State GEX data endpoints (orderflow-based)
   - name: info
     description: Server information endpoints
   - name: admin
@@ -52,10 +54,70 @@ paths:
           schema:
             type: string
             minLength: 1
-          example: test
+          example: test1234
       responses:
         '200':
           description: GEX chain data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GexData'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Data not found or exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{ticker}/state/{aggregation}:
+    get:
+      operationId: getStateGexProfile
+      summary: Get GEX profile data
+      description: |
+        Based on classified orderflow, this endpoint nets out imbalanced calls
+        against imbalanced puts to locate areas of significant imbalanced exposure.
+        It helps identify high/low gamma nodes and call/put gamma regimes.
+      tags: [state]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (e.g., SPX)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: aggregation
+          in: path
+          required: true
+          description: "Aggregation period: full, zero, or one"
+          schema:
+            type: string
+            enum: [full, zero, one]
+          example: zero
+        - name: key
+          in: query
+          required: true
+          description: API key for playback position tracking
+          schema:
+            type: string
+            minLength: 1
+          example: test1234
+      responses:
+        '200':
+          description: GEX profile data
           content:
             application/json:
               schema:

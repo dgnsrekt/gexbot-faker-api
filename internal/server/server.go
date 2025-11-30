@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -66,11 +68,35 @@ func zapLoggerMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 			logger.Debug("request",
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
-				zap.String("query", r.URL.RawQuery),
+				zap.String("query", maskQueryKey(r.URL.RawQuery)),
 			)
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// maskQueryKey masks the "key" parameter in a query string
+func maskQueryKey(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+	values, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+	if key := values.Get("key"); key != "" {
+		if len(key) > 4 {
+			values.Set("key", key[:4]+"****")
+		}
+	}
+	// Rebuild query string preserving order as much as possible
+	var parts []string
+	for k, vs := range values {
+		for _, v := range vs {
+			parts = append(parts, k+"="+v)
+		}
+	}
+	return strings.Join(parts, "&")
 }
 
 func openapiHandler(w http.ResponseWriter, r *http.Request) {

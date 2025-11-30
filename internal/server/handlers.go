@@ -47,7 +47,7 @@ func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetCl
 		zap.String("ticker", ticker),
 		zap.String("aggregation", aggregation),
 		zap.String("category", category),
-		zap.String("apiKey", apiKey),
+		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
 
 	// Check if data exists
@@ -71,7 +71,7 @@ func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetCl
 
 	if exhausted {
 		s.logger.Debug("data exhausted",
-			zap.String("cacheKey", cacheKey),
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
 			zap.Int("index", idx),
 			zap.Int("length", length),
 		)
@@ -94,7 +94,7 @@ func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetCl
 	}
 
 	s.logger.Debug("returning data",
-		zap.String("cacheKey", cacheKey),
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
 		zap.Int("index", idx),
 		zap.Int64("timestamp", gexData.Timestamp),
 	)
@@ -204,7 +204,7 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 	}
 
 	s.logger.Info("cache reset",
-		zap.String("apiKey", apiKey),
+		zap.String("apiKey", maskAPIKey(apiKey)),
 		zap.Int("count", count),
 	)
 
@@ -215,4 +215,122 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 	}, nil
 }
 
+// GetStateGexProfile implements generated.StrictServerInterface
+func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetStateGexProfileRequestObject) (generated.GetStateGexProfileResponseObject, error) {
+	ticker := request.Ticker
+	aggregation := string(request.Aggregation)
+	apiKey := request.Params.Key
+
+	// Map aggregation to internal category format
+	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	pkg := "state"
+
+	s.logger.Debug("state gex profile request",
+		zap.String("ticker", ticker),
+		zap.String("aggregation", aggregation),
+		zap.String("category", category),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Check if data exists
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetStateGexProfile404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/state/" + aggregation),
+		}, nil
+	}
+
+	// Get data length
+	length, err := s.loader.GetLength(ticker, pkg, category)
+	if err != nil {
+		return generated.GetStateGexProfile404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Get index and check exhaustion
+	cacheKey := data.CacheKey(ticker, pkg, category, apiKey)
+	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+	if exhausted {
+		s.logger.Debug("data exhausted",
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
+			zap.Int("index", idx),
+			zap.Int("length", length),
+		)
+		return generated.GetStateGexProfile404JSONResponse{
+			Error: ptr("No more data available"),
+		}, nil
+	}
+
+	// Get data at index
+	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		if errors.Is(err, data.ErrIndexOutOfBounds) {
+			return generated.GetStateGexProfile404JSONResponse{
+				Error: ptr("Index out of bounds"),
+			}, nil
+		}
+		return generated.GetStateGexProfile404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	s.logger.Debug("returning data",
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
+		zap.Int("index", idx),
+		zap.Int64("timestamp", gexData.Timestamp),
+	)
+
+	// Convert json.RawMessage to []interface{}
+	var strikes []interface{}
+	if gexData.Strikes != nil {
+		if err := json.Unmarshal(gexData.Strikes, &strikes); err != nil {
+			s.logger.Warn("failed to unmarshal strikes", zap.Error(err))
+		}
+	}
+
+	var maxPriors []interface{}
+	if gexData.MaxPriors != nil {
+		if err := json.Unmarshal(gexData.MaxPriors, &maxPriors); err != nil {
+			s.logger.Warn("failed to unmarshal max_priors", zap.Error(err))
+		}
+	}
+
+	return generated.GetStateGexProfile200JSONResponse{
+		Timestamp:         gexData.Timestamp,
+		Ticker:            gexData.Ticker,
+		MinDte:            &gexData.MinDTE,
+		SecMinDte:         &gexData.SecMinDTE,
+		Spot:              &gexData.Spot,
+		ZeroGamma:         &gexData.ZeroGamma,
+		MajorPosVol:       &gexData.MajorPosVol,
+		MajorPosOi:        &gexData.MajorPosOI,
+		MajorNegVol:       &gexData.MajorNegVol,
+		MajorNegOi:        &gexData.MajorNegOI,
+		Strikes:           &strikes,
+		SumGexVol:         &gexData.SumGexVol,
+		SumGexOi:          &gexData.SumGexOI,
+		DeltaRiskReversal: &gexData.DeltaRiskReversal,
+		MaxPriors:         &maxPriors,
+	}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
+
+// maskAPIKey returns a masked version of the API key showing only first 4 chars
+func maskAPIKey(key string) string {
+	if len(key) <= 4 {
+		return key
+	}
+	return key[:4] + "****"
+}
+
+// maskCacheKey masks the API key portion of a cache key (format: ticker/pkg/category/apiKey)
+func maskCacheKey(cacheKey string) string {
+	parts := strings.Split(cacheKey, "/")
+	if len(parts) >= 4 {
+		parts[len(parts)-1] = maskAPIKey(parts[len(parts)-1])
+		return strings.Join(parts, "/")
+	}
+	return cacheKey
+}
