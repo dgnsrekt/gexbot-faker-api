@@ -187,24 +187,24 @@ components:
     TickersResponse:
       type: object
       properties:
-        tickers:
+        stocks:
           type: array
           items:
-            $ref: '#/components/schemas/TickerInfo'
-        count:
-          type: integer
-          example: 6
-
-    TickerInfo:
-      type: object
-      properties:
-        symbol:
-          type: string
-          example: SPX
-        type:
-          type: string
-          enum: [index, stock]
-          example: index
+            type: string
+          description: Array of stock ticker symbols
+          example: ["AAPL", "NVDA", "TSLA"]
+        indexes:
+          type: array
+          items:
+            type: string
+          description: Array of index ticker symbols
+          example: ["SPX", "NDX", "VIX", "RUT"]
+        futures:
+          type: array
+          items:
+            type: string
+          description: Array of futures ticker symbols
+          example: ["ES_SPX", "NQ_NDX"]
 
     HealthResponse:
       type: object

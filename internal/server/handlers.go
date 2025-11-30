@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
@@ -142,22 +143,32 @@ func (s *Server) GetTickers(ctx context.Context, request generated.GetTickersReq
 		}
 	}
 
-	tickers := make([]generated.TickerInfo, 0, len(tickerSet))
+	// Categorize tickers - initialize as empty slices (not nil) for consistent JSON
+	stocks := []string{}
+	indexes := []string{}
+	futures := []string{}
+	knownIndexes := map[string]bool{"SPX": true, "VIX": true, "NDX": true, "RUT": true}
+
 	for ticker := range tickerSet {
-		tickerType := generated.Stock
-		if ticker == "SPX" || ticker == "NDX" || ticker == "RUT" || ticker == "VIX" {
-			tickerType = generated.Index
+		switch {
+		case knownIndexes[ticker]:
+			indexes = append(indexes, ticker)
+		case strings.Contains(ticker, "_"):
+			futures = append(futures, ticker)
+		default:
+			stocks = append(stocks, ticker)
 		}
-		tickers = append(tickers, generated.TickerInfo{
-			Symbol: &ticker,
-			Type:   &tickerType,
-		})
 	}
 
-	count := len(tickers)
+	// Sort for consistent output
+	sort.Strings(stocks)
+	sort.Strings(indexes)
+	sort.Strings(futures)
+
 	return generated.GetTickers200JSONResponse{
-		Tickers: &tickers,
-		Count:   &count,
+		Stocks:  &stocks,
+		Indexes: &indexes,
+		Futures: &futures,
 	}, nil
 }
 
