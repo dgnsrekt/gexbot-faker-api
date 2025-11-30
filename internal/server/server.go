@@ -21,6 +21,7 @@ type WebSocketHubs struct {
 	StateGex        *ws.Hub
 	Classic         *ws.Hub
 	StateGreeksZero *ws.Hub
+	StateGreeksOne  *ws.Hub
 }
 
 func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
@@ -62,6 +63,9 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 		}
 		if wsHubs.StateGreeksZero != nil {
 			r.HandleFunc("/ws/state_greeks_zero", wsHubs.StateGreeksZero.HandleOrderflowWS)
+		}
+		if wsHubs.StateGreeksOne != nil {
+			r.HandleFunc("/ws/state_greeks_one", wsHubs.StateGreeksOne.HandleOrderflowWS)
 		}
 	}
 

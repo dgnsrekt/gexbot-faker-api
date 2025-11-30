@@ -316,3 +316,20 @@ func IsValidStateGreeksZeroGroup(group string) bool {
 		strings.HasSuffix(group, "_state_vanna_zero") ||
 		strings.HasSuffix(group, "_state_charm_zero")
 }
+
+// IsValidStateGreeksOneGroup validates the state_greeks_one group name format.
+// Expected format: blue_{ticker}_state_{delta_one|gamma_one|vanna_one|charm_one}
+func IsValidStateGreeksOneGroup(group string) bool {
+	if !strings.HasPrefix(group, "blue_") {
+		return false
+	}
+	// Must contain _state_ separator
+	if !strings.Contains(group, "_state_") {
+		return false
+	}
+	// Must end with one of the valid Greeks one categories
+	return strings.HasSuffix(group, "_state_delta_one") ||
+		strings.HasSuffix(group, "_state_gamma_one") ||
+		strings.HasSuffix(group, "_state_vanna_one") ||
+		strings.HasSuffix(group, "_state_charm_one")
+}
