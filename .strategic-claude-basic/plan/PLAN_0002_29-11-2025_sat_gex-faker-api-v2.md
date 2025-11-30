@@ -403,14 +403,14 @@ import (
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go mod tidy` completes without errors
-- [ ] `go generate ./api` generates `internal/api/generated/server.gen.go`
-- [ ] Generated file contains `StrictServerInterface` with 4 methods
-- [ ] `go build ./...` succeeds
+- [x] `go mod tidy` completes without errors
+- [x] `go generate ./api` generates `internal/api/generated/server.gen.go`
+- [x] Generated file contains `StrictServerInterface` with 4 methods
+- [x] `go build ./...` succeeds
 
 #### Manual Verification:
-- [ ] OpenAPI spec validates (use online validator)
-- [ ] Generated interface matches expected method signatures
+- [x] OpenAPI spec validates (use online validator)
+- [x] Generated interface matches expected method signatures
 
 ---
 
@@ -795,13 +795,13 @@ func (c *IndexCache) GetIndex(key string) int {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./internal/config` succeeds
-- [ ] `go build ./internal/data` succeeds
-- [ ] `go test ./internal/data/...` passes (after adding tests)
+- [x] `go build ./internal/config` succeeds
+- [x] `go build ./internal/data` succeeds
+- [x] `go test ./internal/data/...` passes (after adding tests)
 
 #### Manual Verification:
-- [ ] MemoryLoader successfully loads sample JSONL files
-- [ ] IndexCache correctly tracks per-key indexes
+- [x] MemoryLoader successfully loads sample JSONL files
+- [x] IndexCache correctly tracks per-key indexes
 
 ---
 
@@ -1227,16 +1227,16 @@ func run() int {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./cmd/server` succeeds
-- [ ] `go test ./internal/server/...` passes
-- [ ] Server starts without errors: `go run ./cmd/server`
-- [ ] Health endpoint returns 200: `curl http://localhost:8080/health`
+- [x] `go build ./cmd/server` succeeds
+- [x] `go test ./internal/server/...` passes
+- [x] Server starts without errors: `go run ./cmd/server`
+- [x] Health endpoint returns 200: `curl http://localhost:8080/health`
 
 #### Manual Verification:
-- [ ] Swagger UI accessible at `http://localhost:8080/docs`
-- [ ] GEX data endpoint returns data with sequential playback
-- [ ] Reset cache endpoint works
-- [ ] Invalid requests return proper validation errors
+- [x] Swagger UI accessible at `http://localhost:8080/docs`
+- [x] GEX data endpoint returns data with sequential playback
+- [x] Reset cache endpoint works
+- [x] Invalid requests return proper validation errors
 
 ---
 
@@ -1293,15 +1293,15 @@ CACHE_MODE=exhaust  # exhaust | rotation
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `just generate` regenerates API code
-- [ ] `just build-server` creates binary
-- [ ] `just serve` starts server
-- [ ] `just test` passes all tests
+- [x] `just generate` regenerates API code
+- [x] `just build-server` creates binary
+- [x] `just serve` starts server
+- [x] `just test` passes all tests
 
 #### Manual Verification:
-- [ ] Complete workflow: generate → build → serve → test endpoints
-- [ ] Sequential playback works correctly per API key
-- [ ] Cache modes work as expected
+- [x] Complete workflow: generate → build → serve → test endpoints
+- [x] Sequential playback works correctly per API key
+- [x] Cache modes work as expected
 
 ---
 

@@ -6,11 +6,20 @@ set dotenv-load
 
 # Show available commands
 help:
-    @echo "Go Build Commands"
+    @echo "Downloader Commands"
     @echo ""
     @echo "  just build               Build the downloader binary"
     @echo "  just download            Download data for GEXBOT_DOWNLOADER_DATE"
     @echo "  just convert-to-jsonl    Convert JSON files to JSONL format"
+    @echo ""
+    @echo "Server Commands"
+    @echo ""
+    @echo "  just build-gex-faker              Build the GEX Faker server binary"
+    @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
+    @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
+    @echo ""
+    @echo "Common Commands"
+    @echo ""
     @echo "  just test                Run tests"
     @echo "  just lint                Run linter"
     @echo "  just clean               Clean build artifacts"
@@ -21,11 +30,25 @@ help:
     @echo "  just start-browser-logs  Start Chrome with debugging and console logs"
     @echo ""
 
-# --- Go Build Commands ---
+# --- Downloader Commands ---
 
 # Build the downloader binary
 build:
     go build -o bin/gexbot-downloader ./cmd/downloader
+
+# --- Server Commands ---
+
+# Generate API code from OpenAPI spec
+generate-gex-faker-api-spec:
+    go generate ./api
+
+# Build the GEX Faker server binary
+build-gex-faker: generate-gex-faker-api-spec
+    go build -o bin/gexbot-server ./cmd/server
+
+# Run the GEX Faker server (development)
+serve-gex-faker: build-gex-faker
+    ./bin/gexbot-server
 
 # Download historical data for GEXBOT_DOWNLOADER_DATE
 download: build

@@ -59,8 +59,9 @@ Where:
 ## Existing Documents
 
 1. **SUMMARY_PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md** - Go-based batch downloader implementation summary
+2. **SUMMARY_PLAN_0002_29-11-2025_sat_gex-faker-api-v2.md** - GEX Faker API v2 implementation summary
 
-Next document number: **0002** (or match existing plan number)
+Next document number: **0003** (or match existing plan number)
 
 ## Instructions for Claude Code
 

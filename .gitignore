@@ -10,7 +10,7 @@ bin/
 *.exe
 
 # Downloaded data
-data/
+/data/
 
 # IDE
 .idea/

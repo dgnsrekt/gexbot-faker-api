@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: GEX Faker API
+  version: 2.0.0
+  description: |
+    Historical GEX data server with per-API-key sequential playback.
+    Serves JSONL data files with configurable cache modes.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /{ticker}/{package}/{category}:
+    get:
+      operationId: getGexData
+      summary: Get next GEX data point
+      description: Returns the next GEX snapshot for this API key's playback position
+      tags: [playback]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: package
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [state, classic]
+          example: state
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_full
+        - name: key
+          in: query
+          required: true
+          description: API key for playback position tracking
+          schema:
+            type: string
+            minLength: 1
+          example: test
+      responses:
+        '200':
+          description: GEX data point
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GexData'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Data not found or exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tickers:
+    get:
+      operationId: getTickers
+      summary: List available tickers
+      tags: [info]
+      responses:
+        '200':
+          description: Available tickers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TickersResponse'
+
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      tags: [info]
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /reset-cache:
+    post:
+      operationId: resetCache
+      summary: Reset playback positions
+      description: Reset all or specific API key playback positions to index 0
+      tags: [admin]
+      parameters:
+        - name: key
+          in: query
+          required: false
+          description: Reset only this API key (omit for all)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cache reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetCacheResponse'
+
+components:
+  schemas:
+    GexData:
+      type: object
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          example: 1764340202
+        ticker:
+          type: string
+          example: SPX
+        min_dte:
+          type: integer
+          example: 0
+        sec_min_dte:
+          type: integer
+          example: 3
+        spot:
+          type: number
+          format: double
+          example: 6822.95
+        zero_gamma:
+          type: number
+          format: double
+          example: 0
+        major_pos_vol:
+          type: number
+          format: double
+          example: 0
+        major_pos_oi:
+          type: number
+          format: double
+          example: 0
+        major_neg_vol:
+          type: number
+          format: double
+          example: 0
+        major_neg_oi:
+          type: number
+          format: double
+          example: 0
+        strikes:
+          type: array
+          items: {}
+        sum_gex_vol:
+          type: number
+          format: double
+          example: 0
+        sum_gex_oi:
+          type: number
+          format: double
+          example: 43565.23
+        delta_risk_reversal:
+          type: number
+          format: double
+          example: 0
+        max_priors:
+          type: array
+          items: {}
+
+    TickersResponse:
+      type: object
+      properties:
+        tickers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TickerInfo'
+        count:
+          type: integer
+          example: 6
+
+    TickerInfo:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: SPX
+        type:
+          type: string
+          enum: [index, stock]
+          example: index
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        data_date:
+          type: string
+          example: "2025-11-28"
+        data_mode:
+          type: string
+          enum: [memory, stream]
+          example: memory
+        cache_mode:
+          type: string
+          enum: [exhaust, rotation]
+          example: exhaust
+
+    ResetCacheResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: All cache positions reset to index 0
+        count:
+          type: integer
+          description: Number of positions reset
+          example: 12
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid ticker symbol
