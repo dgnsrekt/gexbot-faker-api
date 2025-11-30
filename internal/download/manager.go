@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -117,9 +118,16 @@ func (m *Manager) processTask(ctx context.Context, task Task) TaskResult {
 
 	outputPath := task.OutputPath(m.staging.FinalDir())
 
-	// Check if file exists (resume)
+	// Check if file exists (resume) - check both .json and .jsonl
+	jsonlPath := strings.TrimSuffix(outputPath, ".json") + ".jsonl"
 	if _, err := os.Stat(outputPath); err == nil {
 		m.logger.Debug("skipping existing file", zap.String("task", task.String()))
+		result.Skipped = true
+		result.Success = true
+		return result
+	}
+	if _, err := os.Stat(jsonlPath); err == nil {
+		m.logger.Debug("skipping existing file (jsonl)", zap.String("task", task.String()))
 		result.Skipped = true
 		result.Success = true
 		return result
