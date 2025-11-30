@@ -89,9 +89,14 @@ download-lookback days: build
         exit 1
     fi
 
-    # Calculate dates
-    START_DATE=$(date -d "{{days}} days ago" +%Y-%m-%d)
-    END_DATE=$(date -d "yesterday" +%Y-%m-%d)
+    # Calculate dates (cross-platform: macOS uses -v, Linux uses -d)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        START_DATE=$(date -v-{{days}}d +%Y-%m-%d)
+        END_DATE=$(date -v-1d +%Y-%m-%d)
+    else
+        START_DATE=$(date -d "{{days}} days ago" +%Y-%m-%d)
+        END_DATE=$(date -d "yesterday" +%Y-%m-%d)
+    fi
 
     echo "Downloading data from $START_DATE to $END_DATE ({{days}} day lookback)"
     ./bin/gexbot-downloader download "$START_DATE" "$END_DATE"
