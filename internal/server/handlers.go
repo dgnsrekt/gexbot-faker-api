@@ -785,7 +785,129 @@ func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.Get
 	return response, nil
 }
 
+// GetOrderflowLatest implements generated.StrictServerInterface
+func (s *Server) GetOrderflowLatest(ctx context.Context, request generated.GetOrderflowLatestRequestObject) (generated.GetOrderflowLatestResponseObject, error) {
+	ticker := request.Ticker
+	apiKey := request.Params.Key
+	pkg := "orderflow"
+	category := "orderflow"
+
+	s.logger.Debug("orderflow latest request",
+		zap.String("ticker", ticker),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Check if data exists
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetOrderflowLatest404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/orderflow/orderflow"),
+		}, nil
+	}
+
+	// Get data length
+	length, err := s.loader.GetLength(ticker, pkg, category)
+	if err != nil {
+		return generated.GetOrderflowLatest404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		cacheKey = data.CacheKey(ticker, pkg, category, apiKey)
+	}
+
+	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+	if exhausted {
+		s.logger.Debug("data exhausted",
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
+			zap.Int("index", idx),
+			zap.Int("length", length),
+		)
+		return generated.GetOrderflowLatest404JSONResponse{
+			Error: ptr("No more data available"),
+		}, nil
+	}
+
+	// Get raw data and parse
+	rawData, err := s.loader.GetRawAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		if errors.Is(err, data.ErrIndexOutOfBounds) {
+			return generated.GetOrderflowLatest404JSONResponse{
+				Error: ptr("Index out of bounds"),
+			}, nil
+		}
+		return generated.GetOrderflowLatest404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	var ofData data.OrderflowData
+	if err := json.Unmarshal(rawData, &ofData); err != nil {
+		s.logger.Error("failed to parse orderflow data", zap.Error(err))
+		return generated.GetOrderflowLatest404JSONResponse{
+			Error: ptr("Failed to parse orderflow data"),
+		}, nil
+	}
+
+	s.logger.Debug("returning orderflow data",
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
+		zap.Int("index", idx),
+		zap.Int64("timestamp", ofData.Timestamp),
+	)
+
+	return generated.GetOrderflowLatest200JSONResponse{
+		Timestamp:     ofData.Timestamp,
+		Ticker:        ofData.Ticker,
+		Spot:          &ofData.Spot,
+		ZMlgamma:      f32ptr(ofData.ZMlgamma),
+		ZMsgamma:      f32ptr(ofData.ZMsgamma),
+		OMlgamma:      f32ptr(ofData.OMlgamma),
+		OMsgamma:      f32ptr(ofData.OMsgamma),
+		ZeroMcall:     f32ptr(ofData.ZeroMcall),
+		ZeroMput:      f32ptr(ofData.ZeroMput),
+		OneMcall:      f32ptr(ofData.OneMcall),
+		OneMput:       f32ptr(ofData.OneMput),
+		Zcvr:          f32ptr(ofData.Zcvr),
+		Ocvr:          f32ptr(ofData.Ocvr),
+		Zgr:           f32ptr(ofData.Zgr),
+		Ogr:           f32ptr(ofData.Ogr),
+		Zvanna:        f32ptr(ofData.Zvanna),
+		Ovanna:        f32ptr(ofData.Ovanna),
+		Zcharm:        f32ptr(ofData.Zcharm),
+		Ocharm:        f32ptr(ofData.Ocharm),
+		AggDex:        f32ptr(ofData.AggDex),
+		OneAggDex:     f32ptr(ofData.OneAggDex),
+		AggCallDex:    f32ptr(ofData.AggCallDex),
+		OneAggCallDex: f32ptr(ofData.OneAggCallDex),
+		AggPutDex:     f32ptr(ofData.AggPutDex),
+		OneAggPutDex:  f32ptr(ofData.OneAggPutDex),
+		NetDex:        f32ptr(ofData.NetDex),
+		OneNetDex:     f32ptr(ofData.OneNetDex),
+		NetCallDex:    f32ptr(ofData.NetCallDex),
+		OneNetCallDex: f32ptr(ofData.OneNetCallDex),
+		NetPutDex:     f32ptr(ofData.NetPutDex),
+		OneNetPutDex:  f32ptr(ofData.OneNetPutDex),
+		Dexoflow:      f32ptr(ofData.Dexoflow),
+		Gexoflow:      f32ptr(ofData.Gexoflow),
+		Cvroflow:      f32ptr(ofData.Cvroflow),
+		OneDexoflow:   f32ptr(ofData.OneDexoflow),
+		OneGexoflow:   f32ptr(ofData.OneGexoflow),
+		OneCvroflow:   f32ptr(ofData.OneCvroflow),
+	}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
+
+// f32ptr converts float64 to *float32 for OpenAPI response fields
+func f32ptr(v float64) *float32 {
+	f := float32(v)
+	return &f
+}
 
 // maskAPIKey returns a masked version of the API key showing only first 4 chars
 func maskAPIKey(key string) string {

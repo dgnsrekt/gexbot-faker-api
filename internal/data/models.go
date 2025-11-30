@@ -33,3 +33,44 @@ type GreekData struct {
 	MajorShortGamma float64         `json:"major_short_gamma"`
 	MiniContracts   json.RawMessage `json:"mini_contracts"`
 }
+
+// OrderflowData represents real-time orderflow metrics for nearest and next expiries
+type OrderflowData struct {
+	Timestamp     int64   `json:"timestamp"`
+	Ticker        string  `json:"ticker"`
+	Spot          float64 `json:"spot"`
+	ZMlgamma      float64 `json:"z_mlgamma"`
+	ZMsgamma      float64 `json:"z_msgamma"`
+	OMlgamma      float64 `json:"o_mlgamma"`
+	OMsgamma      float64 `json:"o_msgamma"`
+	ZeroMcall     float64 `json:"zero_mcall"`
+	ZeroMput      float64 `json:"zero_mput"`
+	OneMcall      float64 `json:"one_mcall"`
+	OneMput       float64 `json:"one_mput"`
+	Zcvr          float64 `json:"zcvr"`
+	Ocvr          float64 `json:"ocvr"`
+	Zgr           float64 `json:"zgr"`
+	Ogr           float64 `json:"ogr"`
+	Zvanna        float64 `json:"zvanna"`
+	Ovanna        float64 `json:"ovanna"`
+	Zcharm        float64 `json:"zcharm"`
+	Ocharm        float64 `json:"ocharm"`
+	AggDex        float64 `json:"agg_dex"`
+	OneAggDex     float64 `json:"one_agg_dex"`
+	AggCallDex    float64 `json:"agg_call_dex"`
+	OneAggCallDex float64 `json:"one_agg_call_dex"`
+	AggPutDex     float64 `json:"agg_put_dex"`
+	OneAggPutDex  float64 `json:"one_agg_put_dex"`
+	NetDex        float64 `json:"net_dex"`
+	OneNetDex     float64 `json:"one_net_dex"`
+	NetCallDex    float64 `json:"net_call_dex"`
+	OneNetCallDex float64 `json:"one_net_call_dex"`
+	NetPutDex     float64 `json:"net_put_dex"`
+	OneNetPutDex  float64 `json:"one_net_put_dex"`
+	Dexoflow      float64 `json:"dexoflow"`
+	Gexoflow      float64 `json:"gexoflow"`
+	Cvroflow      float64 `json:"cvroflow"`
+	OneDexoflow   float64 `json:"one_dexoflow"`
+	OneGexoflow   float64 `json:"one_gexoflow"`
+	OneCvroflow   float64 `json:"one_cvroflow"`
+}

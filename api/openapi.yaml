@@ -15,6 +15,8 @@ tags:
     description: Classic GEX data endpoints
   - name: state
     description: State GEX data endpoints (orderflow-based)
+  - name: orderflow
+    description: Orderflow data endpoints
   - name: download
     description: Bulk data download endpoints
   - name: info
@@ -381,6 +383,52 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Data not found or exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{ticker}/orderflow/orderflow:
+    get:
+      operationId: getOrderflowLatest
+      summary: Get latest orderflow metrics
+      description: |
+        Provides a real-time snapshot of key orderflow metrics for the nearest
+        and next expiries. Includes aggregated and net dealer exposure (DEX),
+        GEX, convexity, vanna, and charm, as well as orderflow indicators.
+      tags: [orderflow]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (e.g., SPX)
+          schema:
+            type: string
+            pattern: '^[A-Z_]{1,10}$'
+          example: SPX
+        - name: key
+          in: query
+          required: true
+          description: API key for playback position tracking
+          schema:
+            type: string
+            minLength: 1
+          example: test1234
+      responses:
+        '200':
+          description: Orderflow metrics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderflowData'
+        '400':
+          description: Invalid request parameters
           content:
             application/json:
               schema:
@@ -829,6 +877,92 @@ components:
           items:
             type: array
           description: Array of contract data arrays
+
+    OrderflowData:
+      type: object
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+        ticker:
+          type: string
+          minLength: 2
+          maxLength: 5
+        spot:
+          type: number
+          format: double
+        z_mlgamma:
+          type: number
+        z_msgamma:
+          type: number
+        o_mlgamma:
+          type: number
+        o_msgamma:
+          type: number
+        zero_mcall:
+          type: number
+        zero_mput:
+          type: number
+        one_mcall:
+          type: number
+        one_mput:
+          type: number
+        zcvr:
+          type: number
+        ocvr:
+          type: number
+        zgr:
+          type: number
+        ogr:
+          type: number
+        zvanna:
+          type: number
+        ovanna:
+          type: number
+        zcharm:
+          type: number
+        ocharm:
+          type: number
+        agg_dex:
+          type: number
+        one_agg_dex:
+          type: number
+        agg_call_dex:
+          type: number
+        one_agg_call_dex:
+          type: number
+        agg_put_dex:
+          type: number
+        one_agg_put_dex:
+          type: number
+        net_dex:
+          type: number
+        one_net_dex:
+          type: number
+        net_call_dex:
+          type: number
+        one_net_call_dex:
+          type: number
+        net_put_dex:
+          type: number
+        one_net_put_dex:
+          type: number
+        dexoflow:
+          type: number
+        gexoflow:
+          type: number
+        cvroflow:
+          type: number
+        one_dexoflow:
+          type: number
+        one_gexoflow:
+          type: number
+        one_cvroflow:
+          type: number
+      additionalProperties: false
 
     ErrorResponse:
       type: object

@@ -219,6 +219,47 @@ type HealthResponseCacheMode string
 // HealthResponseDataMode defines model for HealthResponse.DataMode.
 type HealthResponseDataMode string
 
+// OrderflowData defines model for OrderflowData.
+type OrderflowData struct {
+	AggCallDex    *float32 `json:"agg_call_dex,omitempty"`
+	AggDex        *float32 `json:"agg_dex,omitempty"`
+	AggPutDex     *float32 `json:"agg_put_dex,omitempty"`
+	Cvroflow      *float32 `json:"cvroflow,omitempty"`
+	Dexoflow      *float32 `json:"dexoflow,omitempty"`
+	Gexoflow      *float32 `json:"gexoflow,omitempty"`
+	NetCallDex    *float32 `json:"net_call_dex,omitempty"`
+	NetDex        *float32 `json:"net_dex,omitempty"`
+	NetPutDex     *float32 `json:"net_put_dex,omitempty"`
+	OMlgamma      *float32 `json:"o_mlgamma,omitempty"`
+	OMsgamma      *float32 `json:"o_msgamma,omitempty"`
+	Ocharm        *float32 `json:"ocharm,omitempty"`
+	Ocvr          *float32 `json:"ocvr,omitempty"`
+	Ogr           *float32 `json:"ogr,omitempty"`
+	OneAggCallDex *float32 `json:"one_agg_call_dex,omitempty"`
+	OneAggDex     *float32 `json:"one_agg_dex,omitempty"`
+	OneAggPutDex  *float32 `json:"one_agg_put_dex,omitempty"`
+	OneCvroflow   *float32 `json:"one_cvroflow,omitempty"`
+	OneDexoflow   *float32 `json:"one_dexoflow,omitempty"`
+	OneGexoflow   *float32 `json:"one_gexoflow,omitempty"`
+	OneMcall      *float32 `json:"one_mcall,omitempty"`
+	OneMput       *float32 `json:"one_mput,omitempty"`
+	OneNetCallDex *float32 `json:"one_net_call_dex,omitempty"`
+	OneNetDex     *float32 `json:"one_net_dex,omitempty"`
+	OneNetPutDex  *float32 `json:"one_net_put_dex,omitempty"`
+	Ovanna        *float32 `json:"ovanna,omitempty"`
+	Spot          *float64 `json:"spot,omitempty"`
+	Ticker        string   `json:"ticker"`
+	Timestamp     int64    `json:"timestamp"`
+	ZMlgamma      *float32 `json:"z_mlgamma,omitempty"`
+	ZMsgamma      *float32 `json:"z_msgamma,omitempty"`
+	Zcharm        *float32 `json:"zcharm,omitempty"`
+	Zcvr          *float32 `json:"zcvr,omitempty"`
+	ZeroMcall     *float32 `json:"zero_mcall,omitempty"`
+	ZeroMput      *float32 `json:"zero_mput,omitempty"`
+	Zgr           *float32 `json:"zgr,omitempty"`
+	Zvanna        *float32 `json:"zvanna,omitempty"`
+}
+
 // ResetCacheResponse defines model for ResetCacheResponse.
 type ResetCacheResponse struct {
 	// Count Number of positions reset
@@ -280,6 +321,12 @@ type GetClassicGexMaxChangeParams struct {
 
 // GetClassicGexMaxChangeParamsAggregation defines parameters for GetClassicGexMaxChange.
 type GetClassicGexMaxChangeParamsAggregation string
+
+// GetOrderflowLatestParams defines parameters for GetOrderflowLatest.
+type GetOrderflowLatestParams struct {
+	// Key API key for playback position tracking
+	Key string `form:"key" json:"key"`
+}
 
 // GetStateProfileParams defines parameters for GetStateProfile.
 type GetStateProfileParams struct {
@@ -346,6 +393,9 @@ type ServerInterface interface {
 	// Get GEX max change levels
 	// (GET /{ticker}/classic/{aggregation}/maxchange)
 	GetClassicGexMaxChange(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexMaxChangeParamsAggregation, params GetClassicGexMaxChangeParams)
+	// Get latest orderflow metrics
+	// (GET /{ticker}/orderflow/orderflow)
+	GetOrderflowLatest(w http.ResponseWriter, r *http.Request, ticker string, params GetOrderflowLatestParams)
 	// Get state profile data (GEX or Greeks)
 	// (GET /{ticker}/state/{type})
 	GetStateProfile(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateProfileParamsType, params GetStateProfileParams)
@@ -415,6 +465,12 @@ func (_ Unimplemented) GetClassicGexMajors(w http.ResponseWriter, r *http.Reques
 // Get GEX max change levels
 // (GET /{ticker}/classic/{aggregation}/maxchange)
 func (_ Unimplemented) GetClassicGexMaxChange(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexMaxChangeParamsAggregation, params GetClassicGexMaxChangeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get latest orderflow metrics
+// (GET /{ticker}/orderflow/orderflow)
+func (_ Unimplemented) GetOrderflowLatest(w http.ResponseWriter, r *http.Request, ticker string, params GetOrderflowLatestParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -733,6 +789,49 @@ func (siw *ServerInterfaceWrapper) GetClassicGexMaxChange(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetClassicGexMaxChange(w, r, ticker, aggregation, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrderflowLatest operation middleware
+func (siw *ServerInterfaceWrapper) GetOrderflowLatest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "ticker" -------------
+	var ticker string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticker", chi.URLParam(r, "ticker"), &ticker, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticker", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetOrderflowLatestParams
+
+	// ------------- Required query parameter "key" -------------
+
+	if paramValue := r.URL.Query().Get("key"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "key", r.URL.Query(), &params.Key)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrderflowLatest(w, r, ticker, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1091,6 +1190,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/{ticker}/classic/{aggregation}/maxchange", wrapper.GetClassicGexMaxChange)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/{ticker}/orderflow/orderflow", wrapper.GetOrderflowLatest)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/state/{type}", wrapper.GetStateProfile)
 	})
 	r.Group(func(r chi.Router) {
@@ -1372,6 +1474,42 @@ func (response GetClassicGexMaxChange404JSONResponse) VisitGetClassicGexMaxChang
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetOrderflowLatestRequestObject struct {
+	Ticker string `json:"ticker"`
+	Params GetOrderflowLatestParams
+}
+
+type GetOrderflowLatestResponseObject interface {
+	VisitGetOrderflowLatestResponse(w http.ResponseWriter) error
+}
+
+type GetOrderflowLatest200JSONResponse OrderflowData
+
+func (response GetOrderflowLatest200JSONResponse) VisitGetOrderflowLatestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetOrderflowLatest400JSONResponse ErrorResponse
+
+func (response GetOrderflowLatest400JSONResponse) VisitGetOrderflowLatestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetOrderflowLatest404JSONResponse ErrorResponse
+
+func (response GetOrderflowLatest404JSONResponse) VisitGetOrderflowLatestResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetStateProfileRequestObject struct {
 	Ticker string                    `json:"ticker"`
 	Type   GetStateProfileParamsType `json:"type"`
@@ -1588,6 +1726,9 @@ type StrictServerInterface interface {
 	// Get GEX max change levels
 	// (GET /{ticker}/classic/{aggregation}/maxchange)
 	GetClassicGexMaxChange(ctx context.Context, request GetClassicGexMaxChangeRequestObject) (GetClassicGexMaxChangeResponseObject, error)
+	// Get latest orderflow metrics
+	// (GET /{ticker}/orderflow/orderflow)
+	GetOrderflowLatest(ctx context.Context, request GetOrderflowLatestRequestObject) (GetOrderflowLatestResponseObject, error)
 	// Get state profile data (GEX or Greeks)
 	// (GET /{ticker}/state/{type})
 	GetStateProfile(ctx context.Context, request GetStateProfileRequestObject) (GetStateProfileResponseObject, error)
@@ -1865,6 +2006,33 @@ func (sh *strictHandler) GetClassicGexMaxChange(w http.ResponseWriter, r *http.R
 	}
 }
 
+// GetOrderflowLatest operation middleware
+func (sh *strictHandler) GetOrderflowLatest(w http.ResponseWriter, r *http.Request, ticker string, params GetOrderflowLatestParams) {
+	var request GetOrderflowLatestRequestObject
+
+	request.Ticker = ticker
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOrderflowLatest(ctx, request.(GetOrderflowLatestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOrderflowLatest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOrderflowLatestResponseObject); ok {
+		if err := validResponse.VisitGetOrderflowLatestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStateProfile operation middleware
 func (sh *strictHandler) GetStateProfile(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateProfileParamsType, params GetStateProfileParams) {
 	var request GetStateProfileRequestObject
@@ -1980,56 +2148,62 @@ func (sh *strictHandler) GetStateGexMaxChange(w http.ResponseWriter, r *http.Req
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"7m5Ss9B9zeb26va/AQAA//+k/jHJnFIAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
