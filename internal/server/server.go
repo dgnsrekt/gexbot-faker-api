@@ -24,20 +24,22 @@ func NewRouter(server *Server, logger *zap.Logger) (http.Handler, error) {
 
 	r := chi.NewRouter()
 
-	// Global middleware
+	// Global middleware (NO compression - applied selectively below)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Compress(5))
 	r.Use(corsMiddleware)
 	r.Use(zapLoggerMiddleware(logger))
 
-	// Non-validated routes
+	// Static assets - serve WITHOUT compression (compression corrupts large JS files)
 	r.Get("/openapi.yaml", openapiHandler)
 	r.Get("/docs", swaggerUIHandler)
+	r.Get("/swagger-ui.js", swaggerUIBundleHandler)
+	r.Get("/swagger-ui.css", swaggerUICSSHandler)
 
-	// API routes with OpenAPI validation
+	// API routes with compression and OpenAPI validation
 	r.Group(func(apiRouter chi.Router) {
+		apiRouter.Use(middleware.Compress(5))
 		apiRouter.Use(oapimiddleware.OapiRequestValidator(swagger))
 
 		strictHandler := generated.NewStrictHandler(server, nil)
@@ -104,21 +106,38 @@ func openapiHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(api.OpenAPISpec)
 }
 
+func swaggerUIBundleHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	w.Write(api.SwaggerUIBundle)
+}
+
+func swaggerUICSSHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	w.Write(api.SwaggerUICSS)
+}
+
 func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
 	html := `<!DOCTYPE html>
 <html>
 <head>
     <title>GEX Faker API</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css">
+    <link rel="stylesheet" href="/swagger-ui.css">
 </head>
 <body>
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js"></script>
+    <script src="/swagger-ui.js"></script>
     <script>
         window.onload = function() {
             SwaggerUIBundle({
                 url: "/openapi.yaml",
                 dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis
+                ],
+                layout: "BaseLayout"
             });
         };
     </script>
