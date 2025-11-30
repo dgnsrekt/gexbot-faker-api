@@ -49,8 +49,9 @@ This ensures phase-specific plans are easily identifiable and searchable.
 
 1. **PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md** - Go-based batch downloader for Gexbot Historical API
 2. **PLAN_0002_29-11-2025_sat_gex-faker-api-v2.md** - Clean GEX Faker API v2 with oapi-codegen
+3. **PLAN_0003_30-11-2025_sun_websocket-orderflow-hub.md** - WebSocket real-time feed with Azure Web PubSub protocol (orderflow hub)
 
-Next document number: **0003**
+Next document number: **0004**
 
 ## Plan Type Guidelines
 
