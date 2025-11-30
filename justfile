@@ -19,6 +19,16 @@ help:
     @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
     @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
     @echo ""
+    @echo "Docker Commands"
+    @echo ""
+    @echo "  just up                  Rebuild and start all containers"
+    @echo "  just down                Stop and remove all containers"
+    @echo "  just restart-api         Rebuild and restart API container"
+    @echo "  just restart-daemon      Rebuild and restart daemon container"
+    @echo "  just logs                Follow all container logs"
+    @echo "  just api-logs            Follow API logs only"
+    @echo "  just daemon-logs         Follow daemon logs only"
+    @echo ""
     @echo "Common Commands"
     @echo ""
     @echo "  just test                Run tests"
@@ -106,3 +116,33 @@ start-browser:
 # Start Chrome with debugging and console logs
 start-browser-logs:
     ./scripts/start-chromium.sh --with-logs
+
+# --- Docker Commands ---
+
+# Rebuild and start all containers
+up:
+    docker compose up -d --build
+
+# Stop and remove all containers
+down:
+    docker compose down
+
+# Rebuild and restart API container
+restart-api:
+    docker compose up -d --build gex-faker-api
+
+# Rebuild and restart daemon container
+restart-daemon:
+    docker compose up -d --build gex-daemon
+
+# Follow all container logs
+logs:
+    docker compose logs -f --tail 100
+
+# Follow API logs only
+api-logs:
+    docker compose logs -f --tail 100 gex-faker-api
+
+# Follow daemon logs only
+daemon-logs:
+    docker compose logs -f --tail 100 gex-daemon
