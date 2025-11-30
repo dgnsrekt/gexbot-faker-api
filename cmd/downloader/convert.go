@@ -13,7 +13,7 @@ import (
 
 func convertCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "convert YYYY-MM-DD",
+		Use:   "convert-to-jsonl YYYY-MM-DD",
 		Short: "Convert JSON files to JSONL format",
 		Long: `Convert JSON array files to JSONL (JSON Lines) format.
 
