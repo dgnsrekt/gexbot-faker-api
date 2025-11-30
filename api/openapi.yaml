@@ -105,7 +105,7 @@ paths:
           schema:
             type: string
             enum: [full, zero, one]
-          example: full
+          example: zero
         - name: key
           in: query
           required: true
@@ -241,6 +241,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GexMajorsData'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Data not found or exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{ticker}/state/{aggregation}/maxchange:
+    get:
+      operationId: getStateGexMaxChange
+      summary: Get GEX profile max change levels
+      description: |
+        Shows the strikes with the most significant change in GEX imbalance
+        over various lookback periods (current, 1, 5, 10, 15, and 30 minutes).
+        Also known as "max priors" for the GEX Profile.
+      tags: [state]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (e.g., SPX)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: aggregation
+          in: path
+          required: true
+          description: "Aggregation period: full, zero, or one"
+          schema:
+            type: string
+            enum: [full, zero, one]
+          example: zero
+        - name: key
+          in: query
+          required: true
+          description: API key for playback position tracking
+          schema:
+            type: string
+            minLength: 1
+          example: test1234
+      responses:
+        '200':
+          description: GEX profile max change data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GexMaxChangeData'
         '400':
           description: Invalid request parameters
           content:

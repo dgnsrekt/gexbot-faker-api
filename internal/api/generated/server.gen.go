@@ -63,9 +63,16 @@ const (
 
 // Defines values for GetStateGexMajorsParamsAggregation.
 const (
-	Full GetStateGexMajorsParamsAggregation = "full"
-	One  GetStateGexMajorsParamsAggregation = "one"
-	Zero GetStateGexMajorsParamsAggregation = "zero"
+	GetStateGexMajorsParamsAggregationFull GetStateGexMajorsParamsAggregation = "full"
+	GetStateGexMajorsParamsAggregationOne  GetStateGexMajorsParamsAggregation = "one"
+	GetStateGexMajorsParamsAggregationZero GetStateGexMajorsParamsAggregation = "zero"
+)
+
+// Defines values for GetStateGexMaxChangeParamsAggregation.
+const (
+	GetStateGexMaxChangeParamsAggregationFull GetStateGexMaxChangeParamsAggregation = "full"
+	GetStateGexMaxChangeParamsAggregationOne  GetStateGexMaxChangeParamsAggregation = "one"
+	GetStateGexMaxChangeParamsAggregationZero GetStateGexMaxChangeParamsAggregation = "zero"
 )
 
 // ErrorResponse defines model for ErrorResponse.
@@ -214,6 +221,15 @@ type GetStateGexMajorsParams struct {
 // GetStateGexMajorsParamsAggregation defines parameters for GetStateGexMajors.
 type GetStateGexMajorsParamsAggregation string
 
+// GetStateGexMaxChangeParams defines parameters for GetStateGexMaxChange.
+type GetStateGexMaxChangeParams struct {
+	// Key API key for playback position tracking
+	Key string `form:"key" json:"key"`
+}
+
+// GetStateGexMaxChangeParamsAggregation defines parameters for GetStateGexMaxChange.
+type GetStateGexMaxChangeParamsAggregation string
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Health check
@@ -240,6 +256,9 @@ type ServerInterface interface {
 	// Get GEX profile major levels
 	// (GET /{ticker}/state/{aggregation}/majors)
 	GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMajorsParamsAggregation, params GetStateGexMajorsParams)
+	// Get GEX profile max change levels
+	// (GET /{ticker}/state/{aggregation}/maxchange)
+	GetStateGexMaxChange(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMaxChangeParamsAggregation, params GetStateGexMaxChangeParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -291,6 +310,12 @@ func (_ Unimplemented) GetStateGexProfile(w http.ResponseWriter, r *http.Request
 // Get GEX profile major levels
 // (GET /{ticker}/state/{aggregation}/majors)
 func (_ Unimplemented) GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMajorsParamsAggregation, params GetStateGexMajorsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get GEX profile max change levels
+// (GET /{ticker}/state/{aggregation}/maxchange)
+func (_ Unimplemented) GetStateGexMaxChange(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMaxChangeParamsAggregation, params GetStateGexMaxChangeParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -618,6 +643,58 @@ func (siw *ServerInterfaceWrapper) GetStateGexMajors(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetStateGexMaxChange operation middleware
+func (siw *ServerInterfaceWrapper) GetStateGexMaxChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "ticker" -------------
+	var ticker string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticker", chi.URLParam(r, "ticker"), &ticker, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticker", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "aggregation" -------------
+	var aggregation GetStateGexMaxChangeParamsAggregation
+
+	err = runtime.BindStyledParameterWithOptions("simple", "aggregation", chi.URLParam(r, "aggregation"), &aggregation, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aggregation", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStateGexMaxChangeParams
+
+	// ------------- Required query parameter "key" -------------
+
+	if paramValue := r.URL.Query().Get("key"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "key", r.URL.Query(), &params.Key)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStateGexMaxChange(w, r, ticker, aggregation, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -754,6 +831,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/state/{aggregation}/majors", wrapper.GetStateGexMajors)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/{ticker}/state/{aggregation}/maxchange", wrapper.GetStateGexMaxChange)
 	})
 
 	return r
@@ -1038,6 +1118,52 @@ func (response GetStateGexMajors404JSONResponse) VisitGetStateGexMajorsResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetStateGexMaxChangeRequestObject struct {
+	Ticker      string                                `json:"ticker"`
+	Aggregation GetStateGexMaxChangeParamsAggregation `json:"aggregation"`
+	Params      GetStateGexMaxChangeParams
+}
+
+type GetStateGexMaxChangeResponseObject interface {
+	VisitGetStateGexMaxChangeResponse(w http.ResponseWriter) error
+}
+
+type GetStateGexMaxChange200JSONResponse GexMaxChangeData
+
+func (response GetStateGexMaxChange200JSONResponse) VisitGetStateGexMaxChangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMaxChange400JSONResponse ErrorResponse
+
+func (response GetStateGexMaxChange400JSONResponse) VisitGetStateGexMaxChangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMaxChange401JSONResponse ErrorResponse
+
+func (response GetStateGexMaxChange401JSONResponse) VisitGetStateGexMaxChangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMaxChange404JSONResponse ErrorResponse
+
+func (response GetStateGexMaxChange404JSONResponse) VisitGetStateGexMaxChangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Health check
@@ -1064,6 +1190,9 @@ type StrictServerInterface interface {
 	// Get GEX profile major levels
 	// (GET /{ticker}/state/{aggregation}/majors)
 	GetStateGexMajors(ctx context.Context, request GetStateGexMajorsRequestObject) (GetStateGexMajorsResponseObject, error)
+	// Get GEX profile max change levels
+	// (GET /{ticker}/state/{aggregation}/maxchange)
+	GetStateGexMaxChange(ctx context.Context, request GetStateGexMaxChangeRequestObject) (GetStateGexMaxChangeResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1309,46 +1438,75 @@ func (sh *strictHandler) GetStateGexMajors(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// GetStateGexMaxChange operation middleware
+func (sh *strictHandler) GetStateGexMaxChange(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMaxChangeParamsAggregation, params GetStateGexMaxChangeParams) {
+	var request GetStateGexMaxChangeRequestObject
+
+	request.Ticker = ticker
+	request.Aggregation = aggregation
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStateGexMaxChange(ctx, request.(GetStateGexMaxChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStateGexMaxChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStateGexMaxChangeResponseObject); ok {
+		if err := validResponse.VisitGetStateGexMaxChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"sHire3dz998AAAD//weLfWWiLwAA",
+	"H4sIAAAAAAAC/+yb62/bOBLA/5UBbz8kgOJX4l4333xpL5tDtptrekWxdc5gpLHEmiJVknLtK/K/H4aS",
+	"bNmWEyd97HbhL4VjPmY0jx+HY/UzC3WaaYXKWXb6mdkwwZT7jy+N0eY12kwri/RFZnSGxgn0w0jD/sOM",
+	"p5lEdsou1JRLEYET4QQN2Hl6qyULmJtnNGydESpmd3eLb/TtBwwduwvYOc5ecMc3xUQoHR8ZYScjg1M0",
+	"lssVoZ2AjbVJuWOnLNL5rcSlQJWnt2ho+5R/0GakMB5p8UXLp/rp4jNtv0Q8LX+q+NkoM0Ibb1HhMKUP",
+	"SzdwY/jcTxRqFDlcF1FOE8phXOxoMRw1TT5unJxptzLr2fNer/VzfyfdKWgm+JDiNk9HMc7WzXty3H/W",
+	"b/WOd5NU7vE0Gxcxv5oP11fvNqOfpqZoHU+zldndvz87OT7p9Dq9mjyh3LMT1mTU/6HRo5inKX+0sncB",
+	"M/gxFwYjdvq+ps7iKW6aM/RXikPbnKdpQ3L1n3d2DNCm1Np9dUNiPes+ZvG66J1XK3RfHHfVHutKdHv9",
+	"Tqe1Y5Z8SYptD92Uzy5RxS5hp31Ph+qv3ncO6/7P/W8c2bOzhKsYm4M7zI1B5YrzyIZGZE5oxU7ZWTEA",
+	"KZ/B+ct3EPpN4H1BrQC8X7nM8YYFC341eGANZ2MxdohqU163f5QKlTsEqfXkloeTNdGPFDPFTRlfVYRW",
+	"DRK6X1OCa7RT56uKSIRx800px19Xyp8mDZ+WRr8gly7ZXjCGPExwlOqoKBlUntLmOEt4bh0LmNGOe8Pe",
+	"BDULLMc3njTijo8ivlaCsF6n1z/qdo96z7cuWlcixVSbOfPVBvJ0VYPF4MZe1nGX21XperJbwfsaLboz",
+	"Msk9FtN5E3Re+RACPYZMW0FfWjC0HQvqp0cTXlO0lsdrBhtICd456/uB0yBUhDPo7Pr4Ng9DtHY3G7zx",
+	"wWS3G2Ccu9xU94C6CQaUNGSBcsbqlcPWDfGevbweFXn06t+jVy/ekXfXs7KWPmtZ6Z//XhUKC92nQCn9",
+	"Bf379oL+ff2fN49TwzodTu7Twk+4V4vB4OqS1Hj7YsAC9ub6cvAYFTb9d+etM9abSv0irNNGhFx6FlLK",
+	"gUUzRQOfhEsgQ3M0uLo4muAcLH7MUTnBJWSSzwmiraG6ptkW/nX926vLYv1YSLTF8lCrsYhzw28lloFL",
+	"CW1bQ+UJ5XwkkuR/crLG4OqCBYzujoV6vVan1fGHU4aKZ4JI3uq0jlnAMu4Sb4124mlGH2P0OUhx6fl0",
+	"EdHu6AreEbjK+PULe51OkbrKlRUDzzIpQr+0/cFqtbxm06efDI7ZKftbe3kPb5eX8PYaUb3FVy19XVhV",
+	"WCj0LRxl8zTlZk6e8N9CmGDoucRjS6Hg3XZDU9s+0Y+8FX3+adtAHA8r4FKCNmAzDMVYhGRXIBdWfqvh",
+	"YwUcq5Zbgs/b2/AUHdLN9H2zVK3kHFwi7ELegU6Fg7E2pNEhnbE0+2OOntKKp+T+CXqeL+y8jqObb+i3",
+	"BrY3+M5PKEFbYnOcyzUHFjbYtHDNmTxKhSq9WeS/vS9sS+h+y7hd53rDww+mXEifwJXKq899KawDvjGp",
+	"MYQ/F6N37VBya0XY/szj2GDsVb+r2WJVhSujpyJCCxwkjyI0R9bNJUJC9IoNTwmrRJHbOfyWoYIL5dAg",
+	"6aUieKtlnmJrqM4oLWiasKDQOYyAx1wo6+Aqd36EQhV5mEBxLWgN1YUKZU6ykyUqh6yqIoesYF6mhXLW",
+	"i/MtIAi5DHPJSYbEKcoSeRs+PisMcY50qxHqoUR7Uz814ABbcSuA66t3h/UDpDzFfK4RJpepVtaE9aLR",
+	"mRzr2Zdx59DQ0v++Hxz9fvO5G/TvfmqqEjYOuKUr6dwQOjqFcS5lAHRVDAhIdMeoK0oDzZrW4uJedau6",
+	"kASxoNqQ5NzsonLJKXL7RuaCMzyc0Mq6yg6t6/aOT+6F2XZ9a1eCbvBdUVf1bRtSvLwGCeWDmc7bk68o",
+	"eLU73SC+akaT1ShpaxngVel+P1V+FdYKFVcHWCH/5PvJJw+B0nRm5iqilClvVRitYfccHaz5bYncEq87",
+	"UbftgWUfhq9L0CcLSS2YBge/o9FwztOUB+B7jnDls2eK7VdewBQXYL4YqiWOD2FsdOr3LLXy86g6lC14",
+	"Q0WEIN5bKdIUo6NIf1JQFoagx0NFK1N69KURUEWeww+ituiO7lm7Z+23Y22tA7+FuEWhUGTSnrk/EnNX",
+	"PPdk6s7KzuM28J5p5ag69ZAsf1wrrtWefdo6sCJWdMHjytWb2ppumlNuhM7tUC06ngUoLByUTfIAugH0",
+	"A+h2Auj2A1+9HnegaJTawxYMpNUwUYRebmHIUj6D4tfJIdsBsmWjfs/ZPWe/JWfrvwdtRe2syo19hfvj",
+	"0XbhvF2Rax13uGNz4R/cYgRalXXoWNBfJkIzlvpTUPSzqsoSFDoLOncg0lsuuQoxoqu+tENVtRJqI1nu",
+	"fINN6pA7BG6QW98BrmG7Nh1nmba58V0HBwnKzIKIUDkxnkMi4qQt9SfwP7mC0r4fogrx7Sx35YDBWKS4",
+	"rd1wTYY5x9mV0WMh92jeo/kPajdkRQDucfzD4XjFc0sSe+TuwOFHtRvqhfayYUBalAALQPj+LJmwViYP",
+	"1aJOltzE3sdlXwIOCJiHHp2qalEcZLk7LFrDFY6JoA+2IWClC1FZ5oE+RMXgfRdij+A/vgtRBe2+G/Gj",
+	"A3lLV+IRYH6oI3Gd6E+7tiPKir1E4wKrQ1VvTsCTexNDdV9zwqf32lHxII337Yo9kP8c7YplRu/bFn8B",
+	"LG9vXyzY7P+jhpk2E+dSh1xCRIt1lqJy5StaLGC5keyUJc5lp+22pHmJtu70eed5h1Eol4I2Wsu1n9z8",
+	"+wtVyWqXaVS1VjZT1iOzYS0cLPomR7fcYnS43K140oa9yteiVPGqK+V8gy7+FZIGdkSpUMI6U1TxDQuL",
+	"N27ubu7+HwAA//8Eob4zPjUAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

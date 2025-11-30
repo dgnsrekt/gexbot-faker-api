@@ -41,6 +41,7 @@ func run() int {
 		zap.String("dataDate", cfg.DataDate),
 		zap.String("dataMode", cfg.DataMode),
 		zap.String("cacheMode", cfg.CacheMode),
+		zap.String("endpointCacheMode", cfg.EndpointCacheMode),
 	)
 
 	// Load data
