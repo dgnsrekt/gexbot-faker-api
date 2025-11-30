@@ -33,6 +33,90 @@ func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.Serve
 // Compile-time interface verification
 var _ generated.StrictServerInterface = (*Server)(nil)
 
+// GetClassicGexMajors implements generated.StrictServerInterface
+func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetClassicGexMajorsRequestObject) (generated.GetClassicGexMajorsResponseObject, error) {
+	ticker := request.Ticker
+	aggregation := string(request.Aggregation)
+	apiKey := request.Params.Key
+
+	// Map aggregation to internal category format
+	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	pkg := "classic"
+
+	s.logger.Debug("classic gex majors request",
+		zap.String("ticker", ticker),
+		zap.String("aggregation", aggregation),
+		zap.String("category", category),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Check if data exists
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetClassicGexMajors404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/classic/" + aggregation),
+		}, nil
+	}
+
+	// Get data length
+	length, err := s.loader.GetLength(ticker, pkg, category)
+	if err != nil {
+		return generated.GetClassicGexMajors404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Build cache key - append _majors suffix in independent mode
+	cacheCategory := category
+	if s.config.EndpointCacheMode == "independent" {
+		cacheCategory += "_majors"
+	}
+	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
+	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+	if exhausted {
+		s.logger.Debug("data exhausted",
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
+			zap.Int("index", idx),
+			zap.Int("length", length),
+		)
+		return generated.GetClassicGexMajors404JSONResponse{
+			Error: ptr("No more data available"),
+		}, nil
+	}
+
+	// Get data at index
+	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		if errors.Is(err, data.ErrIndexOutOfBounds) {
+			return generated.GetClassicGexMajors404JSONResponse{
+				Error: ptr("Index out of bounds"),
+			}, nil
+		}
+		return generated.GetClassicGexMajors404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	s.logger.Debug("returning majors data",
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
+		zap.Int("index", idx),
+		zap.Int64("timestamp", gexData.Timestamp),
+	)
+
+	return generated.GetClassicGexMajors200JSONResponse{
+		Timestamp: gexData.Timestamp,
+		Ticker:    gexData.Ticker,
+		Spot:      &gexData.Spot,
+		MposVol:   &gexData.MajorPosVol,
+		MposOi:    &gexData.MajorPosOI,
+		MnegVol:   &gexData.MajorNegVol,
+		MnegOi:    &gexData.MajorNegOI,
+		ZeroGamma: &gexData.ZeroGamma,
+		NetGexVol: &gexData.SumGexVol,
+		NetGexOi:  &gexData.SumGexOI,
+	}, nil
+}
+
 // GetClassicGexChain implements generated.StrictServerInterface
 func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetClassicGexChainRequestObject) (generated.GetClassicGexChainResponseObject, error) {
 	ticker := request.Ticker
