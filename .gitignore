@@ -8,6 +8,9 @@ logs/
 # Go binaries
 bin/
 *.exe
+/daemon
+/server
+/downloader
 
 # Downloaded data
 /data/

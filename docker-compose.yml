@@ -1,6 +1,8 @@
 services:
   gex-faker-api:
-    build: .
+    build:
+      context: .
+      target: server
     container_name: gex-faker-api
     user: "${PUID:-1000}:${PGID:-1000}"
     ports:
@@ -10,8 +12,27 @@ services:
     environment:
       - PORT=8080
       - DATA_DIR=/app/data
-      - DATA_DATE=${DATA_DATE:-2025-11-28}
+      - DATA_DATE=${DATA_DATE:-}
       - DATA_MODE=${DATA_MODE:-memory}
       - CACHE_MODE=${CACHE_MODE:-exhaust}
       - ENDPOINT_CACHE_MODE=${ENDPOINT_CACHE_MODE:-shared}
+    restart: unless-stopped
+
+  gex-daemon:
+    build:
+      context: .
+      target: daemon
+    container_name: gex-daemon
+    user: "${PUID:-1000}:${PGID:-1000}"
+    volumes:
+      - ./data:/app/data:rw
+      - ./configs:/app/configs:ro
+    environment:
+      - DAEMON_SCHEDULE_HOUR=${DAEMON_SCHEDULE_HOUR:-20}
+      - DAEMON_SCHEDULE_MINUTE=${DAEMON_SCHEDULE_MINUTE:-0}
+      - DAEMON_TIMEZONE=${DAEMON_TIMEZONE:-America/New_York}
+      - DAEMON_STATE_FILE=/app/data/.daemon-state
+      - DAEMON_CONFIG_PATH=/app/configs/default.yaml
+      - DAEMON_RUN_ON_STARTUP=${DAEMON_RUN_ON_STARTUP:-true}
+      - GEXBOT_API_KEY=${GEXBOT_API_KEY}
     restart: unless-stopped
