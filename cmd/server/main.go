@@ -44,10 +44,19 @@ func run() int {
 	)
 
 	// Load data
-	logger.Info("loading data...")
+	logger.Info("loading data...", zap.String("mode", cfg.DataMode))
 	start := time.Now()
 
-	loader, err := data.NewMemoryLoader(cfg.DataDir, cfg.DataDate, logger)
+	var loader data.DataLoader
+	switch cfg.DataMode {
+	case "memory":
+		loader, err = data.NewMemoryLoader(cfg.DataDir, cfg.DataDate, logger)
+	case "stream":
+		loader, err = data.NewStreamLoader(cfg.DataDir, cfg.DataDate, logger)
+	default:
+		logger.Error("unknown data mode", zap.String("mode", cfg.DataMode))
+		return 1
+	}
 	if err != nil {
 		logger.Error("failed to load data", zap.Error(err))
 		return 1

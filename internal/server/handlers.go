@@ -14,13 +14,13 @@ import (
 )
 
 type Server struct {
-	loader *data.MemoryLoader
+	loader data.DataLoader
 	cache  *data.IndexCache
 	config *config.ServerConfig
 	logger *zap.Logger
 }
 
-func NewServer(loader *data.MemoryLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger) *Server {
+func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger) *Server {
 	return &Server{
 		loader: loader,
 		cache:  cache,

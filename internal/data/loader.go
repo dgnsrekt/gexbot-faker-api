@@ -21,6 +21,9 @@ type DataLoader interface {
 	// Exists checks if data exists for the given combination
 	Exists(ticker, pkg, category string) bool
 
+	// GetLoadedKeys returns all loaded data keys (for /tickers endpoint)
+	GetLoadedKeys() []string
+
 	// Close releases any resources
 	Close() error
 }
