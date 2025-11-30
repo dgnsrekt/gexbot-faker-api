@@ -42,7 +42,8 @@ type PackageConfig struct {
 }
 
 type OutputConfig struct {
-	Directory string `mapstructure:"directory"`
+	Directory          string `mapstructure:"directory"`
+	AutoConvertToJSONL bool   `mapstructure:"auto_convert_to_jsonl"`
 }
 
 type LoggingConfig struct {
@@ -63,6 +64,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("download.rate_per_second", 2)
 	v.SetDefault("download.resume_enabled", true)
 	v.SetDefault("output.directory", "data")
+	v.SetDefault("output.auto_convert_to_jsonl", true)
 	v.SetDefault("logging.enabled", true)
 	v.SetDefault("logging.directory", "logs")
 	v.SetDefault("logging.level", "info")

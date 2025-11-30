@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -106,6 +107,17 @@ Examples:
 					}
 					if err := stgMgr.CleanupStaging(date); err != nil {
 						logger.Warn("failed to cleanup staging", zap.String("date", date), zap.Error(err))
+					}
+				}
+
+				// Auto-convert JSON to JSONL if enabled
+				if cfg.Output.AutoConvertToJSONL {
+					logger.Info("auto-converting JSON to JSONL")
+					for _, date := range dates {
+						dir := filepath.Join(cfg.Output.Directory, date)
+						if err := convertJSONToJSONL(dir); err != nil {
+							logger.Warn("auto-conversion failed", zap.String("date", date), zap.Error(err))
+						}
 					}
 				}
 			}

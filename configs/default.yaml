@@ -42,6 +42,7 @@ packages:
 
 output:
   directory: "data"
+  auto_convert_to_jsonl: true
 
 logging:
   enabled: true
