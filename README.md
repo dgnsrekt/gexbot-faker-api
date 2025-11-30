@@ -17,7 +17,7 @@ Mock API server that replays historical GexBot market data with per-API-key sequ
 
 - Go 1.24+
 - [just](https://github.com/casey/just) command runner
-- [GexBot API key](https://gex.bot) with **Quant Subscription** (required for downloading data)
+- [GexBot API key](https://www.gexbot.com/pricing) with **Quant Subscription** (required for downloading data)
 
 ### 1. Configure Environment
 
