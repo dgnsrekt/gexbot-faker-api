@@ -61,6 +61,13 @@ const (
 	GetStateGexProfileParamsAggregationZero GetStateGexProfileParamsAggregation = "zero"
 )
 
+// Defines values for GetStateGexMajorsParamsAggregation.
+const (
+	Full GetStateGexMajorsParamsAggregation = "full"
+	One  GetStateGexMajorsParamsAggregation = "one"
+	Zero GetStateGexMajorsParamsAggregation = "zero"
+)
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error *string `json:"error,omitempty"`
@@ -198,6 +205,15 @@ type GetStateGexProfileParams struct {
 // GetStateGexProfileParamsAggregation defines parameters for GetStateGexProfile.
 type GetStateGexProfileParamsAggregation string
 
+// GetStateGexMajorsParams defines parameters for GetStateGexMajors.
+type GetStateGexMajorsParams struct {
+	// Key API key for playback position tracking
+	Key string `form:"key" json:"key"`
+}
+
+// GetStateGexMajorsParamsAggregation defines parameters for GetStateGexMajors.
+type GetStateGexMajorsParamsAggregation string
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Health check
@@ -221,6 +237,9 @@ type ServerInterface interface {
 	// Get GEX profile data
 	// (GET /{ticker}/state/{aggregation})
 	GetStateGexProfile(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexProfileParamsAggregation, params GetStateGexProfileParams)
+	// Get GEX profile major levels
+	// (GET /{ticker}/state/{aggregation}/majors)
+	GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMajorsParamsAggregation, params GetStateGexMajorsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -266,6 +285,12 @@ func (_ Unimplemented) GetClassicGexMaxChange(w http.ResponseWriter, r *http.Req
 // Get GEX profile data
 // (GET /{ticker}/state/{aggregation})
 func (_ Unimplemented) GetStateGexProfile(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexProfileParamsAggregation, params GetStateGexProfileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get GEX profile major levels
+// (GET /{ticker}/state/{aggregation}/majors)
+func (_ Unimplemented) GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMajorsParamsAggregation, params GetStateGexMajorsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -541,6 +566,58 @@ func (siw *ServerInterfaceWrapper) GetStateGexProfile(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetStateGexMajors operation middleware
+func (siw *ServerInterfaceWrapper) GetStateGexMajors(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "ticker" -------------
+	var ticker string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticker", chi.URLParam(r, "ticker"), &ticker, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticker", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "aggregation" -------------
+	var aggregation GetStateGexMajorsParamsAggregation
+
+	err = runtime.BindStyledParameterWithOptions("simple", "aggregation", chi.URLParam(r, "aggregation"), &aggregation, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aggregation", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStateGexMajorsParams
+
+	// ------------- Required query parameter "key" -------------
+
+	if paramValue := r.URL.Query().Get("key"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "key", r.URL.Query(), &params.Key)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStateGexMajors(w, r, ticker, aggregation, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -674,6 +751,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/state/{aggregation}", wrapper.GetStateGexProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/{ticker}/state/{aggregation}/majors", wrapper.GetStateGexMajors)
 	})
 
 	return r
@@ -912,6 +992,52 @@ func (response GetStateGexProfile404JSONResponse) VisitGetStateGexProfileRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetStateGexMajorsRequestObject struct {
+	Ticker      string                             `json:"ticker"`
+	Aggregation GetStateGexMajorsParamsAggregation `json:"aggregation"`
+	Params      GetStateGexMajorsParams
+}
+
+type GetStateGexMajorsResponseObject interface {
+	VisitGetStateGexMajorsResponse(w http.ResponseWriter) error
+}
+
+type GetStateGexMajors200JSONResponse GexMajorsData
+
+func (response GetStateGexMajors200JSONResponse) VisitGetStateGexMajorsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMajors400JSONResponse ErrorResponse
+
+func (response GetStateGexMajors400JSONResponse) VisitGetStateGexMajorsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMajors401JSONResponse ErrorResponse
+
+func (response GetStateGexMajors401JSONResponse) VisitGetStateGexMajorsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStateGexMajors404JSONResponse ErrorResponse
+
+func (response GetStateGexMajors404JSONResponse) VisitGetStateGexMajorsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Health check
@@ -935,6 +1061,9 @@ type StrictServerInterface interface {
 	// Get GEX profile data
 	// (GET /{ticker}/state/{aggregation})
 	GetStateGexProfile(ctx context.Context, request GetStateGexProfileRequestObject) (GetStateGexProfileResponseObject, error)
+	// Get GEX profile major levels
+	// (GET /{ticker}/state/{aggregation}/majors)
+	GetStateGexMajors(ctx context.Context, request GetStateGexMajorsRequestObject) (GetStateGexMajorsResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -1152,44 +1281,74 @@ func (sh *strictHandler) GetStateGexProfile(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GetStateGexMajors operation middleware
+func (sh *strictHandler) GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetStateGexMajorsParamsAggregation, params GetStateGexMajorsParams) {
+	var request GetStateGexMajorsRequestObject
+
+	request.Ticker = ticker
+	request.Aggregation = aggregation
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStateGexMajors(ctx, request.(GetStateGexMajorsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStateGexMajors")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStateGexMajorsResponseObject); ok {
+		if err := validResponse.VisitGetStateGexMajorsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"sHire3dz998AAAD//weLfWWiLwAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

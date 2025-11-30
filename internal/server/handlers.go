@@ -495,6 +495,90 @@ func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetSt
 	}, nil
 }
 
+// GetStateGexMajors implements generated.StrictServerInterface
+func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetStateGexMajorsRequestObject) (generated.GetStateGexMajorsResponseObject, error) {
+	ticker := request.Ticker
+	aggregation := string(request.Aggregation)
+	apiKey := request.Params.Key
+
+	// Map aggregation to internal category format
+	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	pkg := "state"
+
+	s.logger.Debug("state gex majors request",
+		zap.String("ticker", ticker),
+		zap.String("aggregation", aggregation),
+		zap.String("category", category),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Check if data exists
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetStateGexMajors404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/state/" + aggregation),
+		}, nil
+	}
+
+	// Get data length
+	length, err := s.loader.GetLength(ticker, pkg, category)
+	if err != nil {
+		return generated.GetStateGexMajors404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Build cache key - append _majors suffix in independent mode
+	cacheCategory := category
+	if s.config.EndpointCacheMode == "independent" {
+		cacheCategory += "_majors"
+	}
+	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
+	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+	if exhausted {
+		s.logger.Debug("data exhausted",
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
+			zap.Int("index", idx),
+			zap.Int("length", length),
+		)
+		return generated.GetStateGexMajors404JSONResponse{
+			Error: ptr("No more data available"),
+		}, nil
+	}
+
+	// Get data at index
+	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		if errors.Is(err, data.ErrIndexOutOfBounds) {
+			return generated.GetStateGexMajors404JSONResponse{
+				Error: ptr("Index out of bounds"),
+			}, nil
+		}
+		return generated.GetStateGexMajors404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	s.logger.Debug("returning state majors data",
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
+		zap.Int("index", idx),
+		zap.Int64("timestamp", gexData.Timestamp),
+	)
+
+	return generated.GetStateGexMajors200JSONResponse{
+		Timestamp: gexData.Timestamp,
+		Ticker:    gexData.Ticker,
+		Spot:      &gexData.Spot,
+		MposVol:   &gexData.MajorPosVol,
+		MposOi:    &gexData.MajorPosOI,
+		MnegVol:   &gexData.MajorNegVol,
+		MnegOi:    &gexData.MajorNegOI,
+		ZeroGamma: &gexData.ZeroGamma,
+		NetGexVol: &gexData.SumGexVol,
+		NetGexOi:  &gexData.SumGexOI,
+	}, nil
+}
+
 func ptr[T any](v T) *T { return &v }
 
 // maskAPIKey returns a masked version of the API key showing only first 4 chars
