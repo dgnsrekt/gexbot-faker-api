@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 	"github.com/dgnsrekt/gexbot-downloader/internal/server"
+	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
 func main() {
@@ -42,6 +44,8 @@ func run() int {
 		zap.String("dataMode", cfg.DataMode),
 		zap.String("cacheMode", cfg.CacheMode),
 		zap.String("endpointCacheMode", cfg.EndpointCacheMode),
+		zap.Bool("wsEnabled", cfg.WSEnabled),
+		zap.Duration("wsStreamInterval", cfg.WSStreamInterval),
 	)
 
 	// Load data
@@ -76,8 +80,40 @@ func run() int {
 	// Create server
 	srv := server.NewServer(loader, cache, cfg, logger)
 
+	// Create context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// WebSocket components (optional)
+	var wsHub *ws.Hub
+	var negotiateHandler *ws.NegotiateHandler
+	var streamer *ws.Streamer
+
+	if cfg.WSEnabled {
+		// Create WebSocket hub
+		wsHub = ws.NewHub("orderflow", logger)
+		go wsHub.Run(ctx)
+
+		// Create negotiate handler
+		negotiateHandler = ws.NewNegotiateHandler(logger)
+
+		// Create and start streamer
+		var err error
+		streamer, err = ws.NewStreamer(wsHub, loader, cfg.WSStreamInterval, logger)
+		if err != nil {
+			logger.Error("failed to create streamer", zap.Error(err))
+			return 1
+		}
+		go streamer.Run(ctx)
+
+		logger.Info("WebSocket enabled",
+			zap.String("hub", "orderflow"),
+			zap.Duration("streamInterval", cfg.WSStreamInterval),
+		)
+	}
+
 	// Create router
-	router, err := server.NewRouter(srv, logger)
+	router, err := server.NewRouter(srv, wsHub, negotiateHandler, logger)
 	if err != nil {
 		logger.Error("failed to create router", zap.Error(err))
 		return 1
@@ -105,5 +141,22 @@ func run() int {
 	<-quit
 
 	logger.Info("shutting down server...")
+
+	// Cancel context to stop WebSocket components
+	cancel()
+
+	// Graceful HTTP server shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		logger.Error("server shutdown error", zap.Error(err))
+		return 1
+	}
+
+	// Silence unused variable warning
+	_ = streamer
+
+	logger.Info("server stopped")
 	return 0
 }

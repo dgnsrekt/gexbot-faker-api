@@ -12,9 +12,10 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/api"
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
+	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
-func NewRouter(server *Server, logger *zap.Logger) (http.Handler, error) {
+func NewRouter(server *Server, wsHub *ws.Hub, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
 	// Load OpenAPI spec for validation
 	swagger, err := generated.GetSwagger()
 	if err != nil {
@@ -36,6 +37,14 @@ func NewRouter(server *Server, logger *zap.Logger) (http.Handler, error) {
 	r.Get("/docs", swaggerUIHandler)
 	r.Get("/swagger-ui.js", swaggerUIBundleHandler)
 	r.Get("/swagger-ui.css", swaggerUICSSHandler)
+
+	// WebSocket routes (outside OpenAPI validation)
+	if negotiateHandler != nil {
+		r.Get("/negotiate", negotiateHandler.HandleNegotiate)
+	}
+	if wsHub != nil {
+		r.HandleFunc("/ws/orderflow", wsHub.HandleOrderflowWS)
+	}
 
 	// API routes with compression and OpenAPI validation
 	r.Group(func(apiRouter chi.Router) {

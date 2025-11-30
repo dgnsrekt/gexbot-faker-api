@@ -203,15 +203,15 @@ github.com/google/uuid v1.6.0
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Proto files copied to `proto/` directory
-- [ ] `go generate ./internal/proto/...` succeeds
-- [ ] Generated files exist: `internal/proto/orderflow/orderflow.pb.go`, `internal/proto/webpubsub/webpubsub_messages.pb.go`
-- [ ] `go build ./...` succeeds with new dependencies
-- [ ] `go mod tidy` completes without errors
+- [x] Proto files copied to `proto/` directory
+- [x] `go generate ./internal/proto/...` succeeds
+- [x] Generated files exist: `internal/proto/orderflow/orderflow.pb.go`, `internal/proto/webpubsub/webpubsub_messages.pb.go`
+- [x] `go build ./...` succeeds with new dependencies
+- [x] `go mod tidy` completes without errors
 
 #### Manual Verification:
-- [ ] Generated Go types match Python proto definitions
-- [ ] Import paths resolve correctly in IDE
+- [x] Generated Go types match Python proto definitions
+- [x] Import paths resolve correctly in IDE
 
 ---
 
@@ -296,13 +296,13 @@ r.HandleFunc("/ws/orderflow", wsHub.HandleOrderflowWS)
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./...` succeeds
-- [ ] `curl "http://localhost:8080/negotiate?key=test"` returns JSON with `websocket_urls.orderflow`
-- [ ] Response format matches: `{"websocket_urls":{"orderflow":"ws://..."}}`
+- [x] `go build ./...` succeeds
+- [x] `curl "http://localhost:8080/negotiate?key=test"` returns JSON with `websocket_urls.orderflow`
+- [x] Response format matches: `{"websocket_urls":{"orderflow":"ws://..."}}`
 
 #### Manual Verification:
-- [ ] Token format contains API key and UUID
-- [ ] URL scheme adapts to HTTP/HTTPS
+- [x] Token format contains API key and UUID
+- [x] URL scheme adapts to HTTP/HTTPS
 
 ---
 
@@ -564,13 +564,13 @@ func (c *Client) writePump() {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./...` succeeds
-- [ ] Hub starts and processes register/unregister channels
-- [ ] WebSocket upgrade succeeds at `/ws/orderflow`
+- [x] `go build ./...` succeeds
+- [x] Hub starts and processes register/unregister channels
+- [x] WebSocket upgrade succeeds at `/ws/orderflow`
 
 #### Manual Verification:
-- [ ] `wscat -c "ws://localhost:8080/ws/orderflow?access_token=test:123"` connects
-- [ ] ConnectedMessage received on connection
+- [x] `wscat -c "ws://localhost:8080/ws/orderflow?access_token=test:123"` connects
+- [x] ConnectedMessage received on connection
 
 ---
 
@@ -701,13 +701,13 @@ func isValidOrderflowGroup(group string) bool {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./...` succeeds
-- [ ] Unit test: `buildConnectedMessage` produces valid protobuf
-- [ ] Unit test: `buildDataMessage` wraps data in correct Any format
+- [x] `go build ./...` succeeds
+- [x] Unit test: `buildConnectedMessage` produces valid protobuf
+- [x] Unit test: `buildDataMessage` wraps data in correct Any format
 
 #### Manual Verification:
-- [ ] Python client can parse ConnectedMessage
-- [ ] JoinGroupMessage/AckMessage round-trip works
+- [x] Python client can parse ConnectedMessage
+- [x] JoinGroupMessage/AckMessage round-trip works
 
 ---
 
@@ -817,12 +817,12 @@ func (e *Encoder) Close() {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./...` succeeds
-- [ ] Unit test: Encode sample JSON, decompress with Python, verify fields match
-- [ ] Fixture test: Compare encoded bytes against known-good capture
+- [x] `go build ./...` succeeds
+- [x] Unit test: Encode sample JSON, decompress with Python, verify fields match
+- [x] Fixture test: Compare encoded bytes against known-good capture
 
 #### Manual Verification:
-- [ ] Python `decompress_orderflow_message()` successfully decodes faker output
+- [x] Python `decompress_orderflow_message()` successfully decodes faker output
 
 ---
 
@@ -1012,14 +1012,14 @@ type ServerConfig struct {
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go build ./...` succeeds
-- [ ] Server starts with WebSocket components
-- [ ] `WS_STREAM_INTERVAL` configurable via environment
+- [x] `go build ./...` succeeds
+- [x] Server starts with WebSocket components
+- [x] `WS_STREAM_INTERVAL` configurable via environment
 
 #### Manual Verification:
-- [ ] Python client receives orderflow data messages
-- [ ] Data advances each interval
-- [ ] Multiple tickers stream independently
+- [x] Python client receives orderflow data messages
+- [x] Data advances each interval
+- [x] Multiple tickers stream independently
 
 ---
 
@@ -1057,13 +1057,13 @@ kill $SERVER_PID
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] `go test ./internal/websocket/...` passes
-- [ ] Encoder fixture tests match expected wire format
+- [x] `go test ./internal/websocket/...` passes
+- [x] Encoder fixture tests match expected wire format
 
 #### Manual Verification:
-- [ ] Python client connects without code changes (URL only)
-- [ ] `decompress_orderflow_message()` returns valid data
-- [ ] Continuous data stream for subscribed tickers
+- [x] Python client connects without code changes (URL only)
+- [x] `decompress_orderflow_message()` returns valid data
+- [x] Continuous data stream for subscribed tickers
 
 ---
 

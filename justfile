@@ -18,6 +18,7 @@ help:
     @echo "  just build-gex-faker              Build the GEX Faker server binary"
     @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
     @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
+    @echo "  just generate-protos              Generate protobuf code for WebSocket"
     @echo ""
     @echo "Docker Commands"
     @echo ""
@@ -52,6 +53,11 @@ build:
 # Generate API code from OpenAPI spec
 generate-gex-faker-api-spec:
     go generate ./api
+
+# Generate protobuf code for WebSocket protocol
+generate-protos:
+    ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/orderflow --go_opt=paths=source_relative proto/orderflow.proto
+    ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/webpubsub --go_opt=paths=source_relative proto/webpubsub_messages.proto
 
 # Build the GEX Faker server binary
 build-gex-faker: generate-gex-faker-api-spec

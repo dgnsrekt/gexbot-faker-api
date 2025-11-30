@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"time"
 )
 
 type ServerConfig struct {
@@ -15,6 +16,9 @@ type ServerConfig struct {
 	DataMode          string // "memory" or "stream"
 	CacheMode         string // "exhaust" or "rotation"
 	EndpointCacheMode string // "shared" or "independent"
+	// WebSocket configuration
+	WSEnabled        bool
+	WSStreamInterval time.Duration
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -30,6 +34,13 @@ func LoadServerConfig() (*ServerConfig, error) {
 		dataDate = detected
 	}
 
+	// Parse WebSocket stream interval
+	wsIntervalStr := getEnvOrDefault("WS_STREAM_INTERVAL", "1s")
+	wsInterval, err := time.ParseDuration(wsIntervalStr)
+	if err != nil {
+		wsInterval = time.Second // Default to 1s on parse error
+	}
+
 	cfg := &ServerConfig{
 		Port:              getEnvOrDefault("PORT", "8080"),
 		DataDir:           dataDir,
@@ -37,6 +48,8 @@ func LoadServerConfig() (*ServerConfig, error) {
 		DataMode:          getEnvOrDefault("DATA_MODE", "memory"),
 		CacheMode:         getEnvOrDefault("CACHE_MODE", "exhaust"),
 		EndpointCacheMode: getEnvOrDefault("ENDPOINT_CACHE_MODE", "shared"),
+		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
+		WSStreamInterval:  wsInterval,
 	}
 
 	// Validate
