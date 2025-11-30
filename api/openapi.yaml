@@ -7,8 +7,8 @@ info:
     Serves JSONL data files with configurable cache modes.
 
 servers:
-  - url: http://localhost:8080
-    description: Local development server
+  - url: /
+    description: Current server
 
 tags:
   - name: classic

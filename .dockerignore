@@ -1,0 +1,33 @@
+# Data directory (mounted as volume, not built into image)
+data/
+
+# Build artifacts
+bin/
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+
+# Browser automation
+chromium-profile*/
+.playwright-mcp/
+
+# Environment files
+.env
+
+# Test output
+coverage.out
+
+# Config files (except default)
+configs/*.yaml
+!configs/default.yaml
+
+# Documentation and misc
+*.md
