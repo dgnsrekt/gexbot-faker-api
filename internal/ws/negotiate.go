@@ -57,11 +57,11 @@ func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Reques
 
 	response := NegotiateResponse{
 		WebsocketURLs: map[string]string{
-			"orderflow": fmt.Sprintf("%s/orderflow?access_token=%s", baseURL, token),
-			"state_gex": fmt.Sprintf("%s/state_gex?access_token=%s", baseURL, token),
-			"classic":   fmt.Sprintf("%s/classic?access_token=%s", baseURL, token),
+			"orderflow":         fmt.Sprintf("%s/orderflow?access_token=%s", baseURL, token),
+			"state_gex":         fmt.Sprintf("%s/state_gex?access_token=%s", baseURL, token),
+			"classic":           fmt.Sprintf("%s/classic?access_token=%s", baseURL, token),
+			"state_greeks_zero": fmt.Sprintf("%s/state_greeks_zero?access_token=%s", baseURL, token),
 			// Future hubs:
-			// "state_greeks_zero": fmt.Sprintf("%s/state_greeks_zero?access_token=%s", baseURL, token),
 			// "state_greeks_one":  fmt.Sprintf("%s/state_greeks_one?access_token=%s", baseURL, token),
 		},
 	}

@@ -299,3 +299,20 @@ func IsValidClassicGroup(group string) bool {
 		strings.HasSuffix(group, "_classic_gex_zero") ||
 		strings.HasSuffix(group, "_classic_gex_one")
 }
+
+// IsValidStateGreeksZeroGroup validates the state_greeks_zero group name format.
+// Expected format: blue_{ticker}_state_{delta_zero|gamma_zero|vanna_zero|charm_zero}
+func IsValidStateGreeksZeroGroup(group string) bool {
+	if !strings.HasPrefix(group, "blue_") {
+		return false
+	}
+	// Must contain _state_ separator
+	if !strings.Contains(group, "_state_") {
+		return false
+	}
+	// Must end with one of the valid Greeks zero categories
+	return strings.HasSuffix(group, "_state_delta_zero") ||
+		strings.HasSuffix(group, "_state_gamma_zero") ||
+		strings.HasSuffix(group, "_state_vanna_zero") ||
+		strings.HasSuffix(group, "_state_charm_zero")
+}

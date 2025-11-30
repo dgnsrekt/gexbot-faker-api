@@ -17,9 +17,10 @@ import (
 
 // WebSocketHubs holds all WebSocket hubs for routing.
 type WebSocketHubs struct {
-	Orderflow *ws.Hub
-	StateGex  *ws.Hub
-	Classic   *ws.Hub
+	Orderflow       *ws.Hub
+	StateGex        *ws.Hub
+	Classic         *ws.Hub
+	StateGreeksZero *ws.Hub
 }
 
 func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
@@ -58,6 +59,9 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 		}
 		if wsHubs.Classic != nil {
 			r.HandleFunc("/ws/classic", wsHubs.Classic.HandleOrderflowWS)
+		}
+		if wsHubs.StateGreeksZero != nil {
+			r.HandleFunc("/ws/state_greeks_zero", wsHubs.StateGreeksZero.HandleOrderflowWS)
 		}
 	}
 

@@ -133,8 +133,21 @@ func run() int {
 		}
 		go classicStreamer.Run(ctx)
 
+		// Create state_greeks_zero hub with validator
+		stateGreeksZeroHub := ws.NewHub("state_greeks_zero", logger, ws.IsValidStateGreeksZeroGroup)
+		go stateGreeksZeroHub.Run(ctx)
+		wsHubs.StateGreeksZero = stateGreeksZeroHub
+
+		// Create and start greek streamer
+		greekStreamer, err := ws.NewGreekStreamer(stateGreeksZeroHub, loader, cfg.WSStreamInterval, logger)
+		if err != nil {
+			logger.Error("failed to create greek streamer", zap.Error(err))
+			return 1
+		}
+		go greekStreamer.Run(ctx)
+
 		logger.Info("WebSocket enabled",
-			zap.Strings("hubs", []string{"orderflow", "state_gex", "classic"}),
+			zap.Strings("hubs", []string{"orderflow", "state_gex", "classic", "state_greeks_zero"}),
 			zap.Duration("streamInterval", cfg.WSStreamInterval),
 		)
 	}

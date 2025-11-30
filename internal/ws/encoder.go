@@ -9,6 +9,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 	gexpb "github.com/dgnsrekt/gexbot-downloader/internal/ws/generated/gex"
+	greekpb "github.com/dgnsrekt/gexbot-downloader/internal/ws/generated/greek"
 	ofpb "github.com/dgnsrekt/gexbot-downloader/internal/ws/generated/orderflow"
 )
 
@@ -191,6 +192,102 @@ func (e *Encoder) EncodeGex(jsonData []byte) ([]byte, error) {
 	}
 
 	// 6. Compress with Zstd
+	compressed := e.zstdEncoder.EncodeAll(pbData, nil)
+
+	return compressed, nil
+}
+
+// EncodeGreek converts JSON Greek data to Zstd-compressed protobuf.
+// The result is ready to be wrapped in a DataMessage.
+func (e *Encoder) EncodeGreek(jsonData []byte) ([]byte, error) {
+	// 1. Parse JSON into GreekData
+	var greek data.GreekData
+	if err := json.Unmarshal(jsonData, &greek); err != nil {
+		return nil, fmt.Errorf("unmarshal greek json: %w", err)
+	}
+
+	// 2. Parse mini_contracts: [[strike, call_ivol, put_ivol, call_vol, priors, put_vol, put_priors], ...]
+	var rawContracts [][]json.RawMessage
+	if len(greek.MiniContracts) > 0 {
+		if err := json.Unmarshal(greek.MiniContracts, &rawContracts); err != nil {
+			return nil, fmt.Errorf("unmarshal mini_contracts: %w", err)
+		}
+	}
+
+	pbContracts := make([]*greekpb.MiniContract, 0, len(rawContracts))
+	for _, c := range rawContracts {
+		if len(c) < 5 {
+			continue
+		}
+
+		// Parse required fields
+		var strike, callIvol, putIvol, callCvolume float64
+		json.Unmarshal(c[0], &strike)
+		json.Unmarshal(c[1], &callIvol)
+		json.Unmarshal(c[2], &putIvol)
+		json.Unmarshal(c[3], &callCvolume)
+
+		contract := &greekpb.MiniContract{
+			Strike:      uint32(strike * 100),
+			CallIvol:    uint32(callIvol * 1000),
+			PutIvol:     uint32(putIvol * 1000),
+			CallCvolume: int32(callCvolume * 100),
+		}
+
+		// Parse call_cvolume_priors (index 4) - array of floats × 100
+		var callPriors []float64
+		if err := json.Unmarshal(c[4], &callPriors); err == nil && len(callPriors) > 0 {
+			priorValues := make([]int32, len(callPriors))
+			for i, p := range callPriors {
+				priorValues[i] = int32(p * 100)
+			}
+			contract.CallCvolumePriors = priorValues
+		}
+
+		// Parse optional put_cvolume (index 5) - can be null or number, no multiplier
+		if len(c) >= 6 {
+			var putCvolume *float64
+			if err := json.Unmarshal(c[5], &putCvolume); err == nil && putCvolume != nil {
+				pv := int32(*putCvolume)
+				contract.PutCvolume = &pv
+			}
+		}
+
+		// Parse optional put_cvolume_priors (index 6) - can be null or array of ints, no multiplier
+		if len(c) >= 7 {
+			var putPriors []int32
+			if err := json.Unmarshal(c[6], &putPriors); err == nil && len(putPriors) > 0 {
+				contract.PutCvolumePriors = &greekpb.MiniContractPriors{Values: putPriors}
+			}
+		}
+
+		pbContracts = append(pbContracts, contract)
+	}
+
+	// 3. Build OptionProfile protobuf message with integer scaling
+	minDte := int32(greek.MinDTE)
+	secMinDte := int32(greek.SecMinDTE)
+
+	pbMsg := &greekpb.OptionProfile{
+		Timestamp:       greek.Timestamp,
+		Ticker:          greek.Ticker,
+		Spot:            uint32(greek.Spot * 100),
+		MinDte:          &minDte,
+		SecMinDte:       &secMinDte,
+		MajorCallGamma:  uint32(greek.MajorPositive * 100),
+		MajorPutGamma:   uint32(greek.MajorNegative * 100),
+		MajorLongGamma:  uint32(greek.MajorLongGamma * 100),
+		MajorShortGamma: uint32(greek.MajorShortGamma * 100),
+		MiniContracts:   pbContracts,
+	}
+
+	// 4. Serialize to protobuf bytes
+	pbData, err := proto.Marshal(pbMsg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal greek protobuf: %w", err)
+	}
+
+	// 5. Compress with Zstd
 	compressed := e.zstdEncoder.EncodeAll(pbData, nil)
 
 	return compressed, nil
