@@ -15,33 +15,43 @@ Mock API server that replays historical GexBot market data with per-API-key sequ
 
 ### Prerequisites
 
-- Go 1.24+
-- [just](https://github.com/casey/just) command runner
+- [Go 1.24+](https://go.dev/doc/install) - verify with `go version`
+- [just](https://github.com/casey/just#installation) command runner - verify with `just --version`
+- [Docker](https://docs.docker.com/get-docker/) - verify with `docker --version`
 - [GexBot API key](https://www.gexbot.com/pricing) with **Quant Subscription** (required for downloading data)
 
-### 1. Configure Environment
+### 1. Clone and Configure Environment
 
 ```bash
+git clone git@github.com:dgnsrekt/gexbot-faker-api.git
+cd gexbot-faker-api
+
 # Copy example env and add your GexBot API key
 cp gexbot.example.env .env
 # Edit .env and set GEXBOT_API_KEY=your_api_key_here
 ```
 
-### 2. Create Config (Optional)
+### 2. Create Download Config
 
-Copy and customize the downloader config:
+Create a custom config to select your tickers, packages, and categories:
 
 ```bash
 cp configs/default.yaml configs/custom.yaml
-# Edit configs/custom.yaml to adjust tickers, packages, etc.
 ```
+
+Edit `configs/custom.yaml` to customize:
+- **tickers**: Enable/disable tickers (SPX, NDX, SPY, etc.)
+- **packages**: Enable/disable data packages (state, classic, orderflow)
+- **categories**: Enable/disable specific data types within each package
 
 ### 3. Download Initial Data
 
 ```bash
-# Download last 7 days of market data
+# Download last 7 days of market data (adjust number as needed)
 just download-lookback 7
 ```
+
+> **Note**: The downloader automatically skips weekends and market holidays.
 
 ### 4. Start the API
 
