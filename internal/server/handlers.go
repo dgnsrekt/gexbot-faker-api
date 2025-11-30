@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -853,5 +857,131 @@ func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurren
 		CurrentDate: &s.config.DataDate,
 		LoadedAt:    &s.loadedAt,
 		FilesLoaded: &filesLoaded,
+	}, nil
+}
+
+// downloadFileResponse implements file streaming for download endpoints
+type downloadFileResponse struct {
+	filePath string
+	filename string
+}
+
+func (r *downloadFileResponse) serveFile(w http.ResponseWriter) error {
+	file, err := os.Open(r.filePath)
+	if err != nil {
+		http.Error(w, "Failed to open file", http.StatusInternalServerError)
+		return err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		http.Error(w, "Failed to stat file", http.StatusInternalServerError)
+		return err
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, r.filename))
+	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size(), 10))
+	w.WriteHeader(http.StatusOK)
+
+	_, err = io.Copy(w, file)
+	return err
+}
+
+// classicDownloadResponse wraps downloadFileResponse for classic GEX downloads
+type classicDownloadResponse struct {
+	downloadFileResponse
+}
+
+func (r *classicDownloadResponse) VisitDownloadClassicGexResponse(w http.ResponseWriter) error {
+	return r.serveFile(w)
+}
+
+// DownloadClassicGex implements generated.StrictServerInterface
+func (s *Server) DownloadClassicGex(ctx context.Context, request generated.DownloadClassicGexRequestObject) (generated.DownloadClassicGexResponseObject, error) {
+	ticker := request.Ticker
+	aggregation := string(request.Aggregation)
+
+	// Construct file path: {DataDir}/{DataDate}/{ticker}/classic/gex_{aggregation}.jsonl
+	category := "gex_" + aggregation
+	filePath := filepath.Join(s.config.DataDir, s.config.DataDate, ticker, "classic", category+".jsonl")
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		s.logger.Warn("download file not found",
+			zap.String("ticker", ticker),
+			zap.String("aggregation", aggregation),
+			zap.String("filePath", filePath),
+		)
+		return generated.DownloadClassicGex404JSONResponse{
+			Error: ptr(fmt.Sprintf("File not found: %s/classic/%s.jsonl", ticker, category)),
+		}, nil
+	}
+
+	filename := fmt.Sprintf("%s_classic_%s.jsonl", ticker, category)
+
+	s.logger.Info("download classic request",
+		zap.String("ticker", ticker),
+		zap.String("aggregation", aggregation),
+		zap.String("apiKey", maskAPIKey(request.Params.Key)),
+	)
+
+	return &classicDownloadResponse{
+		downloadFileResponse: downloadFileResponse{filePath: filePath, filename: filename},
+	}, nil
+}
+
+// stateDownloadResponse wraps downloadFileResponse for state data downloads
+type stateDownloadResponse struct {
+	downloadFileResponse
+}
+
+func (r *stateDownloadResponse) VisitDownloadStateDataResponse(w http.ResponseWriter) error {
+	return r.serveFile(w)
+}
+
+// DownloadStateData implements generated.StrictServerInterface
+func (s *Server) DownloadStateData(ctx context.Context, request generated.DownloadStateDataRequestObject) (generated.DownloadStateDataResponseObject, error) {
+	ticker := request.Ticker
+	typeParam := string(request.Type)
+
+	// Determine category based on type (same logic as GetStateProfile)
+	var category string
+	if aggregationTypes[typeParam] {
+		category = "gex_" + typeParam
+	} else if greekTypes[typeParam] {
+		category = typeParam
+	} else {
+		return generated.DownloadStateData404JSONResponse{
+			Error: ptr("Invalid type parameter: " + typeParam),
+		}, nil
+	}
+
+	// Construct file path: {DataDir}/{DataDate}/{ticker}/state/{category}.jsonl
+	filePath := filepath.Join(s.config.DataDir, s.config.DataDate, ticker, "state", category+".jsonl")
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		s.logger.Warn("download file not found",
+			zap.String("ticker", ticker),
+			zap.String("type", typeParam),
+			zap.String("filePath", filePath),
+		)
+		return generated.DownloadStateData404JSONResponse{
+			Error: ptr(fmt.Sprintf("File not found: %s/state/%s.jsonl", ticker, category)),
+		}, nil
+	}
+
+	filename := fmt.Sprintf("%s_state_%s.jsonl", ticker, category)
+
+	s.logger.Info("download state request",
+		zap.String("ticker", ticker),
+		zap.String("type", typeParam),
+		zap.String("apiKey", maskAPIKey(request.Params.Key)),
+	)
+
+	return &stateDownloadResponse{
+		downloadFileResponse: downloadFileResponse{filePath: filePath, filename: filename},
 	}, nil
 }

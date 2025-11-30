@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -41,6 +42,13 @@ const (
 	GetClassicGexChainParamsAggregationZero GetClassicGexChainParamsAggregation = "zero"
 )
 
+// Defines values for DownloadClassicGexParamsAggregation.
+const (
+	DownloadClassicGexParamsAggregationFull DownloadClassicGexParamsAggregation = "full"
+	DownloadClassicGexParamsAggregationOne  DownloadClassicGexParamsAggregation = "one"
+	DownloadClassicGexParamsAggregationZero DownloadClassicGexParamsAggregation = "zero"
+)
+
 // Defines values for GetClassicGexMajorsParamsAggregation.
 const (
 	GetClassicGexMajorsParamsAggregationFull GetClassicGexMajorsParamsAggregation = "full"
@@ -68,6 +76,21 @@ const (
 	GetStateProfileParamsTypeVannaOne  GetStateProfileParamsType = "vanna_one"
 	GetStateProfileParamsTypeVannaZero GetStateProfileParamsType = "vanna_zero"
 	GetStateProfileParamsTypeZero      GetStateProfileParamsType = "zero"
+)
+
+// Defines values for DownloadStateDataParamsType.
+const (
+	DownloadStateDataParamsTypeCharmOne  DownloadStateDataParamsType = "charm_one"
+	DownloadStateDataParamsTypeCharmZero DownloadStateDataParamsType = "charm_zero"
+	DownloadStateDataParamsTypeDeltaOne  DownloadStateDataParamsType = "delta_one"
+	DownloadStateDataParamsTypeDeltaZero DownloadStateDataParamsType = "delta_zero"
+	DownloadStateDataParamsTypeFull      DownloadStateDataParamsType = "full"
+	DownloadStateDataParamsTypeGammaOne  DownloadStateDataParamsType = "gamma_one"
+	DownloadStateDataParamsTypeGammaZero DownloadStateDataParamsType = "gamma_zero"
+	DownloadStateDataParamsTypeOne       DownloadStateDataParamsType = "one"
+	DownloadStateDataParamsTypeVannaOne  DownloadStateDataParamsType = "vanna_one"
+	DownloadStateDataParamsTypeVannaZero DownloadStateDataParamsType = "vanna_zero"
+	DownloadStateDataParamsTypeZero      DownloadStateDataParamsType = "zero"
 )
 
 // Defines values for GetStateGexMajorsParamsType.
@@ -231,6 +254,15 @@ type GetClassicGexChainParams struct {
 // GetClassicGexChainParamsAggregation defines parameters for GetClassicGexChain.
 type GetClassicGexChainParamsAggregation string
 
+// DownloadClassicGexParams defines parameters for DownloadClassicGex.
+type DownloadClassicGexParams struct {
+	// Key API key
+	Key string `form:"key" json:"key"`
+}
+
+// DownloadClassicGexParamsAggregation defines parameters for DownloadClassicGex.
+type DownloadClassicGexParamsAggregation string
+
 // GetClassicGexMajorsParams defines parameters for GetClassicGexMajors.
 type GetClassicGexMajorsParams struct {
 	// Key API key for playback position tracking
@@ -257,6 +289,15 @@ type GetStateProfileParams struct {
 
 // GetStateProfileParamsType defines parameters for GetStateProfile.
 type GetStateProfileParamsType string
+
+// DownloadStateDataParams defines parameters for DownloadStateData.
+type DownloadStateDataParams struct {
+	// Key API key
+	Key string `form:"key" json:"key"`
+}
+
+// DownloadStateDataParamsType defines parameters for DownloadStateData.
+type DownloadStateDataParamsType string
 
 // GetStateGexMajorsParams defines parameters for GetStateGexMajors.
 type GetStateGexMajorsParams struct {
@@ -296,6 +337,9 @@ type ServerInterface interface {
 	// Get GEX chain data
 	// (GET /{ticker}/classic/{aggregation})
 	GetClassicGexChain(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexChainParamsAggregation, params GetClassicGexChainParams)
+	// Download classic GEX dataset
+	// (GET /{ticker}/classic/{aggregation}/download)
+	DownloadClassicGex(w http.ResponseWriter, r *http.Request, ticker string, aggregation DownloadClassicGexParamsAggregation, params DownloadClassicGexParams)
 	// Get GEX major levels
 	// (GET /{ticker}/classic/{aggregation}/majors)
 	GetClassicGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexMajorsParamsAggregation, params GetClassicGexMajorsParams)
@@ -305,6 +349,9 @@ type ServerInterface interface {
 	// Get state profile data (GEX or Greeks)
 	// (GET /{ticker}/state/{type})
 	GetStateProfile(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateProfileParamsType, params GetStateProfileParams)
+	// Download state dataset
+	// (GET /{ticker}/state/{type}/download)
+	DownloadStateData(w http.ResponseWriter, r *http.Request, ticker string, pType DownloadStateDataParamsType, params DownloadStateDataParams)
 	// Get GEX profile major levels
 	// (GET /{ticker}/state/{type}/majors)
 	GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateGexMajorsParamsType, params GetStateGexMajorsParams)
@@ -353,6 +400,12 @@ func (_ Unimplemented) GetClassicGexChain(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Download classic GEX dataset
+// (GET /{ticker}/classic/{aggregation}/download)
+func (_ Unimplemented) DownloadClassicGex(w http.ResponseWriter, r *http.Request, ticker string, aggregation DownloadClassicGexParamsAggregation, params DownloadClassicGexParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Get GEX major levels
 // (GET /{ticker}/classic/{aggregation}/majors)
 func (_ Unimplemented) GetClassicGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexMajorsParamsAggregation, params GetClassicGexMajorsParams) {
@@ -368,6 +421,12 @@ func (_ Unimplemented) GetClassicGexMaxChange(w http.ResponseWriter, r *http.Req
 // Get state profile data (GEX or Greeks)
 // (GET /{ticker}/state/{type})
 func (_ Unimplemented) GetStateProfile(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateProfileParamsType, params GetStateProfileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Download state dataset
+// (GET /{ticker}/state/{type}/download)
+func (_ Unimplemented) DownloadStateData(w http.ResponseWriter, r *http.Request, ticker string, pType DownloadStateDataParamsType, params DownloadStateDataParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -527,6 +586,58 @@ func (siw *ServerInterfaceWrapper) GetClassicGexChain(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// DownloadClassicGex operation middleware
+func (siw *ServerInterfaceWrapper) DownloadClassicGex(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "ticker" -------------
+	var ticker string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticker", chi.URLParam(r, "ticker"), &ticker, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticker", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "aggregation" -------------
+	var aggregation DownloadClassicGexParamsAggregation
+
+	err = runtime.BindStyledParameterWithOptions("simple", "aggregation", chi.URLParam(r, "aggregation"), &aggregation, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aggregation", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadClassicGexParams
+
+	// ------------- Required query parameter "key" -------------
+
+	if paramValue := r.URL.Query().Get("key"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "key", r.URL.Query(), &params.Key)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadClassicGex(w, r, ticker, aggregation, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetClassicGexMajors operation middleware
 func (siw *ServerInterfaceWrapper) GetClassicGexMajors(w http.ResponseWriter, r *http.Request) {
 
@@ -674,6 +785,58 @@ func (siw *ServerInterfaceWrapper) GetStateProfile(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetStateProfile(w, r, ticker, pType, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadStateData operation middleware
+func (siw *ServerInterfaceWrapper) DownloadStateData(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "ticker" -------------
+	var ticker string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticker", chi.URLParam(r, "ticker"), &ticker, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticker", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "type" -------------
+	var pType DownloadStateDataParamsType
+
+	err = runtime.BindStyledParameterWithOptions("simple", "type", chi.URLParam(r, "type"), &pType, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadStateDataParams
+
+	// ------------- Required query parameter "key" -------------
+
+	if paramValue := r.URL.Query().Get("key"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "key", r.URL.Query(), &params.Key)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadStateData(w, r, ticker, pType, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -919,6 +1082,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/{ticker}/classic/{aggregation}", wrapper.GetClassicGexChain)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/{ticker}/classic/{aggregation}/download", wrapper.DownloadClassicGex)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/classic/{aggregation}/majors", wrapper.GetClassicGexMajors)
 	})
 	r.Group(func(r chi.Router) {
@@ -926,6 +1092,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/state/{type}", wrapper.GetStateProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/{ticker}/state/{type}/download", wrapper.DownloadStateData)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/{ticker}/state/{type}/majors", wrapper.GetStateGexMajors)
@@ -1058,6 +1227,53 @@ func (response GetClassicGexChain401JSONResponse) VisitGetClassicGexChainRespons
 type GetClassicGexChain404JSONResponse ErrorResponse
 
 func (response GetClassicGexChain404JSONResponse) VisitGetClassicGexChainResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DownloadClassicGexRequestObject struct {
+	Ticker      string                              `json:"ticker"`
+	Aggregation DownloadClassicGexParamsAggregation `json:"aggregation"`
+	Params      DownloadClassicGexParams
+}
+
+type DownloadClassicGexResponseObject interface {
+	VisitDownloadClassicGexResponse(w http.ResponseWriter) error
+}
+
+type DownloadClassicGex200ApplicationxNdjsonResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadClassicGex200ApplicationxNdjsonResponse) VisitDownloadClassicGexResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadClassicGex401JSONResponse ErrorResponse
+
+func (response DownloadClassicGex401JSONResponse) VisitDownloadClassicGexResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DownloadClassicGex404JSONResponse ErrorResponse
+
+func (response DownloadClassicGex404JSONResponse) VisitDownloadClassicGexResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
@@ -1204,6 +1420,53 @@ func (response GetStateProfile404JSONResponse) VisitGetStateProfileResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DownloadStateDataRequestObject struct {
+	Ticker string                      `json:"ticker"`
+	Type   DownloadStateDataParamsType `json:"type"`
+	Params DownloadStateDataParams
+}
+
+type DownloadStateDataResponseObject interface {
+	VisitDownloadStateDataResponse(w http.ResponseWriter) error
+}
+
+type DownloadStateData200ApplicationxNdjsonResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadStateData200ApplicationxNdjsonResponse) VisitDownloadStateDataResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadStateData401JSONResponse ErrorResponse
+
+func (response DownloadStateData401JSONResponse) VisitDownloadStateDataResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DownloadStateData404JSONResponse ErrorResponse
+
+func (response DownloadStateData404JSONResponse) VisitDownloadStateDataResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetStateGexMajorsRequestObject struct {
 	Ticker string                      `json:"ticker"`
 	Type   GetStateGexMajorsParamsType `json:"type"`
@@ -1316,6 +1579,9 @@ type StrictServerInterface interface {
 	// Get GEX chain data
 	// (GET /{ticker}/classic/{aggregation})
 	GetClassicGexChain(ctx context.Context, request GetClassicGexChainRequestObject) (GetClassicGexChainResponseObject, error)
+	// Download classic GEX dataset
+	// (GET /{ticker}/classic/{aggregation}/download)
+	DownloadClassicGex(ctx context.Context, request DownloadClassicGexRequestObject) (DownloadClassicGexResponseObject, error)
 	// Get GEX major levels
 	// (GET /{ticker}/classic/{aggregation}/majors)
 	GetClassicGexMajors(ctx context.Context, request GetClassicGexMajorsRequestObject) (GetClassicGexMajorsResponseObject, error)
@@ -1325,6 +1591,9 @@ type StrictServerInterface interface {
 	// Get state profile data (GEX or Greeks)
 	// (GET /{ticker}/state/{type})
 	GetStateProfile(ctx context.Context, request GetStateProfileRequestObject) (GetStateProfileResponseObject, error)
+	// Download state dataset
+	// (GET /{ticker}/state/{type}/download)
+	DownloadStateData(ctx context.Context, request DownloadStateDataRequestObject) (DownloadStateDataResponseObject, error)
 	// Get GEX profile major levels
 	// (GET /{ticker}/state/{type}/majors)
 	GetStateGexMajors(ctx context.Context, request GetStateGexMajorsRequestObject) (GetStateGexMajorsResponseObject, error)
@@ -1512,6 +1781,34 @@ func (sh *strictHandler) GetClassicGexChain(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// DownloadClassicGex operation middleware
+func (sh *strictHandler) DownloadClassicGex(w http.ResponseWriter, r *http.Request, ticker string, aggregation DownloadClassicGexParamsAggregation, params DownloadClassicGexParams) {
+	var request DownloadClassicGexRequestObject
+
+	request.Ticker = ticker
+	request.Aggregation = aggregation
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadClassicGex(ctx, request.(DownloadClassicGexRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadClassicGex")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadClassicGexResponseObject); ok {
+		if err := validResponse.VisitDownloadClassicGexResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetClassicGexMajors operation middleware
 func (sh *strictHandler) GetClassicGexMajors(w http.ResponseWriter, r *http.Request, ticker string, aggregation GetClassicGexMajorsParamsAggregation, params GetClassicGexMajorsParams) {
 	var request GetClassicGexMajorsRequestObject
@@ -1596,6 +1893,34 @@ func (sh *strictHandler) GetStateProfile(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// DownloadStateData operation middleware
+func (sh *strictHandler) DownloadStateData(w http.ResponseWriter, r *http.Request, ticker string, pType DownloadStateDataParamsType, params DownloadStateDataParams) {
+	var request DownloadStateDataRequestObject
+
+	request.Ticker = ticker
+	request.Type = pType
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadStateData(ctx, request.(DownloadStateDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadStateData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadStateDataResponseObject); ok {
+		if err := validResponse.VisitDownloadStateDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStateGexMajors operation middleware
 func (sh *strictHandler) GetStateGexMajors(w http.ResponseWriter, r *http.Request, ticker string, pType GetStateGexMajorsParamsType, params GetStateGexMajorsParams) {
 	var request GetStateGexMajorsRequestObject
@@ -1655,53 +1980,56 @@ func (sh *strictHandler) GetStateGexMaxChange(w http.ResponseWriter, r *http.Req
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/+xcbXPbNvL/Khj8+8KeoR5t5Z/qnS9OU9/kwRe7vaSRTwOTKwkVCLAAqEjN+LvfLEBS",
+	"lEjJ8lMuafUmI5nA7mKx+9vFj1C+0FDFiZIgraH9L9SEE4iZ+3gyY1ywawGnzIJ5DyZR0gA+SbRKQFsO",
+	"blyoUmnxQwQm1DyxXEnap2/T+Bo0USPCckEkQkk0oDBncSKA9rsBtYsEaJ9yaWEMmt4E1I+qCLxQ2kJE",
+	"BDe2KpVEXENolearCj7Rbrvba3Q6jc4xDYov3ef0KqDcQuwUZTYYq7kcownZH5jWbEFvln9Q179DaHHE",
+	"i1RrkBZ9s8U1ftAQLawuKBMhFkQoFkGEC2FuNeUVlG0OqpaOuAAz9AK2bYKT7QZn2so6OrX74McNWc3m",
+	"XvIYjGVxQj5PQHrhn1md6KX5P152nvc7vX67/RsN6EjpGCW73W5YHkN1dXV+f6m10ps9DvjYfSgMOJMz",
+	"JnhELA+noIlZxNdK7KbsFcxPmWVVNREIy4aam+lQwwy0YWJFabu8QJVei9LqpNsTFB+z35UeShgPFX/Q",
+	"9Jm6v/pEmYeox+n3VT8fJpor7Tya52Il+QIaczmMfAKVVVQD1kA4rBt8VDs4UXZl1LPn3W7zx95OtmPQ",
+	"TOE2w00aD8cwX3fv8VHvWa/ZPdpNUybjfj72Mb+aDxfnH+qAxOYpvTK68//Pjo+O2912t6SPS/vsmNY5",
+	"9U/QajhmcczubOxNQDX8kXKNOPapZE6xiqv6DH2DcWjq8zSuSa7e8/aOAVqXWrvPrkmsZ527TF5XvfNs",
+	"CfbBcZfLWDei0+21280ds+QhKbY5dGM2fw1ybCe033PokH/rfuWw7v3Ye+LInr+YMDmG+uDOuouNjQWJ",
+	"2Zy8evmBhE4I+eRRKyBuX5lI4YpWm6DSDqzB2YiPLICs6uv0GjGXqQUilJpes3C6pvqOamY1zdKjqlCy",
+	"RkPnMTXYWj+1H1XFhGu7qGo5elwt30wa3jONNMD0XCtsfTfUCNfHCCXHNSn+rPe8d7dmjNksfu9RMvKO",
+	"ildk7F45nAwzUdo+aDm79lwxl3wYKmk1C23Nqe0EAwkPIPkYf1hw8WVqInEZeOvN1Fdr7r73kP8ZmLCT",
+	"LadSFk5gGKvIO1KmMQqH+YSlxtKAamWZ272r8jlu+byyUtzR4oy768HVTVo3IoZY6QV1DTaweNWC4mFF",
+	"lrHMpmZVu5rudsZ7DwbsC3TJAygOn7NKGqJR3O1n6xiMYeM1h50IQdzmrMsjVhEuI5iT9q7LN2kYgjG7",
+	"+eDSBdMWjmeU2lTDtvTORqyesteomJcXQ59Hb/81fHv64S4UTEDd+rea4D20zYBM+yn+++sZ/vv+l8u7",
+	"mWGsCqfbrHADtlpxcnL+Gs349fSEBvTy4vXJw8ioG+edkaoa9TM3VmkeMuHKv0NeA3oGmnzmdkIS0I2T",
+	"87PGFBbEwB8pSMuZIIlgC+wbmgN5gaMN+efFu7evyxySmx4qOeLjVDsWzgcuJrRpDqRDKOsiETX/xNAb",
+	"J+dnNKAz0Mab1222m23XjyUgWcKxeWm2m0c0oAmzE+eNVsHzNQpecAw1yfgebKqlIWZXmpBwT1y1yEiJ",
+	"CDQ5+Pjx48fGmzeN01PioTkgMA9FGoEhTWPZmMvxIXXmaoeQZxGuD+wqVYoQmmWSM7fbbnsQkTZr11mS",
+	"CB46Ea3fjZJL5hU//aBhRPv0/1pLaraV8bKtDaSsi4G1gFxjXW88mRAzvaB9+hrdUyVmLRsbDFEXTlc4",
+	"pZWdMho5vm91vp0ACWtoTQjcF1JUsIAwGRFZAOgaM1nxcIlufUr31rG6Nb7ND1gupJyvVr37CmzuhpzP",
+	"rfHsxNXpkk8rq/aV/CkXvNYr1Kz1wuMFN8Tbu1hbq5dAwgmE0/p1uhLWcPjgKosytRGEdY4JQZQmJoGQ",
+	"j3iIiEEQnHJEKhXGlZK46rllSXdIolkMFjSaVa9VSbEgdsJNoe9AxdwiCKBFmPIcR/+Rgus/JIsR2Kbg",
+	"OpXCz+uF9uoJ962ma6mLU4fJvoXIGoJRKtY20Pug6uHSZrIo5jLbTV/ZzLawzdqJp4zb9Y5lKwDmJm+F",
+	"QFsYXRPCX/zTm1YomDE8bH1h47F2hz0lbzbC4rlWM47VgxHBogh0w9iFADLBujzWLEbow/p4vSDvEpDk",
+	"TFrQgHbJiPyqRBpDcyBfYFrgMG6IBIvljY0Zl8aS89S6JxiqwMIJ8RxPcyDPZFa5JssmYEBzSmBAfTVP",
+	"FJfWOHXu5EhCJsJUMFdCYQYiK+ZVQPaOeAXzFxPG5W2Jdlnuh8gBNMfNgFycfzhceVfk+zOXa9gALFMt",
+	"O+2Uj0NWp1DOvoRZCxqn/ufTSeO3qy+doHfzQ13/W2ndlluJHRFXUZ+MUiEC8idoFSAgKbn6Tg4f1Fta",
+	"iout5uYnHlREg1wg6rnaxeQMp3DbK5lL8Jw9xZllky0Y2+keHW8Fs832lg67neCrQl3+Eq4mxTNOK2vk",
+	"sJM8fkTFq68aa9TnbxbRa5i0pQxwpnS+nilvuDFcjvMC5vUffz39uENEKqyZqYwwZTK+AKKa3mht35aQ",
+	"m8HrTqjbitRniR3jRvg9zQZkfanCTLCwfphxSZRpKI5JFcjLZS1x746QlyYJ6JAZ+BYg7/TyJWEV2PsW",
+	"Ie5bxbB5Q0bVHCoYvWsuWR1XVc0cH40uEIuA/ruhx0+4+gI91gAjz7xKjnqiLYeOwnk7YYdrdsztjRsC",
+	"BxZa1On7IXLwG2hFXrE4ZgFxL5/JeUbZt95m/H/R1J0N5LKVOyQjrWIPRqW1xCoC0SSXeADh2CsaweMY",
+	"ogYuiWR0CVGjgcSZMcLmEkBBRq6Hu7VN86/J933avk97uj6tdBVjQ7fmDxk+k/b92vfUr63s3D07tpjN",
+	"s1fQm4D3hZIWT7YOJLNbVp5sdtinjCWGjyUf8ZBJW77doGagyYxprlIzkMWrbw8UhhxkfFxAOgHpBaTT",
+	"Dkin52nIozbxb8zNYZOcCKPIVCL0MkMGNGZz4q+pDegOIJvd2Njj7B5nnxJnyxeDNkLtPM+N/en4+0Pb",
+	"YvN2hVxjmYXWFwzFzYzkLwidEBVto8sYN5Mk/pKMC5bmQA7kvycgCYpzXalcOTAerACChMP+QBKSvwbC",
+	"FZTFkQaRYA1RqSU8vmaCyRAiEjIhTEFllh4kqTUozyoiVIjGMQ3MuNerJfQvzYB5okyqocZwMtYAU3Lg",
+	"72x7i93NmOwz2LC5Zr6bsLYAM1GfHf26VIv2WM2kYaF/J4HOtBNAWdkrDIi8tIAwIdRnDEImmVgY7lYT",
+	"psaqGDQRSo7JzDSJu7lTQBeX4w015wL3LLvX9NcqNtXYIu/eZ3viNnX7Tu5Yl5xh9ytIAV0aQAO6tKB4",
+	"4kf5B/5zOGE6zgfNmJTFDP/Ej/IP/q5FT0l4N3LhuxMdHNwybv3i381VDTKfl5P8IJPtX/wtA9MEZF2a",
+	"G+KAxRzuK+v3UlmrhY4cYK1S2m+wOSyVWTd4W5F9VALam5YZ4yvWVh7a4f+pH/Hd0tCXCOeF9eSg3GEU",
+	"bkApfz9U3/Pee9474709NOzOeK9g1F2I7jLFs6SqEZOyyhcQ7m4VoM9KBM1AFgyNYHrsSlLGiJMDbPIP",
+	"/W2vnBw/SFJ76C805K20aQ7krQQ4WeG/cxgvMeDvpFgQkyaJ0tasnFfQGabaWQbO+0ucMdu67T2J/ohw",
+	"u2d17sGe5yG/Z9G/V16ndgfv0nPeTqFfOKJiN/48o5gyRC3QeCDLbDq5N5k+kNvY9JwuKVeYrwPie5J+",
+	"j+P/Y3Z+CQR7lv4vgOab2foC0t1vGPWsHmpeq5AJEuFklcQgbfY7HRrQVAvapxNrk36rJXDcRBnbf95+",
+	"3qYYypmiypvUtdsyRZ9slmmUv0mopuxFQUesziUHSkegR0J9blwzA9HhUppfaVXWP1Ixzf5vm/xIU2NL",
+	"6RD4ZcNPEKQ/ZiJo1Ajwv8Oogk8Uc8mN1f7sUTPR326/ubr5bwAAAP//Vz6wMA1JAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

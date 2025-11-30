@@ -15,6 +15,8 @@ tags:
     description: Classic GEX data endpoints
   - name: state
     description: State GEX data endpoints (orderflow-based)
+  - name: download
+    description: Bulk data download endpoints
   - name: info
     description: Server information endpoints
   - name: admin
@@ -464,6 +466,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CurrentDateResponse'
+
+  /{ticker}/classic/{aggregation}/download:
+    get:
+      operationId: downloadClassicGex
+      summary: Download classic GEX dataset
+      description: Downloads the complete JSONL data file for classic GEX data
+      tags: [download]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (uppercase)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: aggregation
+          in: path
+          required: true
+          description: DTE aggregation period
+          schema:
+            type: string
+            enum: [full, zero, one]
+          example: zero
+        - name: key
+          in: query
+          required: true
+          description: API key
+          schema:
+            type: string
+            minLength: 1
+          example: test1234
+      responses:
+        '200':
+          description: JSONL file download
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{ticker}/state/{type}/download:
+    get:
+      operationId: downloadStateData
+      summary: Download state dataset
+      description: Downloads the complete JSONL data file for state GEX or greek data
+      tags: [download]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (uppercase)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: type
+          in: path
+          required: true
+          description: Type parameter (aggregation or greek type)
+          schema:
+            type: string
+            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
+          example: zero
+        - name: key
+          in: query
+          required: true
+          description: API key
+          schema:
+            type: string
+            minLength: 1
+          example: test1234
+      responses:
+        '200':
+          description: JSONL file download
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
