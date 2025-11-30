@@ -43,10 +43,11 @@ test:
 lint:
     golangci-lint run
 
-# Clean build artifacts and staging
+# Clean build artifacts, staging, and logs
 clean:
     rm -rf bin/
     rm -rf data/.staging/
+    rm -rf logs/
 
 # --- Browser Automation Commands ---
 
