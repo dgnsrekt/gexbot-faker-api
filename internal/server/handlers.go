@@ -1063,6 +1063,57 @@ func (r *stateDownloadResponse) VisitDownloadStateDataResponse(w http.ResponseWr
 	return r.serveFile(w)
 }
 
+// Negotiate implements generated.StrictServerInterface
+// Returns WebSocket connection URLs for all available hubs.
+func (s *Server) Negotiate(ctx context.Context, request generated.NegotiateRequestObject) (generated.NegotiateResponseObject, error) {
+	// Check authorization header
+	if request.Params.Authorization == "" {
+		return generated.Negotiate401JSONResponse{
+			Error: ptr("missing authorization"),
+		}, nil
+	}
+
+	// Parse API key from "Basic <key>" format
+	apiKey := request.Params.Authorization
+	if len(apiKey) > 6 && apiKey[:6] == "Basic " {
+		apiKey = apiKey[6:]
+	}
+
+	// Generate connection ID
+	connID := fmt.Sprintf("%d", time.Now().UnixNano())
+	token := fmt.Sprintf("%s:%s", apiKey, connID)
+
+	// Build WebSocket URLs
+	baseURL := "ws://localhost:" + s.config.Port + "/ws"
+
+	classicURL := fmt.Sprintf("%s/classic?access_token=%s", baseURL, token)
+	stateGexURL := fmt.Sprintf("%s/state_gex?access_token=%s", baseURL, token)
+	stateGreeksZeroURL := fmt.Sprintf("%s/state_greeks_zero?access_token=%s", baseURL, token)
+	stateGreeksOneURL := fmt.Sprintf("%s/state_greeks_one?access_token=%s", baseURL, token)
+	orderflowURL := fmt.Sprintf("%s/orderflow?access_token=%s", baseURL, token)
+
+	s.logger.Debug("negotiate request",
+		zap.String("apiKey", maskAPIKey(apiKey)),
+		zap.String("connID", connID),
+	)
+
+	return generated.Negotiate200JSONResponse{
+		WebsocketUrls: &struct {
+			Classic         *string `json:"classic,omitempty"`
+			Orderflow       *string `json:"orderflow,omitempty"`
+			StateGex        *string `json:"state_gex,omitempty"`
+			StateGreeksOne  *string `json:"state_greeks_one,omitempty"`
+			StateGreeksZero *string `json:"state_greeks_zero,omitempty"`
+		}{
+			Classic:         &classicURL,
+			StateGex:        &stateGexURL,
+			StateGreeksZero: &stateGreeksZeroURL,
+			StateGreeksOne:  &stateGreeksOneURL,
+			Orderflow:       &orderflowURL,
+		},
+	}, nil
+}
+
 // DownloadStateData implements generated.StrictServerInterface
 func (s *Server) DownloadStateData(ctx context.Context, request generated.DownloadStateDataRequestObject) (generated.DownloadStateDataResponseObject, error) {
 	ticker := request.Ticker
