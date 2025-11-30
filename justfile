@@ -10,6 +10,7 @@ help:
     @echo ""
     @echo "  just build               Build the downloader binary"
     @echo "  just download            Download data for GEXBOT_DOWNLOADER_DATE"
+    @echo "  just convert             Convert JSON files to JSONL format"
     @echo "  just test                Run tests"
     @echo "  just lint                Run linter"
     @echo "  just clean               Clean build artifacts"
@@ -29,6 +30,10 @@ build:
 # Download historical data for GEXBOT_DOWNLOADER_DATE
 download: build
     ./bin/gexbot-downloader download $GEXBOT_DOWNLOADER_DATE
+
+# Convert JSON files to JSONL format for GEXBOT_DOWNLOADER_DATE
+convert: build
+    ./bin/gexbot-downloader convert $GEXBOT_DOWNLOADER_DATE
 
 # Run tests
 test:
