@@ -7,16 +7,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// GroupValidator is a function that validates group names for a hub.
+type GroupValidator func(group string) bool
+
 // Hub manages WebSocket connections and group subscriptions.
 type Hub struct {
-	name       string
-	clients    map[*Client]bool
-	groups     map[string]map[*Client]bool // group -> clients
-	register   chan *Client
-	unregister chan *Client
-	broadcast  chan *GroupMessage
-	mu         sync.RWMutex
-	logger     *zap.Logger
+	name           string
+	clients        map[*Client]bool
+	groups         map[string]map[*Client]bool // group -> clients
+	register       chan *Client
+	unregister     chan *Client
+	broadcast      chan *GroupMessage
+	mu             sync.RWMutex
+	logger         *zap.Logger
+	groupValidator GroupValidator
 }
 
 // GroupMessage represents a message to broadcast to a group.
@@ -25,17 +29,26 @@ type GroupMessage struct {
 	Payload []byte
 }
 
-// NewHub creates a new Hub.
-func NewHub(name string, logger *zap.Logger) *Hub {
+// NewHub creates a new Hub with a group validator.
+func NewHub(name string, logger *zap.Logger, validator GroupValidator) *Hub {
 	return &Hub{
-		name:       name,
-		clients:    make(map[*Client]bool),
-		groups:     make(map[string]map[*Client]bool),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		broadcast:  make(chan *GroupMessage, 256),
-		logger:     logger,
+		name:           name,
+		clients:        make(map[*Client]bool),
+		groups:         make(map[string]map[*Client]bool),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		broadcast:      make(chan *GroupMessage, 256),
+		logger:         logger,
+		groupValidator: validator,
 	}
+}
+
+// ValidateGroup checks if a group name is valid for this hub.
+func (h *Hub) ValidateGroup(group string) bool {
+	if h.groupValidator == nil {
+		return true // No validator means all groups are valid
+	}
+	return h.groupValidator(group)
 }
 
 // Run processes hub events. Call this in a goroutine.
@@ -168,7 +181,8 @@ func (h *Hub) Broadcast(group string, payload []byte) {
 
 // BroadcastData sends encoded data to all clients in a group.
 // Each client formats the data message according to its negotiated protocol.
-func (h *Hub) BroadcastData(group string, encodedData []byte) {
+// typeUrl should be "proto.orderflow", "proto.gex", "proto.greek", etc.
+func (h *Hub) BroadcastData(group string, encodedData []byte, typeUrl string) {
 	h.mu.RLock()
 	clients, ok := h.groups[group]
 	if !ok {
@@ -184,7 +198,7 @@ func (h *Hub) BroadcastData(group string, encodedData []byte) {
 
 	for _, client := range clientList {
 		// Build message in client's protocol format
-		msg := client.buildDataMsg(group, encodedData)
+		msg := client.buildDataMsg(group, encodedData, typeUrl)
 		select {
 		case client.send <- msg:
 		default:

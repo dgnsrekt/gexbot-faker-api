@@ -118,7 +118,7 @@ func (s *Streamer) broadcastNext(ctx context.Context) {
 		}
 
 		// Broadcast to all clients (each client formats per its protocol)
-		s.hub.BroadcastData(group, encoded)
+		s.hub.BroadcastData(group, encoded, "proto.orderflow")
 
 		// Advance index
 		s.mu.Lock()

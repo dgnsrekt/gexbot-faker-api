@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
+	gexpb "github.com/dgnsrekt/gexbot-downloader/internal/ws/generated/gex"
 	ofpb "github.com/dgnsrekt/gexbot-downloader/internal/ws/generated/orderflow"
 )
 
@@ -87,6 +88,109 @@ func (e *Encoder) EncodeOrderflow(jsonData []byte) ([]byte, error) {
 	}
 
 	// 4. Compress with Zstd
+	compressed := e.zstdEncoder.EncodeAll(pbData, nil)
+
+	return compressed, nil
+}
+
+// EncodeGex converts JSON GEX data to Zstd-compressed protobuf.
+// The result is ready to be wrapped in a DataMessage.
+func (e *Encoder) EncodeGex(jsonData []byte) ([]byte, error) {
+	// 1. Parse JSON into GexData
+	var gex data.GexData
+	if err := json.Unmarshal(jsonData, &gex); err != nil {
+		return nil, fmt.Errorf("unmarshal gex json: %w", err)
+	}
+
+	// 2. Parse strikes array: [[strike_price, value_1, value_2, [priors]], ...]
+	var rawStrikes [][]json.RawMessage
+	if len(gex.Strikes) > 0 {
+		if err := json.Unmarshal(gex.Strikes, &rawStrikes); err != nil {
+			return nil, fmt.Errorf("unmarshal strikes: %w", err)
+		}
+	}
+
+	pbStrikes := make([]*gexpb.Strike, 0, len(rawStrikes))
+	for _, s := range rawStrikes {
+		if len(s) < 3 {
+			continue
+		}
+		var strikePrice, value1, value2 float64
+		json.Unmarshal(s[0], &strikePrice)
+		json.Unmarshal(s[1], &value1)
+		json.Unmarshal(s[2], &value2)
+
+		strike := &gexpb.Strike{
+			StrikePrice: uint32(strikePrice * 100),
+			Value_1:     int32(value1 * 100),
+			Value_2:     int32(value2 * 100),
+		}
+
+		// Parse priors if present
+		if len(s) >= 4 {
+			var priors []float64
+			if err := json.Unmarshal(s[3], &priors); err == nil && len(priors) > 0 {
+				priorValues := make([]int32, len(priors))
+				for i, p := range priors {
+					priorValues[i] = int32(p * 100)
+				}
+				strike.Priors = &gexpb.Priors{Values: priorValues}
+			}
+		}
+		pbStrikes = append(pbStrikes, strike)
+	}
+
+	// 3. Parse max_priors: [[first, second], ...] (6 tuples)
+	var rawMaxPriors [][]float64
+	var pbMaxPriors *gexpb.MaxPriors
+	if len(gex.MaxPriors) > 0 {
+		if err := json.Unmarshal(gex.MaxPriors, &rawMaxPriors); err == nil && len(rawMaxPriors) > 0 {
+			tuples := make([]*gexpb.MaxPriorsTuple, 0, len(rawMaxPriors))
+			for _, mp := range rawMaxPriors {
+				if len(mp) >= 2 {
+					tuples = append(tuples, &gexpb.MaxPriorsTuple{
+						FirstValue:  int32(mp[0] * 100),
+						SecondValue: int32(mp[1] * 1000),
+					})
+				}
+			}
+			if len(tuples) > 0 {
+				pbMaxPriors = &gexpb.MaxPriors{Tuples: tuples}
+			}
+		}
+	}
+
+	// 4. Build protobuf message with integer scaling
+	minDte := int32(gex.MinDTE)
+	secMinDte := int32(gex.SecMinDTE)
+
+	pbMsg := &gexpb.Gex{
+		Timestamp:  gex.Timestamp,
+		Ticker:     gex.Ticker,
+		MinDte:     &minDte,
+		SecMinDte:  &secMinDte,
+		// Fields multiplied by 100
+		Spot:        uint32(gex.Spot * 100),
+		ZeroGamma:   uint32(gex.ZeroGamma * 100),
+		MajorPosVol: uint32(gex.MajorPosVol * 100),
+		MajorPosOi:  uint32(gex.MajorPosOI * 100),
+		MajorNegVol: uint32(gex.MajorNegVol * 100),
+		MajorNegOi:  uint32(gex.MajorNegOI * 100),
+		Strikes:     pbStrikes,
+		// Fields multiplied by 1000
+		SumGexVol:         int32(gex.SumGexVol * 1000),
+		SumGexOi:          int32(gex.SumGexOI * 1000),
+		DeltaRiskReversal: int32(gex.DeltaRiskReversal * 1000),
+		MaxPriors:         pbMaxPriors,
+	}
+
+	// 5. Serialize to protobuf bytes
+	pbData, err := proto.Marshal(pbMsg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal gex protobuf: %w", err)
+	}
+
+	// 6. Compress with Zstd
 	compressed := e.zstdEncoder.EncodeAll(pbData, nil)
 
 	return compressed, nil

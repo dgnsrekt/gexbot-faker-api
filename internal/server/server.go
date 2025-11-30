@@ -15,7 +15,13 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
-func NewRouter(server *Server, wsHub *ws.Hub, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
+// WebSocketHubs holds all WebSocket hubs for routing.
+type WebSocketHubs struct {
+	Orderflow *ws.Hub
+	StateGex  *ws.Hub
+}
+
+func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
 	// Load OpenAPI spec for validation
 	swagger, err := generated.GetSwagger()
 	if err != nil {
@@ -42,8 +48,13 @@ func NewRouter(server *Server, wsHub *ws.Hub, negotiateHandler *ws.NegotiateHand
 	if negotiateHandler != nil {
 		r.Get("/negotiate", negotiateHandler.HandleNegotiate)
 	}
-	if wsHub != nil {
-		r.HandleFunc("/ws/orderflow", wsHub.HandleOrderflowWS)
+	if wsHubs != nil {
+		if wsHubs.Orderflow != nil {
+			r.HandleFunc("/ws/orderflow", wsHubs.Orderflow.HandleOrderflowWS)
+		}
+		if wsHubs.StateGex != nil {
+			r.HandleFunc("/ws/state_gex", wsHubs.StateGex.HandleOrderflowWS)
+		}
 	}
 
 	// API routes with compression and OpenAPI validation

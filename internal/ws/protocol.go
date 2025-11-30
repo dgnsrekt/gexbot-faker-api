@@ -85,10 +85,11 @@ func buildAckMessage(ackID uint64, success bool) []byte {
 
 // buildDataMessage creates a DataMessage with compressed protobuf payload.
 // The compressedData should be Zstd-compressed protobuf bytes.
-func buildDataMessage(group string, compressedData []byte) []byte {
+// typeUrl should be "proto.orderflow", "proto.gex", "proto.greek", etc.
+func buildDataMessage(group string, compressedData []byte, typeUrl string) []byte {
 	// Wrap in google.protobuf.Any with type URL matching real API
 	anyMsg := &anypb.Any{
-		TypeUrl: "proto.orderflow",
+		TypeUrl: typeUrl,
 		Value:   compressedData,
 	}
 
@@ -149,10 +150,11 @@ func buildAckMessageJSON(ackID uint64, success bool) []byte {
 
 // buildDataMessageJSON creates a JSON DataMessage with base64-encoded binary payload.
 // The payload is wrapped in a google.protobuf.Any message to match protobuf protocol format.
-func buildDataMessageJSON(group string, encodedData []byte) []byte {
+// typeUrl should be "proto.orderflow", "proto.gex", "proto.greek", etc.
+func buildDataMessageJSON(group string, encodedData []byte, typeUrl string) []byte {
 	// Wrap in Any message (same as protobuf protocol) so Python client can parse uniformly
 	anyMsg := &anypb.Any{
-		TypeUrl: "proto.orderflow",
+		TypeUrl: typeUrl,
 		Value:   encodedData,
 	}
 	anyBytes, _ := proto.Marshal(anyMsg)

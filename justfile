@@ -58,6 +58,7 @@ generate-gex-faker-api-spec:
 generate-protos:
     ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/orderflow --go_opt=paths=source_relative proto/orderflow.proto
     ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/webpubsub --go_opt=paths=source_relative proto/webpubsub_messages.proto
+    ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/gex --go_opt=paths=source_relative proto/gex.proto
 
 # Build the GEX Faker server binary
 build-gex-faker: generate-gex-faker-api-spec

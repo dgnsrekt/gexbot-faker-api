@@ -85,35 +85,49 @@ func run() int {
 	defer cancel()
 
 	// WebSocket components (optional)
-	var wsHub *ws.Hub
+	var wsHubs *server.WebSocketHubs
 	var negotiateHandler *ws.NegotiateHandler
-	var streamer *ws.Streamer
 
 	if cfg.WSEnabled {
-		// Create WebSocket hub
-		wsHub = ws.NewHub("orderflow", logger)
-		go wsHub.Run(ctx)
+		wsHubs = &server.WebSocketHubs{}
+
+		// Create orderflow hub with validator
+		orderflowHub := ws.NewHub("orderflow", logger, ws.IsValidOrderflowGroup)
+		go orderflowHub.Run(ctx)
+		wsHubs.Orderflow = orderflowHub
+
+		// Create state_gex hub with validator
+		stateGexHub := ws.NewHub("state_gex", logger, ws.IsValidStateGexGroup)
+		go stateGexHub.Run(ctx)
+		wsHubs.StateGex = stateGexHub
 
 		// Create negotiate handler
 		negotiateHandler = ws.NewNegotiateHandler(logger)
 
-		// Create and start streamer
-		var err error
-		streamer, err = ws.NewStreamer(wsHub, loader, cfg.WSStreamInterval, logger)
+		// Create and start orderflow streamer
+		orderflowStreamer, err := ws.NewStreamer(orderflowHub, loader, cfg.WSStreamInterval, logger)
 		if err != nil {
-			logger.Error("failed to create streamer", zap.Error(err))
+			logger.Error("failed to create orderflow streamer", zap.Error(err))
 			return 1
 		}
-		go streamer.Run(ctx)
+		go orderflowStreamer.Run(ctx)
+
+		// Create and start GEX streamer
+		gexStreamer, err := ws.NewGexStreamer(stateGexHub, loader, cfg.WSStreamInterval, logger)
+		if err != nil {
+			logger.Error("failed to create gex streamer", zap.Error(err))
+			return 1
+		}
+		go gexStreamer.Run(ctx)
 
 		logger.Info("WebSocket enabled",
-			zap.String("hub", "orderflow"),
+			zap.Strings("hubs", []string{"orderflow", "state_gex"}),
 			zap.Duration("streamInterval", cfg.WSStreamInterval),
 		)
 	}
 
 	// Create router
-	router, err := server.NewRouter(srv, wsHub, negotiateHandler, logger)
+	router, err := server.NewRouter(srv, wsHubs, negotiateHandler, logger)
 	if err != nil {
 		logger.Error("failed to create router", zap.Error(err))
 		return 1
@@ -153,9 +167,6 @@ func run() int {
 		logger.Error("server shutdown error", zap.Error(err))
 		return 1
 	}
-
-	// Silence unused variable warning
-	_ = streamer
 
 	logger.Info("server stopped")
 	return 0

@@ -211,7 +211,7 @@ func (c *Client) handleMessage(data []byte) {
 
 	switch m := msg.(type) {
 	case *joinGroupRequest:
-		if isValidOrderflowGroup(m.group) {
+		if c.hub.ValidateGroup(m.group) {
 			c.hub.JoinGroup(c, m.group)
 			if m.ackID != nil {
 				c.send <- c.buildAck(*m.ackID, true)
@@ -254,15 +254,32 @@ func (c *Client) buildPong() []byte {
 }
 
 // buildDataMsg creates a data message in the correct format for this client's protocol.
-func (c *Client) buildDataMsg(group string, encodedData []byte) []byte {
+// typeUrl should be "proto.orderflow", "proto.gex", "proto.greek", etc.
+func (c *Client) buildDataMsg(group string, encodedData []byte, typeUrl string) []byte {
 	if c.protocol == "json" {
-		return buildDataMessageJSON(group, encodedData)
+		return buildDataMessageJSON(group, encodedData, typeUrl)
 	}
-	return buildDataMessage(group, encodedData)
+	return buildDataMessage(group, encodedData, typeUrl)
 }
 
-// isValidOrderflowGroup validates the orderflow group name format.
+// IsValidOrderflowGroup validates the orderflow group name format.
 // Expected format: blue_{ticker}_orderflow_orderflow
-func isValidOrderflowGroup(group string) bool {
+func IsValidOrderflowGroup(group string) bool {
 	return strings.HasPrefix(group, "blue_") && strings.HasSuffix(group, "_orderflow_orderflow")
+}
+
+// IsValidStateGexGroup validates the state_gex group name format.
+// Expected format: blue_{ticker}_state_{gex_full|gex_zero|gex_one}
+func IsValidStateGexGroup(group string) bool {
+	if !strings.HasPrefix(group, "blue_") {
+		return false
+	}
+	// Must contain _state_ separator
+	if !strings.Contains(group, "_state_") {
+		return false
+	}
+	// Must end with one of the valid GEX categories
+	return strings.HasSuffix(group, "_state_gex_full") ||
+		strings.HasSuffix(group, "_state_gex_zero") ||
+		strings.HasSuffix(group, "_state_gex_one")
 }
