@@ -10,6 +10,7 @@ help:
     @echo ""
     @echo "  just build               Build the downloader binary"
     @echo "  just download            Download data for GEXBOT_DOWNLOADER_DATE"
+    @echo "  just download-lookback N Download last N days of data (max 90)"
     @echo "  just convert-to-jsonl    Convert JSON files to JSONL format"
     @echo ""
     @echo "Server Commands"
@@ -53,6 +54,30 @@ serve-gex-faker: build-gex-faker
 # Download historical data for GEXBOT_DOWNLOADER_DATE
 download: build
     ./bin/gexbot-downloader download $GEXBOT_DOWNLOADER_DATE
+
+# Download historical data for a lookback window (max 90 days)
+# Usage: just download-lookback 30
+download-lookback days: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Validate lookback is within 90-day limit
+    if [ "{{days}}" -gt 90 ]; then
+        echo "Error: Lookback window cannot exceed 90 days (got {{days}})"
+        exit 1
+    fi
+
+    if [ "{{days}}" -lt 1 ]; then
+        echo "Error: Lookback window must be at least 1 day"
+        exit 1
+    fi
+
+    # Calculate dates
+    START_DATE=$(date -d "{{days}} days ago" +%Y-%m-%d)
+    END_DATE=$(date -d "yesterday" +%Y-%m-%d)
+
+    echo "Downloading data from $START_DATE to $END_DATE ({{days}} day lookback)"
+    ./bin/gexbot-downloader download "$START_DATE" "$END_DATE"
 
 # Convert JSON files to JSONL format for GEXBOT_DOWNLOADER_DATE
 convert-to-jsonl: build
