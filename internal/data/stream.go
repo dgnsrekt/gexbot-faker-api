@@ -125,6 +125,20 @@ func (s *StreamLoader) indexFile(path string) ([]int64, *os.File, error) {
 }
 
 func (s *StreamLoader) GetAtIndex(ctx context.Context, ticker, pkg, category string, index int) (*GexData, error) {
+	rawData, err := s.GetRawAtIndex(ctx, ticker, pkg, category, index)
+	if err != nil {
+		return nil, err
+	}
+
+	var gex GexData
+	if err := json.Unmarshal(rawData, &gex); err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	return &gex, nil
+}
+
+func (s *StreamLoader) GetRawAtIndex(ctx context.Context, ticker, pkg, category string, index int) ([]byte, error) {
 	key := DataKey(ticker, pkg, category)
 
 	s.mu.RLock()
@@ -156,13 +170,7 @@ func (s *StreamLoader) GetAtIndex(ctx context.Context, ticker, pkg, category str
 		return nil, fmt.Errorf("read error: %w", err)
 	}
 
-	// Unmarshal
-	var gex GexData
-	if err := json.Unmarshal(line, &gex); err != nil {
-		return nil, fmt.Errorf("unmarshal error: %w", err)
-	}
-
-	return &gex, nil
+	return line, nil
 }
 
 func (s *StreamLoader) GetLength(ticker, pkg, category string) (int, error) {

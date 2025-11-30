@@ -200,7 +200,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /{ticker}/state/{aggregation}/majors:
+  /{ticker}/state/{type}/majors:
     get:
       operationId: getStateGexMajors
       summary: Get GEX profile major levels
@@ -208,6 +208,7 @@ paths:
         Provides the major levels from the GEX Profile, including the strikes
         with the largest positive (call) and negative (put) GEX imbalances.
         This is a slimmed-down version of the main GEX profile endpoint.
+        Only supports aggregation types (full, zero, one), not greek types.
       tags: [state]
       parameters:
         - name: ticker
@@ -218,7 +219,7 @@ paths:
             type: string
             pattern: '^[A-Z]{1,5}$'
           example: SPX
-        - name: aggregation
+        - name: type
           in: path
           required: true
           description: "Aggregation period: full, zero, or one"
@@ -260,7 +261,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /{ticker}/state/{aggregation}/maxchange:
+  /{ticker}/state/{type}/maxchange:
     get:
       operationId: getStateGexMaxChange
       summary: Get GEX profile max change levels
@@ -268,6 +269,7 @@ paths:
         Shows the strikes with the most significant change in GEX imbalance
         over various lookback periods (current, 1, 5, 10, 15, and 30 minutes).
         Also known as "max priors" for the GEX Profile.
+        Only supports aggregation types (full, zero, one), not greek types.
       tags: [state]
       parameters:
         - name: ticker
@@ -278,7 +280,7 @@ paths:
             type: string
             pattern: '^[A-Z]{1,5}$'
           example: SPX
-        - name: aggregation
+        - name: type
           in: path
           required: true
           description: "Aggregation period: full, zero, or one"
@@ -320,14 +322,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /{ticker}/state/{aggregation}:
+  /{ticker}/state/{type}:
     get:
-      operationId: getStateGexProfile
-      summary: Get GEX profile data
+      operationId: getStateProfile
+      summary: Get state profile data (GEX or Greeks)
       description: |
-        Based on classified orderflow, this endpoint nets out imbalanced calls
-        against imbalanced puts to locate areas of significant imbalanced exposure.
-        It helps identify high/low gamma nodes and call/put gamma regimes.
+        Unified endpoint for state profile data.
+
+        When type is an aggregation (full, zero, one):
+          Returns GEX profile data - nets out imbalanced calls against imbalanced puts
+          to locate areas of significant imbalanced exposure.
+
+        When type is a greek (delta_zero, gamma_zero, etc.):
+          Returns Greek profile data - shows net imbalance of transactions for the
+          specified Greek, allowing analysis of customer long vs. short positioning.
       tags: [state]
       parameters:
         - name: ticker
@@ -338,13 +346,13 @@ paths:
             type: string
             pattern: '^[A-Z]{1,5}$'
           example: SPX
-        - name: aggregation
+        - name: type
           in: path
           required: true
-          description: "Aggregation period: full, zero, or one"
+          description: "Aggregation period (full, zero, one) OR Greek type (delta_zero, gamma_zero, etc.)"
           schema:
             type: string
-            enum: [full, zero, one]
+            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
           example: zero
         - name: key
           in: query
@@ -356,11 +364,13 @@ paths:
           example: test1234
       responses:
         '200':
-          description: GEX profile data
+          description: Profile data (GexData for aggregations, GreekProfileData for greeks)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GexData'
+                oneOf:
+                  - $ref: '#/components/schemas/GexData'
+                  - $ref: '#/components/schemas/GreekProfileData'
         '400':
           description: Invalid request parameters
           content:
@@ -638,6 +648,53 @@ components:
           items:
             type: number
           description: 30-minute lookback max GEX change
+
+    GreekProfileData:
+      type: object
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          example: 1764340202
+        ticker:
+          type: string
+          minLength: 2
+          maxLength: 5
+          example: SPX
+        spot:
+          type: number
+          format: double
+          example: 6822.95
+        min_dte:
+          type: integer
+          example: 0
+        sec_min_dte:
+          type: integer
+          example: 3
+        major_positive:
+          type: number
+          format: double
+          example: 6100
+        major_negative:
+          type: number
+          format: double
+          example: 5800
+        major_long_gamma:
+          type: number
+          format: double
+          example: 6585
+        major_short_gamma:
+          type: number
+          format: double
+          example: 6585
+        mini_contracts:
+          type: array
+          items:
+            type: array
+          description: Array of contract data arrays
 
     ErrorResponse:
       type: object

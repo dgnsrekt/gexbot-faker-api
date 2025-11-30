@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"sort"
 	"strings"
 
@@ -13,6 +14,23 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 )
+
+// Custom response types for GetStateProfile oneOf responses
+type stateProfileGexDataResponse generated.GexData
+
+func (r stateProfileGexDataResponse) VisitGetStateProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	return json.NewEncoder(w).Encode(r)
+}
+
+type stateProfileGreekDataResponse generated.GreekProfileData
+
+func (r stateProfileGreekDataResponse) VisitGetStateProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	return json.NewEncoder(w).Encode(r)
+}
 
 type Server struct {
 	loader data.DataLoader
@@ -65,12 +83,14 @@ func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetC
 		}, nil
 	}
 
-	// Build cache key - append _majors suffix in independent mode
-	cacheCategory := category
-	if s.config.EndpointCacheMode == "independent" {
-		cacheCategory += "_majors"
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category with _majors suffix
+		cacheKey = data.CacheKey(ticker, pkg, category+"_majors", apiKey)
 	}
-	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -149,12 +169,14 @@ func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.G
 		}, nil
 	}
 
-	// Build cache key - append _maxchange suffix in independent mode
-	cacheCategory := category
-	if s.config.EndpointCacheMode == "independent" {
-		cacheCategory += "_maxchange"
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category with _maxchange suffix
+		cacheKey = data.CacheKey(ticker, pkg, category+"_maxchange", apiKey)
 	}
-	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -245,8 +267,14 @@ func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetCl
 		}, nil
 	}
 
-	// Get index and check exhaustion
-	cacheKey := data.CacheKey(ticker, pkg, category, apiKey)
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category
+		cacheKey = data.CacheKey(ticker, pkg, category, apiKey)
+	}
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -395,40 +423,65 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 	}, nil
 }
 
-// GetStateGexProfile implements generated.StrictServerInterface
-func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetStateGexProfileRequestObject) (generated.GetStateGexProfileResponseObject, error) {
-	ticker := request.Ticker
-	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+// Type classification helpers
+var aggregationTypes = map[string]bool{"full": true, "zero": true, "one": true}
+var greekTypes = map[string]bool{
+	"delta_zero": true, "gamma_zero": true, "delta_one": true, "gamma_one": true,
+	"charm_zero": true, "vanna_zero": true, "charm_one": true, "vanna_one": true,
+}
 
-	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+// GetStateProfile implements generated.StrictServerInterface
+// Unified handler for both GEX profile (aggregations) and Greek profile (greeks)
+func (s *Server) GetStateProfile(ctx context.Context, request generated.GetStateProfileRequestObject) (generated.GetStateProfileResponseObject, error) {
+	ticker := request.Ticker
+	typeParam := string(request.Type)
+	apiKey := request.Params.Key
 	pkg := "state"
 
-	s.logger.Debug("state gex profile request",
+	s.logger.Debug("state profile request",
 		zap.String("ticker", ticker),
-		zap.String("aggregation", aggregation),
-		zap.String("category", category),
+		zap.String("type", typeParam),
 		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
 
+	// Determine category based on type
+	var category string
+	isGreek := greekTypes[typeParam]
+	if aggregationTypes[typeParam] {
+		category = "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+	} else if isGreek {
+		category = typeParam // delta_zero, gamma_zero, etc.
+	} else {
+		return generated.GetStateProfile400JSONResponse{
+			Error: ptr("Invalid type parameter: " + typeParam),
+		}, nil
+	}
+
 	// Check if data exists
 	if !s.loader.Exists(ticker, pkg, category) {
-		return generated.GetStateGexProfile404JSONResponse{
-			Error: ptr("Data not found for " + ticker + "/state/" + aggregation),
+		return generated.GetStateProfile404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/state/" + typeParam),
 		}, nil
 	}
 
 	// Get data length
 	length, err := s.loader.GetLength(ticker, pkg, category)
 	if err != nil {
-		return generated.GetStateGexProfile404JSONResponse{
+		return generated.GetStateProfile404JSONResponse{
 			Error: ptr(err.Error()),
 		}, nil
 	}
 
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category
+		cacheKey = data.CacheKey(ticker, pkg, category, apiKey)
+	}
+
 	// Get index and check exhaustion
-	cacheKey := data.CacheKey(ticker, pkg, category, apiKey)
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -437,31 +490,71 @@ func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetSt
 			zap.Int("index", idx),
 			zap.Int("length", length),
 		)
-		return generated.GetStateGexProfile404JSONResponse{
+		return generated.GetStateProfile404JSONResponse{
 			Error: ptr("No more data available"),
 		}, nil
 	}
 
-	// Get data at index
-	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
+	// Get raw data at index
+	rawData, err := s.loader.GetRawAtIndex(ctx, ticker, pkg, category, idx)
 	if err != nil {
 		if errors.Is(err, data.ErrIndexOutOfBounds) {
-			return generated.GetStateGexProfile404JSONResponse{
+			return generated.GetStateProfile404JSONResponse{
 				Error: ptr("Index out of bounds"),
 			}, nil
 		}
-		return generated.GetStateGexProfile404JSONResponse{
+		return generated.GetStateProfile404JSONResponse{
 			Error: ptr(err.Error()),
 		}, nil
 	}
 
-	s.logger.Debug("returning data",
+	s.logger.Debug("returning state profile data",
 		zap.String("cacheKey", maskCacheKey(cacheKey)),
 		zap.Int("index", idx),
-		zap.Int64("timestamp", gexData.Timestamp),
+		zap.Bool("isGreek", isGreek),
 	)
 
-	// Convert json.RawMessage to []interface{}
+	// Return appropriate response based on type
+	if isGreek {
+		// Parse into GreekData and build GreekProfileData response
+		var greekData data.GreekData
+		if err := json.Unmarshal(rawData, &greekData); err != nil {
+			s.logger.Error("failed to parse greek data", zap.Error(err))
+			return generated.GetStateProfile404JSONResponse{
+				Error: ptr("Failed to parse greek data"),
+			}, nil
+		}
+
+		var miniContracts [][]interface{}
+		if greekData.MiniContracts != nil {
+			if err := json.Unmarshal(greekData.MiniContracts, &miniContracts); err != nil {
+				s.logger.Warn("failed to unmarshal mini_contracts", zap.Error(err))
+			}
+		}
+
+		return stateProfileGreekDataResponse{
+			Timestamp:       greekData.Timestamp,
+			Ticker:          greekData.Ticker,
+			Spot:            &greekData.Spot,
+			MinDte:          &greekData.MinDTE,
+			SecMinDte:       &greekData.SecMinDTE,
+			MajorPositive:   &greekData.MajorPositive,
+			MajorNegative:   &greekData.MajorNegative,
+			MajorLongGamma:  &greekData.MajorLongGamma,
+			MajorShortGamma: &greekData.MajorShortGamma,
+			MiniContracts:   &miniContracts,
+		}, nil
+	}
+
+	// Parse into GexData and build GexData response
+	var gexData data.GexData
+	if err := json.Unmarshal(rawData, &gexData); err != nil {
+		s.logger.Error("failed to parse gex data", zap.Error(err))
+		return generated.GetStateProfile404JSONResponse{
+			Error: ptr("Failed to parse gex data"),
+		}, nil
+	}
+
 	var strikes []interface{}
 	if gexData.Strikes != nil {
 		if err := json.Unmarshal(gexData.Strikes, &strikes); err != nil {
@@ -476,7 +569,7 @@ func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetSt
 		}
 	}
 
-	return generated.GetStateGexProfile200JSONResponse{
+	return stateProfileGexDataResponse{
 		Timestamp:         gexData.Timestamp,
 		Ticker:            gexData.Ticker,
 		MinDte:            &gexData.MinDTE,
@@ -498,16 +591,16 @@ func (s *Server) GetStateGexProfile(ctx context.Context, request generated.GetSt
 // GetStateGexMajors implements generated.StrictServerInterface
 func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetStateGexMajorsRequestObject) (generated.GetStateGexMajorsResponseObject, error) {
 	ticker := request.Ticker
-	aggregation := string(request.Aggregation)
+	typeParam := string(request.Type)
 	apiKey := request.Params.Key
 
-	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	// Map type to internal category format
+	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
 	pkg := "state"
 
 	s.logger.Debug("state gex majors request",
 		zap.String("ticker", ticker),
-		zap.String("aggregation", aggregation),
+		zap.String("type", typeParam),
 		zap.String("category", category),
 		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
@@ -515,7 +608,7 @@ func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetSta
 	// Check if data exists
 	if !s.loader.Exists(ticker, pkg, category) {
 		return generated.GetStateGexMajors404JSONResponse{
-			Error: ptr("Data not found for " + ticker + "/state/" + aggregation),
+			Error: ptr("Data not found for " + ticker + "/state/" + typeParam),
 		}, nil
 	}
 
@@ -527,12 +620,16 @@ func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetSta
 		}, nil
 	}
 
-	// Build cache key - append _majors suffix in independent mode
-	cacheCategory := category
-	if s.config.EndpointCacheMode == "independent" {
-		cacheCategory += "_majors"
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category with _majors suffix
+		cacheKey = data.CacheKey(ticker, pkg, category+"_majors", apiKey)
 	}
-	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
+
+	// Get index and check exhaustion
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -582,16 +679,16 @@ func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetSta
 // GetStateGexMaxChange implements generated.StrictServerInterface
 func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.GetStateGexMaxChangeRequestObject) (generated.GetStateGexMaxChangeResponseObject, error) {
 	ticker := request.Ticker
-	aggregation := string(request.Aggregation)
+	typeParam := string(request.Type)
 	apiKey := request.Params.Key
 
-	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	// Map type to internal category format
+	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
 	pkg := "state"
 
 	s.logger.Debug("state gex max change request",
 		zap.String("ticker", ticker),
-		zap.String("aggregation", aggregation),
+		zap.String("type", typeParam),
 		zap.String("category", category),
 		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
@@ -599,7 +696,7 @@ func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.Get
 	// Check if data exists
 	if !s.loader.Exists(ticker, pkg, category) {
 		return generated.GetStateGexMaxChange404JSONResponse{
-			Error: ptr("Data not found for " + ticker + "/state/" + aggregation),
+			Error: ptr("Data not found for " + ticker + "/state/" + typeParam),
 		}, nil
 	}
 
@@ -611,12 +708,16 @@ func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.Get
 		}, nil
 	}
 
-	// Build cache key - append _maxchange suffix in independent mode
-	cacheCategory := category
-	if s.config.EndpointCacheMode == "independent" {
-		cacheCategory += "_maxchange"
+	// Build cache key based on endpoint cache mode
+	var cacheKey string
+	if s.config.EndpointCacheMode == "shared" {
+		cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+	} else {
+		// Independent mode - include category with _maxchange suffix
+		cacheKey = data.CacheKey(ticker, pkg, category+"_maxchange", apiKey)
 	}
-	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
+
+	// Get index and check exhaustion
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {

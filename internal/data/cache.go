@@ -24,9 +24,15 @@ func NewIndexCache(mode CacheMode) *IndexCache {
 	}
 }
 
-// CacheKey creates the composite key for index tracking
+// CacheKey creates the composite key for index tracking (independent mode)
 func CacheKey(ticker, pkg, category, apiKey string) string {
 	return ticker + "/" + pkg + "/" + category + "/" + apiKey
+}
+
+// SharedCacheKey creates a cache key for shared mode (ignores category)
+// All endpoints for the same ticker/pkg share the same index counter
+func SharedCacheKey(ticker, pkg, apiKey string) string {
+	return ticker + "/" + pkg + "/" + apiKey
 }
 
 // GetAndAdvance returns the current index and advances it

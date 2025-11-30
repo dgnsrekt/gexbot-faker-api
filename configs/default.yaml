@@ -31,7 +31,10 @@ packages:
       - gex_full
       - gex_one
       - gex_zero
-      # - charm_zero
+      - delta_zero
+      - gamma_zero
+      - charm_zero
+      - vanna_zero
   orderflow:
     enabled: false
     categories:

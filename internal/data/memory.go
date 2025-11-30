@@ -12,13 +12,13 @@ import (
 )
 
 type MemoryLoader struct {
-	data   map[string][]GexData // key: ticker/pkg/category
+	data   map[string][][]byte // key: ticker/pkg/category, stores raw JSON lines
 	logger *zap.Logger
 }
 
 func NewMemoryLoader(dataDir, date string, logger *zap.Logger) (*MemoryLoader, error) {
 	loader := &MemoryLoader{
-		data:   make(map[string][]GexData),
+		data:   make(map[string][][]byte),
 		logger: logger,
 	}
 
@@ -70,33 +70,30 @@ func NewMemoryLoader(dataDir, date string, logger *zap.Logger) (*MemoryLoader, e
 	return loader, nil
 }
 
-func (m *MemoryLoader) loadJSONL(path string) ([]GexData, error) {
+func (m *MemoryLoader) loadJSONL(path string) ([][]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var data []GexData
+	var data [][]byte
 	scanner := bufio.NewScanner(file)
 
 	// Increase buffer size for large lines
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
 
-	lineNum := 0
 	for scanner.Scan() {
-		lineNum++
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
 		}
 
-		var gex GexData
-		if err := json.Unmarshal(line, &gex); err != nil {
-			return nil, fmt.Errorf("line %d: %w", lineNum, err)
-		}
-		data = append(data, gex)
+		// Make a copy since scanner reuses the buffer
+		lineCopy := make([]byte, len(line))
+		copy(lineCopy, line)
+		data = append(data, lineCopy)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -107,6 +104,19 @@ func (m *MemoryLoader) loadJSONL(path string) ([]GexData, error) {
 }
 
 func (m *MemoryLoader) GetAtIndex(ctx context.Context, ticker, pkg, category string, index int) (*GexData, error) {
+	rawData, err := m.GetRawAtIndex(ctx, ticker, pkg, category, index)
+	if err != nil {
+		return nil, err
+	}
+
+	var gex GexData
+	if err := json.Unmarshal(rawData, &gex); err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+	return &gex, nil
+}
+
+func (m *MemoryLoader) GetRawAtIndex(ctx context.Context, ticker, pkg, category string, index int) ([]byte, error) {
 	key := DataKey(ticker, pkg, category)
 	data, ok := m.data[key]
 	if !ok {
@@ -115,7 +125,7 @@ func (m *MemoryLoader) GetAtIndex(ctx context.Context, ticker, pkg, category str
 	if index < 0 || index >= len(data) {
 		return nil, ErrIndexOutOfBounds
 	}
-	return &data[index], nil
+	return data[index], nil
 }
 
 func (m *MemoryLoader) GetLength(ticker, pkg, category string) (int, error) {

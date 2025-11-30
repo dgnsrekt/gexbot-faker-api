@@ -15,6 +15,10 @@ type DataLoader interface {
 	// GetAtIndex returns the GexData at the given index
 	GetAtIndex(ctx context.Context, ticker, pkg, category string, index int) (*GexData, error)
 
+	// GetRawAtIndex returns the raw JSON bytes at the given index
+	// This allows handlers to parse into different data types (GexData, GreekData, etc.)
+	GetRawAtIndex(ctx context.Context, ticker, pkg, category string, index int) ([]byte, error)
+
 	// GetLength returns the number of data points available
 	GetLength(ticker, pkg, category string) (int, error)
 
