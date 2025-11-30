@@ -19,30 +19,44 @@ Mock API server that replays historical GexBot market data with per-API-key sequ
 - [just](https://github.com/casey/just) command runner
 - [GexBot API key](https://gex.bot) with **Quant Subscription** (required for downloading data)
 
-### Run with Docker (Recommended)
+### 1. Configure Environment
 
 ```bash
-# Set your GexBot API key
-export GEXBOT_API_KEY=your_api_key
-
-# Start API server and daemon
-just up
-
-# View logs
-just logs
+# Copy example env and add your GexBot API key
+cp gexbot.example.env .env
+# Edit .env and set GEXBOT_API_KEY=your_api_key_here
 ```
 
-### Run Locally
+### 2. Create Config (Optional)
+
+Copy and customize the downloader config:
 
 ```bash
-# Download recent data (requires GEXBOT_API_KEY)
+cp configs/default.yaml configs/custom.yaml
+# Edit configs/custom.yaml to adjust tickers, packages, etc.
+```
+
+### 3. Download Initial Data
+
+```bash
+# Download last 7 days of market data
 just download-lookback 7
+```
 
-# Build and run server
-just serve-gex-faker
+### 4. Start the API
 
-# Access API docs
-open http://localhost:8080/docs
+**With Docker (Recommended):**
+
+```bash
+just up        # Start API server and daemon
+just logs      # View logs
+```
+
+**Or run locally:**
+
+```bash
+just serve-gex-faker              # Build and run server
+open http://localhost:8080/docs   # Access API docs
 ```
 
 ## Components
