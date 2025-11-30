@@ -33,37 +33,40 @@ func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.Serve
 // Compile-time interface verification
 var _ generated.StrictServerInterface = (*Server)(nil)
 
-// GetGexData implements generated.StrictServerInterface
-func (s *Server) GetGexData(ctx context.Context, request generated.GetGexDataRequestObject) (generated.GetGexDataResponseObject, error) {
+// GetClassicGexChain implements generated.StrictServerInterface
+func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetClassicGexChainRequestObject) (generated.GetClassicGexChainResponseObject, error) {
 	ticker := request.Ticker
-	pkg := request.Package
-	category := request.Category
+	aggregation := string(request.Aggregation)
 	apiKey := request.Params.Key
 
-	s.logger.Debug("gex data request",
+	// Map aggregation to internal category format
+	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	pkg := "classic"
+
+	s.logger.Debug("classic gex chain request",
 		zap.String("ticker", ticker),
-		zap.String("package", string(pkg)),
-		zap.String("category", string(category)),
+		zap.String("aggregation", aggregation),
+		zap.String("category", category),
 		zap.String("apiKey", apiKey),
 	)
 
 	// Check if data exists
-	if !s.loader.Exists(ticker, string(pkg), string(category)) {
-		return generated.GetGexData404JSONResponse{
-			Error: ptr("Data not found for " + ticker + "/" + string(pkg) + "/" + string(category)),
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetClassicGexChain404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/classic/" + aggregation),
 		}, nil
 	}
 
 	// Get data length
-	length, err := s.loader.GetLength(ticker, string(pkg), string(category))
+	length, err := s.loader.GetLength(ticker, pkg, category)
 	if err != nil {
-		return generated.GetGexData404JSONResponse{
+		return generated.GetClassicGexChain404JSONResponse{
 			Error: ptr(err.Error()),
 		}, nil
 	}
 
 	// Get index and check exhaustion
-	cacheKey := data.CacheKey(ticker, string(pkg), string(category), apiKey)
+	cacheKey := data.CacheKey(ticker, pkg, category, apiKey)
 	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
 
 	if exhausted {
@@ -72,20 +75,20 @@ func (s *Server) GetGexData(ctx context.Context, request generated.GetGexDataReq
 			zap.Int("index", idx),
 			zap.Int("length", length),
 		)
-		return generated.GetGexData404JSONResponse{
+		return generated.GetClassicGexChain404JSONResponse{
 			Error: ptr("No more data available"),
 		}, nil
 	}
 
 	// Get data at index
-	gexData, err := s.loader.GetAtIndex(ctx, ticker, string(pkg), string(category), idx)
+	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
 	if err != nil {
 		if errors.Is(err, data.ErrIndexOutOfBounds) {
-			return generated.GetGexData404JSONResponse{
+			return generated.GetClassicGexChain404JSONResponse{
 				Error: ptr("Index out of bounds"),
 			}, nil
 		}
-		return generated.GetGexData404JSONResponse{
+		return generated.GetClassicGexChain404JSONResponse{
 			Error: ptr(err.Error()),
 		}, nil
 	}
@@ -111,7 +114,7 @@ func (s *Server) GetGexData(ctx context.Context, request generated.GetGexDataReq
 		}
 	}
 
-	return generated.GetGexData200JSONResponse{
+	return generated.GetClassicGexChain200JSONResponse{
 		Timestamp:         gexData.Timestamp,
 		Ticker:            gexData.Ticker,
 		MinDte:            &gexData.MinDTE,

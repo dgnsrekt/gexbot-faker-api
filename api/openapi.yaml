@@ -10,35 +10,41 @@ servers:
   - url: http://localhost:8080
     description: Local development server
 
+tags:
+  - name: classic
+    description: Classic GEX data endpoints
+  - name: info
+    description: Server information endpoints
+  - name: admin
+    description: Administrative endpoints
+
 paths:
-  /{ticker}/{package}/{category}:
+  /{ticker}/classic/{aggregation}:
     get:
-      operationId: getGexData
-      summary: Get next GEX data point
-      description: Returns the next GEX snapshot for this API key's playback position
-      tags: [playback]
+      operationId: getClassicGexChain
+      summary: Get GEX chain data
+      description: |
+        Provides a ladder-style histogram of GEX by Open Interest and Volume.
+        Call GEX is netted against Put GEX for each strike.
+        Includes historical "lookback" data points and major calculated levels.
+      tags: [classic]
       parameters:
         - name: ticker
           in: path
           required: true
+          description: Ticker symbol (e.g., SPX)
           schema:
             type: string
             pattern: '^[A-Z]{1,5}$'
           example: SPX
-        - name: package
+        - name: aggregation
           in: path
           required: true
+          description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [state, classic]
-          example: state
-        - name: category
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [gex_full, gex_zero, gex_one]
-          example: gex_full
+            enum: [full, zero, one]
+          example: zero
         - name: key
           in: query
           required: true
@@ -49,7 +55,7 @@ paths:
           example: test
       responses:
         '200':
-          description: GEX data point
+          description: GEX chain data
           content:
             application/json:
               schema:
