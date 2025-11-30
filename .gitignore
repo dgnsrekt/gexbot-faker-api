@@ -18,3 +18,7 @@ bin/
 
 # Test output
 coverage.out
+
+# Config files (keep default.yaml tracked)
+configs/*.yaml
+!configs/default.yaml
