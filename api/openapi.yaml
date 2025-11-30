@@ -437,6 +437,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResetCacheResponse'
 
+  /available-dates:
+    get:
+      operationId: getAvailableDates
+      summary: List available dates
+      description: Returns sorted list of available date directories in data/ folder (YYYY-MM-DD format, excludes .staging)
+      tags: [info]
+      responses:
+        '200':
+          description: Available dates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableDatesResponse'
+
+  /current-date:
+    get:
+      operationId: getCurrentDate
+      summary: Get current date
+      description: Returns the currently loaded date, load timestamp, and number of files loaded
+      tags: [info]
+      responses:
+        '200':
+          description: Current date info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentDateResponse'
+
 components:
   schemas:
     GexData:
@@ -702,3 +730,34 @@ components:
         error:
           type: string
           example: Invalid ticker symbol
+
+    AvailableDatesResponse:
+      type: object
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+          description: Sorted list of available date directories
+          example: ["2025-11-14", "2025-11-28"]
+        count:
+          type: integer
+          description: Number of available dates
+          example: 2
+
+    CurrentDateResponse:
+      type: object
+      properties:
+        current_date:
+          type: string
+          description: Currently loaded data date
+          example: "2025-11-28"
+        loaded_at:
+          type: string
+          format: date-time
+          description: Timestamp when data was loaded
+          example: "2025-11-29T18:15:00Z"
+        files_loaded:
+          type: integer
+          description: Number of data files loaded
+          example: 12

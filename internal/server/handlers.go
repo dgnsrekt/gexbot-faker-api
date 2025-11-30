@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -33,18 +36,20 @@ func (r stateProfileGreekDataResponse) VisitGetStateProfileResponse(w http.Respo
 }
 
 type Server struct {
-	loader data.DataLoader
-	cache  *data.IndexCache
-	config *config.ServerConfig
-	logger *zap.Logger
+	loader   data.DataLoader
+	cache    *data.IndexCache
+	config   *config.ServerConfig
+	logger   *zap.Logger
+	loadedAt time.Time
 }
 
 func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger) *Server {
 	return &Server{
-		loader: loader,
-		cache:  cache,
-		config: cfg,
-		logger: logger,
+		loader:   loader,
+		cache:    cache,
+		config:   cfg,
+		logger:   logger,
+		loadedAt: time.Now(),
 	}
 }
 
@@ -794,4 +799,59 @@ func maskCacheKey(cacheKey string) string {
 		return strings.Join(parts, "/")
 	}
 	return cacheKey
+}
+
+// GetAvailableDates implements generated.StrictServerInterface
+func (s *Server) GetAvailableDates(ctx context.Context, request generated.GetAvailableDatesRequestObject) (generated.GetAvailableDatesResponseObject, error) {
+	entries, err := os.ReadDir(s.config.DataDir)
+	if err != nil {
+		s.logger.Error("failed to read data directory", zap.Error(err))
+		return nil, err
+	}
+
+	datePattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	var dates []string
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == ".staging" {
+			continue
+		}
+		if datePattern.MatchString(name) {
+			dates = append(dates, name)
+		}
+	}
+
+	sort.Strings(dates)
+	count := len(dates)
+
+	s.logger.Debug("available dates request",
+		zap.Int("count", count),
+		zap.Strings("dates", dates),
+	)
+
+	return generated.GetAvailableDates200JSONResponse{
+		Dates: &dates,
+		Count: &count,
+	}, nil
+}
+
+// GetCurrentDate implements generated.StrictServerInterface
+func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurrentDateRequestObject) (generated.GetCurrentDateResponseObject, error) {
+	filesLoaded := 12 // 6 tickers × 2 packages (classic + state)
+
+	s.logger.Debug("current date request",
+		zap.String("currentDate", s.config.DataDate),
+		zap.Time("loadedAt", s.loadedAt),
+		zap.Int("filesLoaded", filesLoaded),
+	)
+
+	return generated.GetCurrentDate200JSONResponse{
+		CurrentDate: &s.config.DataDate,
+		LoadedAt:    &s.loadedAt,
+		FilesLoaded: &filesLoaded,
+	}, nil
 }
