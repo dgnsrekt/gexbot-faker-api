@@ -19,6 +19,7 @@ import (
 type WebSocketHubs struct {
 	Orderflow *ws.Hub
 	StateGex  *ws.Hub
+	Classic   *ws.Hub
 }
 
 func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
@@ -54,6 +55,9 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 		}
 		if wsHubs.StateGex != nil {
 			r.HandleFunc("/ws/state_gex", wsHubs.StateGex.HandleOrderflowWS)
+		}
+		if wsHubs.Classic != nil {
+			r.HandleFunc("/ws/classic", wsHubs.Classic.HandleOrderflowWS)
 		}
 	}
 

@@ -283,3 +283,19 @@ func IsValidStateGexGroup(group string) bool {
 		strings.HasSuffix(group, "_state_gex_zero") ||
 		strings.HasSuffix(group, "_state_gex_one")
 }
+
+// IsValidClassicGroup validates the classic group name format.
+// Expected format: blue_{ticker}_classic_{gex_full|gex_zero|gex_one}
+func IsValidClassicGroup(group string) bool {
+	if !strings.HasPrefix(group, "blue_") {
+		return false
+	}
+	// Must contain _classic_ separator
+	if !strings.Contains(group, "_classic_") {
+		return false
+	}
+	// Must end with one of the valid GEX categories
+	return strings.HasSuffix(group, "_classic_gex_full") ||
+		strings.HasSuffix(group, "_classic_gex_zero") ||
+		strings.HasSuffix(group, "_classic_gex_one")
+}

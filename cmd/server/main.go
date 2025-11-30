@@ -101,6 +101,11 @@ func run() int {
 		go stateGexHub.Run(ctx)
 		wsHubs.StateGex = stateGexHub
 
+		// Create classic hub with validator
+		classicHub := ws.NewHub("classic", logger, ws.IsValidClassicGroup)
+		go classicHub.Run(ctx)
+		wsHubs.Classic = classicHub
+
 		// Create negotiate handler
 		negotiateHandler = ws.NewNegotiateHandler(logger)
 
@@ -120,8 +125,16 @@ func run() int {
 		}
 		go gexStreamer.Run(ctx)
 
+		// Create and start classic streamer
+		classicStreamer, err := ws.NewClassicStreamer(classicHub, loader, cfg.WSStreamInterval, logger)
+		if err != nil {
+			logger.Error("failed to create classic streamer", zap.Error(err))
+			return 1
+		}
+		go classicStreamer.Run(ctx)
+
 		logger.Info("WebSocket enabled",
-			zap.Strings("hubs", []string{"orderflow", "state_gex"}),
+			zap.Strings("hubs", []string{"orderflow", "state_gex", "classic"}),
 			zap.Duration("streamInterval", cfg.WSStreamInterval),
 		)
 	}
