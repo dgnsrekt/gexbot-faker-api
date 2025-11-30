@@ -50,6 +50,12 @@ Examples:
 				return err
 			}
 
+			// Filter out non-market days (weekends, NYSE holidays)
+			dates = filterMarketDays(dates, logger)
+			if len(dates) == 0 {
+				return fmt.Errorf("no valid market days in the specified range")
+			}
+
 			// Determine effective tickers for validation
 			effectiveTickers := cfg.Tickers
 			if len(tickers) > 0 {

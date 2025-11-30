@@ -6,6 +6,8 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
+	"github.com/scmhub/calendar"
+	"go.uber.org/zap"
 )
 
 // parseDates parses date arguments and returns a list of dates
@@ -126,4 +128,30 @@ func generateTasks(cfg *config.Config, dates []string, tickerOverride, packageOv
 	}
 
 	return tasks
+}
+
+// filterMarketDays filters out non-trading days (weekends and NYSE holidays)
+// and logs warnings for skipped dates
+func filterMarketDays(dates []string, logger *zap.Logger) []string {
+	nyse := calendar.XNYS()
+	const layout = "2006-01-02 15:04:05"
+
+	// NYSE operates in Eastern time
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		logger.Warn("failed to load America/New_York timezone, using UTC", zap.Error(err))
+		loc = time.UTC
+	}
+
+	var marketDays []string
+	for _, dateStr := range dates {
+		// Parse as noon in NYC timezone to ensure correct date matching
+		t, _ := time.ParseInLocation(layout, dateStr+" 12:00:00", loc)
+		if nyse.IsBusinessDay(t) {
+			marketDays = append(marketDays, dateStr)
+		} else {
+			logger.Warn("skipping non-market day", zap.String("date", dateStr))
+		}
+	}
+	return marketDays
 }
