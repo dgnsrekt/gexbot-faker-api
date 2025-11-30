@@ -117,6 +117,102 @@ func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetC
 	}, nil
 }
 
+// GetClassicGexMaxChange implements generated.StrictServerInterface
+func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.GetClassicGexMaxChangeRequestObject) (generated.GetClassicGexMaxChangeResponseObject, error) {
+	ticker := request.Ticker
+	aggregation := string(request.Aggregation)
+	apiKey := request.Params.Key
+
+	// Map aggregation to internal category format
+	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	pkg := "classic"
+
+	s.logger.Debug("classic gex max change request",
+		zap.String("ticker", ticker),
+		zap.String("aggregation", aggregation),
+		zap.String("category", category),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Check if data exists
+	if !s.loader.Exists(ticker, pkg, category) {
+		return generated.GetClassicGexMaxChange404JSONResponse{
+			Error: ptr("Data not found for " + ticker + "/classic/" + aggregation),
+		}, nil
+	}
+
+	// Get data length
+	length, err := s.loader.GetLength(ticker, pkg, category)
+	if err != nil {
+		return generated.GetClassicGexMaxChange404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Build cache key - append _maxchange suffix in independent mode
+	cacheCategory := category
+	if s.config.EndpointCacheMode == "independent" {
+		cacheCategory += "_maxchange"
+	}
+	cacheKey := data.CacheKey(ticker, pkg, cacheCategory, apiKey)
+	idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+	if exhausted {
+		s.logger.Debug("data exhausted",
+			zap.String("cacheKey", maskCacheKey(cacheKey)),
+			zap.Int("index", idx),
+			zap.Int("length", length),
+		)
+		return generated.GetClassicGexMaxChange404JSONResponse{
+			Error: ptr("No more data available"),
+		}, nil
+	}
+
+	// Get data at index
+	gexData, err := s.loader.GetAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		if errors.Is(err, data.ErrIndexOutOfBounds) {
+			return generated.GetClassicGexMaxChange404JSONResponse{
+				Error: ptr("Index out of bounds"),
+			}, nil
+		}
+		return generated.GetClassicGexMaxChange404JSONResponse{
+			Error: ptr(err.Error()),
+		}, nil
+	}
+
+	// Parse max_priors: [[strike, gex], [strike, gex], ...] (6 pairs)
+	var maxPriors [][]float32
+	if gexData.MaxPriors != nil {
+		if err := json.Unmarshal(gexData.MaxPriors, &maxPriors); err != nil {
+			s.logger.Warn("failed to unmarshal max_priors", zap.Error(err))
+		}
+	}
+
+	s.logger.Debug("returning max change data",
+		zap.String("cacheKey", maskCacheKey(cacheKey)),
+		zap.Int("index", idx),
+		zap.Int64("timestamp", gexData.Timestamp),
+	)
+
+	// Map to response fields (ensure we have 6 elements)
+	response := generated.GetClassicGexMaxChange200JSONResponse{
+		Timestamp: gexData.Timestamp,
+		Ticker:    gexData.Ticker,
+	}
+
+	if len(maxPriors) >= 6 {
+		response.Current = &maxPriors[0]
+		response.One = &maxPriors[1]
+		response.Five = &maxPriors[2]
+		response.Ten = &maxPriors[3]
+		response.Fifteen = &maxPriors[4]
+		response.Thirty = &maxPriors[5]
+	}
+
+	return response, nil
+}
+
 // GetClassicGexChain implements generated.StrictServerInterface
 func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetClassicGexChainRequestObject) (generated.GetClassicGexChainResponseObject, error) {
 	ticker := request.Ticker
