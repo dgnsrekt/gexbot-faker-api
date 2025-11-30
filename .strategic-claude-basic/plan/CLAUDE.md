@@ -48,8 +48,9 @@ This ensures phase-specific plans are easily identifiable and searchable.
 ## Existing Documents
 
 1. **PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md** - Go-based batch downloader for Gexbot Historical API
+2. **PLAN_0002_29-11-2025_sat_gex-faker-api-v2.md** - Clean GEX Faker API v2 with oapi-codegen
 
-Next document number: **0002**
+Next document number: **0003**
 
 ## Plan Type Guidelines
 
