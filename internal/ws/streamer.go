@@ -117,8 +117,8 @@ func (s *Streamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Broadcast to all clients (each client formats per its protocol)
-		s.hub.BroadcastData(group, encoded, "proto.orderflow")
+		// Broadcast to all clients (JSON clients get raw JSON, protobuf clients get encoded)
+		s.hub.BroadcastDataDual(group, encoded, rawJSON, "proto.orderflow")
 
 		// Advance index
 		s.mu.Lock()

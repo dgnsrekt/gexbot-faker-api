@@ -209,3 +209,44 @@ func (h *Hub) BroadcastData(group string, encodedData []byte, typeUrl string) {
 		}
 	}
 }
+
+// BroadcastDataDual sends data to all clients in a group with format-aware routing.
+// Protobuf clients receive encodedData (Zstd-compressed protobuf).
+// JSON clients receive rawJSON (original JSON format with arrays intact).
+// This ensures JSON clients get data matching the real GexBot API wire format.
+func (h *Hub) BroadcastDataDual(group string, encodedData []byte, rawJSON []byte, typeUrl string) {
+	h.mu.RLock()
+	clients, ok := h.groups[group]
+	if !ok {
+		h.mu.RUnlock()
+		return
+	}
+	// Copy clients to avoid holding lock during send
+	clientList := make([]*Client, 0, len(clients))
+	for client := range clients {
+		clientList = append(clientList, client)
+	}
+	h.mu.RUnlock()
+
+	for _, client := range clientList {
+		var msg []byte
+		if client.protocol == "json" && rawJSON != nil {
+			// JSON clients get raw JSON format (arrays preserved)
+			msg = buildDataMessageJSONRaw(group, rawJSON)
+		} else if client.protocol == "json" {
+			// Fallback to base64-encoded protobuf for JSON clients without rawJSON
+			msg = buildDataMessageJSON(group, encodedData, typeUrl)
+		} else {
+			// Protobuf clients get binary format
+			msg = buildDataMessage(group, encodedData, typeUrl)
+		}
+		select {
+		case client.send <- msg:
+		default:
+			// Buffer full, schedule disconnect
+			go func(c *Client) {
+				h.unregister <- c
+			}(client)
+		}
+	}
+}

@@ -124,8 +124,8 @@ func (s *GexStreamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Broadcast to all clients (each client formats per its protocol)
-		s.hub.BroadcastData(group, encoded, "proto.gex")
+		// Broadcast to all clients (JSON clients get raw JSON, protobuf clients get encoded)
+		s.hub.BroadcastDataDual(group, encoded, rawJSON, "proto.gex")
 
 		// Advance index
 		s.mu.Lock()

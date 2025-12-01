@@ -170,6 +170,21 @@ func buildDataMessageJSON(group string, encodedData []byte, typeUrl string) []by
 	return data
 }
 
+// buildDataMessageJSONRaw creates a JSON DataMessage with raw JSON payload.
+// This matches the real GexBot API format for JSON clients - data is embedded directly
+// as a JSON object rather than base64-encoded protobuf.
+func buildDataMessageJSONRaw(group string, rawJSON json.RawMessage) []byte {
+	msg := map[string]interface{}{
+		"type":     "message",
+		"from":     "group",
+		"group":    group,
+		"dataType": "json",
+		"data":     rawJSON,
+	}
+	data, _ := json.Marshal(msg)
+	return data
+}
+
 // buildPongMessageJSON creates a JSON PongMessage.
 func buildPongMessageJSON() []byte {
 	msg := map[string]interface{}{
