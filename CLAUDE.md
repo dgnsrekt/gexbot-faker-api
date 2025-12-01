@@ -38,6 +38,7 @@ go test -v ./internal/config/...    # Run single package tests
 | CACHE_MODE | exhaust | Playback behavior: "exhaust" (stop at end) or "rotation" (loop) |
 | WS_ENABLED | true | Enable WebSocket streaming |
 | WS_STREAM_INTERVAL | 1s | Interval between WebSocket broadcasts |
+| WS_PUBLIC_HOST | (auto) | Override host in WebSocket URLs for Docker/proxy setups |
 
 ## Architecture
 
