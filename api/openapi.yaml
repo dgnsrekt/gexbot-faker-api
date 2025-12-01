@@ -517,45 +517,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/CurrentDateResponse'
 
-  /negotiate:
-    get:
-      operationId: negotiate
-      summary: WebSocket real-time feed
-      description: |
-        Provides real-time, low-latency market data via WebSocket.
-        Make a GET /negotiate request with authorization to receive connection URLs.
-        Then connect to a hub and join groups (e.g., blue_SPX_classic_gex_zero) to subscribe.
-        Messages are Zstandard-compressed Protobufs.
-      tags: [websocket]
-      parameters:
-        - name: Authorization
-          in: header
-          required: true
-          description: 'API key in Basic auth format: "Basic <YOUR_API_KEY>"'
-          schema:
-            type: string
-          example: "Basic test1234"
-        - name: Host
-          in: header
-          required: false
-          description: 'Host header from the request, used to construct WebSocket URLs'
-          schema:
-            type: string
-          example: "example.com:8080"
-      responses:
-        '200':
-          description: WebSocket connection URLs for each hub
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NegotiateResponse'
-        '401':
-          description: Missing or invalid authorization
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /{ticker}/classic/{aggregation}/download:
     get:
       operationId: downloadClassicGex
@@ -1042,31 +1003,3 @@ components:
           type: integer
           description: Number of data files loaded
           example: 12
-
-    NegotiateResponse:
-      type: object
-      properties:
-        websocket_urls:
-          type: object
-          properties:
-            classic:
-              type: string
-              description: Connection URL for the 'Classic GEX' hub
-            state_gex:
-              type: string
-              description: Connection URL for the 'State GEX Profile' hub
-            state_greeks_zero:
-              type: string
-              description: Connection URL for the 'State Greeks (0DTE)' hub
-            state_greeks_one:
-              type: string
-              description: Connection URL for the 'State Greeks (1DTE+)' hub
-            orderflow:
-              type: string
-              description: Connection URL for the 'Orderflow' hub
-          example:
-            classic: "ws://localhost:8080/ws/classic?access_token=test1234:abc123"
-            state_gex: "ws://localhost:8080/ws/state_gex?access_token=test1234:abc123"
-            state_greeks_zero: "ws://localhost:8080/ws/state_greeks_zero?access_token=test1234:abc123"
-            state_greeks_one: "ws://localhost:8080/ws/state_greeks_one?access_token=test1234:abc123"
-            orderflow: "ws://localhost:8080/ws/orderflow?access_token=test1234:abc123"
