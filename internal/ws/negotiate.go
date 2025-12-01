@@ -17,14 +17,12 @@ type NegotiateResponse struct {
 
 // NegotiateHandler handles the /negotiate endpoint.
 type NegotiateHandler struct {
-	logger     *zap.Logger
-	publicHost string // Configured public host, empty means use r.Host
+	logger *zap.Logger
 }
 
 // NewNegotiateHandler creates a new NegotiateHandler.
-// publicHost overrides the host in WebSocket URLs (for Docker/proxy setups).
-func NewNegotiateHandler(logger *zap.Logger, publicHost string) *NegotiateHandler {
-	return &NegotiateHandler{logger: logger, publicHost: publicHost}
+func NewNegotiateHandler(logger *zap.Logger) *NegotiateHandler {
+	return &NegotiateHandler{logger: logger}
 }
 
 // HandleNegotiate handles GET /negotiate
@@ -56,12 +54,7 @@ func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Reques
 		scheme = "wss"
 	}
 
-	host := r.Host
-	if h.publicHost != "" {
-		host = h.publicHost
-	}
-
-	baseURL := fmt.Sprintf("%s://%s/ws", scheme, host)
+	baseURL := fmt.Sprintf("%s://%s/ws", scheme, r.Host)
 
 	response := NegotiateResponse{
 		WebsocketURLs: map[string]string{

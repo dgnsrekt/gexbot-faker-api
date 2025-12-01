@@ -1084,9 +1084,10 @@ func (s *Server) Negotiate(ctx context.Context, request generated.NegotiateReque
 	token := fmt.Sprintf("%s:%s", apiKey, connID)
 
 	// Build WebSocket URLs
+	// Use Host header from request, fallback to localhost
 	host := "localhost:" + s.config.Port
-	if s.config.WSPublicHost != "" {
-		host = s.config.WSPublicHost
+	if request.Params.Host != nil && *request.Params.Host != "" {
+		host = *request.Params.Host
 	}
 	baseURL := "ws://" + host + "/ws"
 

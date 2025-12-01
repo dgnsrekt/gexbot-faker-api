@@ -535,6 +535,13 @@ paths:
           schema:
             type: string
           example: "Basic test1234"
+        - name: Host
+          in: header
+          required: false
+          description: 'Host header from the request, used to construct WebSocket URLs'
+          schema:
+            type: string
+          example: "example.com:8080"
       responses:
         '200':
           description: WebSocket connection URLs for each hub

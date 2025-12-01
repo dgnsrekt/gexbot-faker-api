@@ -19,7 +19,6 @@ type ServerConfig struct {
 	// WebSocket configuration
 	WSEnabled        bool
 	WSStreamInterval time.Duration
-	WSPublicHost     string // Optional: override host in WebSocket URLs for Docker/proxy setups
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -49,9 +48,8 @@ func LoadServerConfig() (*ServerConfig, error) {
 		DataMode:          getEnvOrDefault("DATA_MODE", "memory"),
 		CacheMode:         getEnvOrDefault("CACHE_MODE", "exhaust"),
 		EndpointCacheMode: getEnvOrDefault("ENDPOINT_CACHE_MODE", "shared"),
-		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
-		WSStreamInterval:  wsInterval,
-		WSPublicHost:      getEnvOrDefault("WS_PUBLIC_HOST", ""),
+		WSEnabled:        getEnvOrDefault("WS_ENABLED", "true") == "true",
+		WSStreamInterval: wsInterval,
 	}
 
 	// Validate
