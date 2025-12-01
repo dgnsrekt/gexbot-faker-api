@@ -1084,7 +1084,11 @@ func (s *Server) Negotiate(ctx context.Context, request generated.NegotiateReque
 	token := fmt.Sprintf("%s:%s", apiKey, connID)
 
 	// Build WebSocket URLs
-	baseURL := "ws://localhost:" + s.config.Port + "/ws"
+	host := "localhost:" + s.config.Port
+	if s.config.WSPublicHost != "" {
+		host = s.config.WSPublicHost
+	}
+	baseURL := "ws://" + host + "/ws"
 
 	classicURL := fmt.Sprintf("%s/classic?access_token=%s", baseURL, token)
 	stateGexURL := fmt.Sprintf("%s/state_gex?access_token=%s", baseURL, token)
