@@ -32,7 +32,7 @@ services:
       - DAEMON_SCHEDULE_MINUTE=${DAEMON_SCHEDULE_MINUTE:-0}
       - DAEMON_TIMEZONE=${DAEMON_TIMEZONE:-America/New_York}
       - DAEMON_STATE_FILE=/app/data/.daemon-state
-      - DAEMON_CONFIG_PATH=/app/configs/default.yaml
+      - DAEMON_CONFIG_PATH=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
       - DAEMON_RUN_ON_STARTUP=${DAEMON_RUN_ON_STARTUP:-true}
       - GEXBOT_API_KEY=${GEXBOT_API_KEY}
     restart: unless-stopped
