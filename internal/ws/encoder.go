@@ -117,9 +117,15 @@ func (e *Encoder) EncodeGex(jsonData []byte) ([]byte, error) {
 			continue
 		}
 		var strikePrice, value1, value2 float64
-		json.Unmarshal(s[0], &strikePrice)
-		json.Unmarshal(s[1], &value1)
-		json.Unmarshal(s[2], &value2)
+		if err := json.Unmarshal(s[0], &strikePrice); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(s[1], &value1); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(s[2], &value2); err != nil {
+			continue
+		}
 
 		strike := &gexpb.Strike{
 			StrikePrice: uint32(strikePrice * 100),
@@ -222,10 +228,18 @@ func (e *Encoder) EncodeGreek(jsonData []byte) ([]byte, error) {
 
 		// Parse required fields
 		var strike, callIvol, putIvol, callCvolume float64
-		json.Unmarshal(c[0], &strike)
-		json.Unmarshal(c[1], &callIvol)
-		json.Unmarshal(c[2], &putIvol)
-		json.Unmarshal(c[3], &callCvolume)
+		if err := json.Unmarshal(c[0], &strike); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(c[1], &callIvol); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(c[2], &putIvol); err != nil {
+			continue
+		}
+		if err := json.Unmarshal(c[3], &callCvolume); err != nil {
+			continue
+		}
 
 		contract := &greekpb.MiniContract{
 			Strike:      uint32(strike * 100),
@@ -296,6 +310,6 @@ func (e *Encoder) EncodeGreek(jsonData []byte) ([]byte, error) {
 // Close releases encoder resources.
 func (e *Encoder) Close() {
 	if e.zstdEncoder != nil {
-		e.zstdEncoder.Close()
+		_ = e.zstdEncoder.Close()
 	}
 }
