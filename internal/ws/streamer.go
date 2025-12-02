@@ -42,6 +42,23 @@ func NewStreamer(hub *Hub, loader data.DataLoader, interval time.Duration, logge
 // Run starts the streaming loop. Call in a goroutine.
 // Returns when context is cancelled.
 func (s *Streamer) Run(ctx context.Context) {
+	// Align first tick to top of second for predictable timing
+	now := time.Now()
+	nextSecond := now.Truncate(time.Second).Add(time.Second)
+	s.logger.Debug("aligning to next second",
+		zap.Time("now", now),
+		zap.Time("nextSecond", nextSecond),
+		zap.Duration("wait", time.Until(nextSecond)),
+	)
+
+	select {
+	case <-ctx.Done():
+		s.logger.Info("streamer cancelled during alignment")
+		s.encoder.Close()
+		return
+	case <-time.After(time.Until(nextSecond)):
+	}
+
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
