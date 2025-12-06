@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -11,6 +12,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/api"
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
+	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
 	"github.com/dgnsrekt/gexbot-downloader/internal/staging"
 )
 
@@ -100,7 +102,9 @@ Examples:
 			dlMgr := download.NewManager(client, stgMgr, cfg.Download.Workers, logger)
 
 			// Execute downloads
+			start := time.Now()
 			result, err := dlMgr.Execute(ctx, tasks)
+			duration := time.Since(start)
 			if err != nil {
 				return err
 			}
@@ -136,6 +140,25 @@ Examples:
 				zap.Int("not_found", result.NotFound),
 				zap.Int("failed", result.Failed),
 			)
+
+			// Send notification
+			notifyCfg := notify.LoadConfig()
+			if err := notifyCfg.Validate(); err != nil {
+				logger.Warn("notification config invalid, skipping", zap.Error(err))
+			} else {
+				notifier := notify.New(notifyCfg, logger)
+				dateStr := strings.Join(dates, ",")
+
+				if result.Failed > 0 {
+					if notifyErr := notifier.SendFailure(ctx, result, dateStr, duration, fmt.Errorf("%d downloads failed", result.Failed)); notifyErr != nil {
+						logger.Warn("failed to send notification", zap.Error(notifyErr))
+					}
+				} else {
+					if notifyErr := notifier.SendSuccess(ctx, result, dateStr, duration); notifyErr != nil {
+						logger.Warn("failed to send notification", zap.Error(notifyErr))
+					}
+				}
+			}
 
 			if result.Failed > 0 {
 				for _, e := range result.Errors {

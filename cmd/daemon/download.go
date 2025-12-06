@@ -50,8 +50,9 @@ func (t *DownloadTracker) AlreadyDownloaded(date string) bool {
 	return t.GetLastDownloadDate() == date
 }
 
-// executeDownload runs the download for the given date using existing internal packages
-func executeDownload(ctx context.Context, cfg *config.Config, date string, logger *zap.Logger) error {
+// executeDownload runs the download for the given date using existing internal packages.
+// Returns the batch result and any error that occurred.
+func executeDownload(ctx context.Context, cfg *config.Config, date string, logger *zap.Logger) (*download.BatchResult, error) {
 	logger.Info("starting download", zap.String("date", date))
 
 	// Create API client
@@ -77,13 +78,13 @@ func executeDownload(ctx context.Context, cfg *config.Config, date string, logge
 
 	if len(tasks) == 0 {
 		logger.Warn("no tasks generated, check config")
-		return nil
+		return nil, nil
 	}
 
 	// Execute downloads
 	result, err := dlMgr.Execute(ctx, tasks)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	// Commit staging to final location and cleanup (only if there were actual downloads)
@@ -119,7 +120,7 @@ func executeDownload(ctx context.Context, cfg *config.Config, date string, logge
 		}
 	}
 
-	return nil
+	return result, nil
 }
 
 // generateTasksForDate creates download tasks for a single date based on config

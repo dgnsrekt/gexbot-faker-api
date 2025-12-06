@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
 )
 
 func main() {
@@ -51,6 +52,20 @@ func run() int {
 		zap.Int("tickers", len(cfg.Tickers)),
 	)
 
+	// Load notification config
+	notifyCfg := notify.LoadConfig()
+	if err := notifyCfg.Validate(); err != nil {
+		logger.Error("invalid notification config", zap.Error(err))
+		return 1
+	}
+	notifier := notify.New(notifyCfg, logger)
+
+	logger.Info("notification configuration loaded",
+		zap.Bool("enabled", notifyCfg.Enabled),
+		zap.String("server", notifyCfg.Server),
+		zap.String("topic", notifyCfg.Topic),
+	)
+
 	// Setup context with cancellation for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -71,7 +86,7 @@ func run() int {
 	if daemonCfg.RunOnStartup {
 		logger.Info("checking for missed download on startup")
 		if shouldDownload(scheduler, tracker, logger) {
-			runDownload(ctx, cfg, scheduler, tracker, logger)
+			runDownload(ctx, cfg, scheduler, tracker, notifier, logger)
 		}
 	}
 
@@ -88,7 +103,7 @@ func run() int {
 
 		case <-ticker.C:
 			if shouldDownload(scheduler, tracker, logger) {
-				runDownload(ctx, cfg, scheduler, tracker, logger)
+				runDownload(ctx, cfg, scheduler, tracker, notifier, logger)
 			}
 
 		case <-ctx.Done():
@@ -127,22 +142,45 @@ func shouldDownload(scheduler *Scheduler, tracker *DownloadTracker, logger *zap.
 }
 
 // runDownload executes the download and updates the tracker
-func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, logger *zap.Logger) {
+func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger) {
 	today := scheduler.TodayDate()
 
 	logger.Info("starting scheduled download", zap.String("date", today))
 	start := time.Now()
 
-	if err := executeDownload(ctx, cfg, today, logger); err != nil {
+	result, err := executeDownload(ctx, cfg, today, logger)
+	duration := time.Since(start)
+
+	if err != nil {
 		logger.Error("download failed", zap.Error(err), zap.String("date", today))
+		// Send failure notification
+		if notifyErr := notifier.SendFailure(ctx, result, today, duration, err); notifyErr != nil {
+			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
+		}
 		return
 	}
 
-	duration := time.Since(start)
-	logger.Info("download succeeded",
-		zap.String("date", today),
-		zap.Duration("duration", duration),
-	)
+	// Check if there were any failed downloads
+	if result != nil && result.Failed > 0 {
+		logger.Warn("download completed with failures",
+			zap.String("date", today),
+			zap.Int("failed", result.Failed),
+			zap.Duration("duration", duration),
+		)
+		// Send failure notification for partial failures
+		if notifyErr := notifier.SendFailure(ctx, result, today, duration, fmt.Errorf("%d downloads failed", result.Failed)); notifyErr != nil {
+			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
+		}
+	} else {
+		logger.Info("download succeeded",
+			zap.String("date", today),
+			zap.Duration("duration", duration),
+		)
+		// Send success notification
+		if notifyErr := notifier.SendSuccess(ctx, result, today, duration); notifyErr != nil {
+			logger.Warn("failed to send success notification", zap.Error(notifyErr))
+		}
+	}
 
 	// Update tracker to prevent re-download
 	if err := tracker.SetLastDownloadDate(today); err != nil {

@@ -9,6 +9,7 @@ Mock API server that replays historical GexBot market data with per-API-key sequ
 - Per-API-key playback position tracking
 - CLI for downloading historical data from GexBot
 - Daemon for scheduled automatic downloads
+- Push notifications via ntfy.sh on download completion
 - Docker deployment ready
 
 ## Quick Start
@@ -148,6 +149,29 @@ Automated daily downloads with market day awareness.
 | `DAEMON_SCHEDULE_MINUTE` | 0                | Minute to run           |
 | `DAEMON_TIMEZONE`        | America/New_York | Timezone                |
 | `DAEMON_RUN_ON_STARTUP`  | true             | Check/download on start |
+
+### Push Notifications (ntfy)
+
+Both the daemon and CLI downloader support push notifications via [ntfy.sh](https://ntfy.sh) when downloads complete or fail.
+
+| Variable        | Default           | Description                          |
+| --------------- | ----------------- | ------------------------------------ |
+| `NTFY_ENABLED`  | false             | Enable push notifications            |
+| `NTFY_SERVER`   | https://ntfy.sh   | ntfy server URL (supports self-hosted) |
+| `NTFY_TOPIC`    | *(required)*      | Topic name for notifications         |
+| `NTFY_PRIORITY` | default           | Priority: min, low, default, high, urgent |
+| `NTFY_TAGS`     | package           | Comma-separated emoji tags           |
+| `NTFY_TOKEN`    | *(optional)*      | Access token for private topics      |
+
+**Quick setup:**
+
+```bash
+# In .env
+NTFY_ENABLED=true
+NTFY_TOPIC=my-gexbot-downloads
+```
+
+Subscribe to notifications at `https://ntfy.sh/my-gexbot-downloads` or use the ntfy app.
 
 ## Configuration
 

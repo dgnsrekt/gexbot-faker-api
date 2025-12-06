@@ -35,4 +35,10 @@ services:
       - DAEMON_CONFIG_PATH=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
       - DAEMON_RUN_ON_STARTUP=${DAEMON_RUN_ON_STARTUP:-true}
       - GEXBOT_API_KEY=${GEXBOT_API_KEY}
+      - NTFY_ENABLED=${NTFY_ENABLED:-false}
+      - NTFY_SERVER=${NTFY_SERVER:-https://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-}
+      - NTFY_PRIORITY=${NTFY_PRIORITY:-default}
+      - NTFY_TAGS=${NTFY_TAGS:-package}
+      - NTFY_TOKEN=${NTFY_TOKEN:-}
     restart: unless-stopped
