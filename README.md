@@ -2,6 +2,8 @@
 
 Mock API server that replays historical GexBot market data with per-API-key sequential playback. Includes REST API, WebSocket streaming, CLI downloader, and scheduled download daemon.
 
+<img width="2752" height="1536" alt="image" src="https://github.com/user-attachments/assets/ae1314af-56b9-4bd3-b030-1e44e79205d6" />
+
 ## Features
 
 - REST API with Swagger UI documentation at `/docs`
