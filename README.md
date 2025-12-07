@@ -4,9 +4,8 @@ Mock API server that replays historical GexBot market data with per-API-key sequ
 
 <img width="2752" height="1536" alt="image" src="https://github.com/user-attachments/assets/ae1314af-56b9-4bd3-b030-1e44e79205d6" />
 
-
 https://github.com/user-attachments/assets/e7b82f7a-311c-493f-bd48-32e7ba572196
-
+NOTE: This only downloads and replays GexBot market data.
 
 ## Features
 
