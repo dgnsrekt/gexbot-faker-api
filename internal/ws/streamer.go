@@ -3,7 +3,6 @@ package ws
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -12,18 +11,18 @@ import (
 )
 
 // Streamer broadcasts data from JSONL files to subscribed clients.
+// Uses per-API-key position tracking via shared IndexCache.
 type Streamer struct {
 	hub      *Hub
 	loader   data.DataLoader
+	cache    *data.IndexCache
 	encoder  *Encoder
 	interval time.Duration
-	indexes  map[string]int // ticker -> current index
-	mu       sync.RWMutex
 	logger   *zap.Logger
 }
 
-// NewStreamer creates a new Streamer.
-func NewStreamer(hub *Hub, loader data.DataLoader, interval time.Duration, logger *zap.Logger) (*Streamer, error) {
+// NewStreamer creates a new Streamer with shared cache for per-API-key tracking.
+func NewStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger) (*Streamer, error) {
 	enc, err := NewEncoder()
 	if err != nil {
 		return nil, err
@@ -32,9 +31,9 @@ func NewStreamer(hub *Hub, loader data.DataLoader, interval time.Duration, logge
 	return &Streamer{
 		hub:      hub,
 		loader:   loader,
+		cache:    cache,
 		encoder:  enc,
 		interval: interval,
-		indexes:  make(map[string]int),
 		logger:   logger,
 	}, nil
 }
@@ -80,6 +79,7 @@ func (s *Streamer) Run(ctx context.Context) {
 }
 
 // broadcastNext sends the next data point to all active groups.
+// Each API key receives data from its own position in the stream.
 func (s *Streamer) broadcastNext(ctx context.Context) {
 	groups := s.hub.GetActiveGroups()
 	if len(groups) == 0 {
@@ -93,12 +93,7 @@ func (s *Streamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Get current index for this ticker
-		s.mu.Lock()
-		idx := s.indexes[ticker]
-		s.mu.Unlock()
-
-		// Get data length
+		// Get data length once for this ticker
 		length, err := s.loader.GetLength(ticker, "orderflow", "orderflow")
 		if err != nil {
 			s.logger.Debug("failed to get data length",
@@ -108,45 +103,57 @@ func (s *Streamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Wrap around for continuous playback
-		if idx >= length {
-			idx = 0
+		// Get clients grouped by API key
+		clientsByAPIKey := s.hub.GetClientsByAPIKey(group)
+		if len(clientsByAPIKey) == 0 {
+			continue
 		}
 
-		// Get raw JSON data at index
-		rawJSON, err := s.loader.GetRawAtIndex(ctx, ticker, "orderflow", "orderflow", idx)
-		if err != nil {
-			s.logger.Debug("failed to get data at index",
+		// For each API key, get their position and broadcast their data
+		for apiKey, clients := range clientsByAPIKey {
+			cacheKey := data.WSCacheKey("orderflow", ticker, "orderflow", apiKey)
+			idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+			// In exhaust mode, skip this API key if exhausted
+			if exhausted {
+				s.logger.Debug("data exhausted for API key",
+					zap.String("ticker", ticker),
+					zap.String("apiKey", maskAPIKey(apiKey)),
+				)
+				continue
+			}
+
+			// Get raw JSON data at this API key's index
+			rawJSON, err := s.loader.GetRawAtIndex(ctx, ticker, "orderflow", "orderflow", idx)
+			if err != nil {
+				s.logger.Debug("failed to get data at index",
+					zap.String("ticker", ticker),
+					zap.Int("index", idx),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			// Encode to protobuf + zstd
+			encoded, err := s.encoder.EncodeOrderflow(rawJSON)
+			if err != nil {
+				s.logger.Debug("failed to encode orderflow",
+					zap.String("ticker", ticker),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			// Broadcast to all clients with this API key
+			s.hub.BroadcastToClients(clients, group, encoded, rawJSON, "proto.orderflow")
+
+			s.logger.Debug("broadcast orderflow",
 				zap.String("ticker", ticker),
+				zap.String("apiKey", maskAPIKey(apiKey)),
 				zap.Int("index", idx),
-				zap.Error(err),
+				zap.Int("clientCount", len(clients)),
 			)
-			continue
 		}
-
-		// Encode to protobuf + zstd
-		encoded, err := s.encoder.EncodeOrderflow(rawJSON)
-		if err != nil {
-			s.logger.Debug("failed to encode orderflow",
-				zap.String("ticker", ticker),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// Broadcast to all clients (JSON clients get raw JSON, protobuf clients get encoded)
-		s.hub.BroadcastDataDual(group, encoded, rawJSON, "proto.orderflow")
-
-		// Advance index
-		s.mu.Lock()
-		s.indexes[ticker] = idx + 1
-		s.mu.Unlock()
-
-		s.logger.Debug("broadcast orderflow",
-			zap.String("ticker", ticker),
-			zap.Int("index", idx),
-			zap.Int("encodedSize", len(encoded)),
-		)
 	}
 }
 

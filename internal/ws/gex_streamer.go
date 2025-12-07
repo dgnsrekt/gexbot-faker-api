@@ -3,7 +3,6 @@ package ws
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,18 +12,18 @@ import (
 
 // GexStreamer broadcasts GEX data from JSONL files to subscribed clients.
 // Supports gex_full, gex_zero, and gex_one categories.
+// Uses per-API-key position tracking via shared IndexCache.
 type GexStreamer struct {
 	hub      *Hub
 	loader   data.DataLoader
+	cache    *data.IndexCache
 	encoder  *Encoder
 	interval time.Duration
-	indexes  map[string]int // ticker:category -> current index
-	mu       sync.RWMutex
 	logger   *zap.Logger
 }
 
-// NewGexStreamer creates a new GexStreamer.
-func NewGexStreamer(hub *Hub, loader data.DataLoader, interval time.Duration, logger *zap.Logger) (*GexStreamer, error) {
+// NewGexStreamer creates a new GexStreamer with shared cache for per-API-key tracking.
+func NewGexStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger) (*GexStreamer, error) {
 	enc, err := NewEncoder()
 	if err != nil {
 		return nil, err
@@ -33,9 +32,9 @@ func NewGexStreamer(hub *Hub, loader data.DataLoader, interval time.Duration, lo
 	return &GexStreamer{
 		hub:      hub,
 		loader:   loader,
+		cache:    cache,
 		encoder:  enc,
 		interval: interval,
-		indexes:  make(map[string]int),
 		logger:   logger,
 	}, nil
 }
@@ -81,6 +80,7 @@ func (s *GexStreamer) Run(ctx context.Context) {
 }
 
 // broadcastNext sends the next data point to all active groups.
+// Each API key receives data from its own position in the stream.
 func (s *GexStreamer) broadcastNext(ctx context.Context) {
 	groups := s.hub.GetActiveGroups()
 	if len(groups) == 0 {
@@ -94,15 +94,7 @@ func (s *GexStreamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Create composite key for index tracking
-		indexKey := ticker + ":" + category
-
-		// Get current index for this ticker:category
-		s.mu.Lock()
-		idx := s.indexes[indexKey]
-		s.mu.Unlock()
-
-		// Get data length
+		// Get data length once for this ticker:category
 		length, err := s.loader.GetLength(ticker, "state", category)
 		if err != nil {
 			s.logger.Debug("failed to get data length",
@@ -113,48 +105,61 @@ func (s *GexStreamer) broadcastNext(ctx context.Context) {
 			continue
 		}
 
-		// Wrap around for continuous playback
-		if idx >= length {
-			idx = 0
+		// Get clients grouped by API key
+		clientsByAPIKey := s.hub.GetClientsByAPIKey(group)
+		if len(clientsByAPIKey) == 0 {
+			continue
 		}
 
-		// Get raw JSON data at index
-		rawJSON, err := s.loader.GetRawAtIndex(ctx, ticker, "state", category, idx)
-		if err != nil {
-			s.logger.Debug("failed to get data at index",
+		// For each API key, get their position and broadcast their data
+		for apiKey, clients := range clientsByAPIKey {
+			cacheKey := data.WSCacheKey("state_gex", ticker, category, apiKey)
+			idx, exhausted := s.cache.GetAndAdvance(cacheKey, length)
+
+			// In exhaust mode, skip this API key if exhausted
+			if exhausted {
+				s.logger.Debug("data exhausted for API key",
+					zap.String("ticker", ticker),
+					zap.String("category", category),
+					zap.String("apiKey", maskAPIKey(apiKey)),
+				)
+				continue
+			}
+
+			// Get raw JSON data at this API key's index
+			rawJSON, err := s.loader.GetRawAtIndex(ctx, ticker, "state", category, idx)
+			if err != nil {
+				s.logger.Debug("failed to get data at index",
+					zap.String("ticker", ticker),
+					zap.String("category", category),
+					zap.Int("index", idx),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			// Encode to protobuf + zstd
+			encoded, err := s.encoder.EncodeGex(rawJSON)
+			if err != nil {
+				s.logger.Debug("failed to encode gex",
+					zap.String("ticker", ticker),
+					zap.String("category", category),
+					zap.Error(err),
+				)
+				continue
+			}
+
+			// Broadcast to all clients with this API key
+			s.hub.BroadcastToClients(clients, group, encoded, rawJSON, "proto.gex")
+
+			s.logger.Debug("broadcast gex",
 				zap.String("ticker", ticker),
 				zap.String("category", category),
+				zap.String("apiKey", maskAPIKey(apiKey)),
 				zap.Int("index", idx),
-				zap.Error(err),
+				zap.Int("clientCount", len(clients)),
 			)
-			continue
 		}
-
-		// Encode to protobuf + zstd
-		encoded, err := s.encoder.EncodeGex(rawJSON)
-		if err != nil {
-			s.logger.Debug("failed to encode gex",
-				zap.String("ticker", ticker),
-				zap.String("category", category),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// Broadcast to all clients (JSON clients get raw JSON, protobuf clients get encoded)
-		s.hub.BroadcastDataDual(group, encoded, rawJSON, "proto.gex")
-
-		// Advance index
-		s.mu.Lock()
-		s.indexes[indexKey] = idx + 1
-		s.mu.Unlock()
-
-		s.logger.Debug("broadcast gex",
-			zap.String("ticker", ticker),
-			zap.String("category", category),
-			zap.Int("index", idx),
-			zap.Int("encodedSize", len(encoded)),
-		)
 	}
 }
 

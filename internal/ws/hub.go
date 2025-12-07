@@ -250,3 +250,44 @@ func (h *Hub) BroadcastDataDual(group string, encodedData []byte, rawJSON []byte
 		}
 	}
 }
+
+// GetClientsByAPIKey returns clients in a group, grouped by their API key.
+// Returns map[apiKey][]*Client for efficient per-API-key data fetching.
+func (h *Hub) GetClientsByAPIKey(group string) map[string][]*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	clients, ok := h.groups[group]
+	if !ok {
+		return nil
+	}
+
+	result := make(map[string][]*Client)
+	for client := range clients {
+		result[client.apiKey] = append(result[client.apiKey], client)
+	}
+	return result
+}
+
+// BroadcastToClients sends data directly to specific clients.
+// Used for per-API-key streaming where different API keys may be at different positions.
+func (h *Hub) BroadcastToClients(clients []*Client, group string, encodedData []byte, rawJSON []byte, typeUrl string) {
+	for _, client := range clients {
+		var msg []byte
+		if client.protocol == "json" && rawJSON != nil {
+			msg = buildDataMessageJSONRaw(group, rawJSON)
+		} else if client.protocol == "json" {
+			msg = buildDataMessageJSON(group, encodedData, typeUrl)
+		} else {
+			msg = buildDataMessage(group, encodedData, typeUrl)
+		}
+		select {
+		case client.send <- msg:
+		default:
+			// Buffer full, schedule disconnect
+			go func(c *Client) {
+				h.unregister <- c
+			}(client)
+		}
+	}
+}

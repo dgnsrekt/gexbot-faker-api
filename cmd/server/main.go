@@ -110,7 +110,7 @@ func run() int {
 		negotiateHandler = ws.NewNegotiateHandler(logger)
 
 		// Create and start orderflow streamer
-		orderflowStreamer, err := ws.NewStreamer(orderflowHub, loader, cfg.WSStreamInterval, logger)
+		orderflowStreamer, err := ws.NewStreamer(orderflowHub, loader, cache, cfg.WSStreamInterval, logger)
 		if err != nil {
 			logger.Error("failed to create orderflow streamer", zap.Error(err))
 			return 1
@@ -118,7 +118,7 @@ func run() int {
 		go orderflowStreamer.Run(ctx)
 
 		// Create and start GEX streamer
-		gexStreamer, err := ws.NewGexStreamer(stateGexHub, loader, cfg.WSStreamInterval, logger)
+		gexStreamer, err := ws.NewGexStreamer(stateGexHub, loader, cache, cfg.WSStreamInterval, logger)
 		if err != nil {
 			logger.Error("failed to create gex streamer", zap.Error(err))
 			return 1
@@ -126,7 +126,7 @@ func run() int {
 		go gexStreamer.Run(ctx)
 
 		// Create and start classic streamer
-		classicStreamer, err := ws.NewClassicStreamer(classicHub, loader, cfg.WSStreamInterval, logger)
+		classicStreamer, err := ws.NewClassicStreamer(classicHub, loader, cache, cfg.WSStreamInterval, logger)
 		if err != nil {
 			logger.Error("failed to create classic streamer", zap.Error(err))
 			return 1
@@ -139,7 +139,7 @@ func run() int {
 		wsHubs.StateGreeksZero = stateGreeksZeroHub
 
 		// Create and start greek streamer
-		greekStreamer, err := ws.NewGreekStreamer(stateGreeksZeroHub, loader, cfg.WSStreamInterval, logger)
+		greekStreamer, err := ws.NewGreekStreamer(stateGreeksZeroHub, loader, cache, cfg.WSStreamInterval, logger)
 		if err != nil {
 			logger.Error("failed to create greek streamer", zap.Error(err))
 			return 1
@@ -152,7 +152,7 @@ func run() int {
 		wsHubs.StateGreeksOne = stateGreeksOneHub
 
 		// Create and start greek one streamer
-		greekOneStreamer, err := ws.NewGreekOneStreamer(stateGreeksOneHub, loader, cfg.WSStreamInterval, logger)
+		greekOneStreamer, err := ws.NewGreekOneStreamer(stateGreeksOneHub, loader, cache, cfg.WSStreamInterval, logger)
 		if err != nil {
 			logger.Error("failed to create greek one streamer", zap.Error(err))
 			return 1

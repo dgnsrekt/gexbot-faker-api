@@ -35,6 +35,13 @@ func SharedCacheKey(ticker, pkg, apiKey string) string {
 	return ticker + "/" + pkg + "/" + apiKey
 }
 
+// WSCacheKey creates the composite key for WebSocket index tracking.
+// Format: ws/{hub}/{ticker}/{category}/{apiKey}
+// The "ws/" prefix distinguishes WebSocket positions from REST positions.
+func WSCacheKey(hub, ticker, category, apiKey string) string {
+	return "ws/" + hub + "/" + ticker + "/" + category + "/" + apiKey
+}
+
 // GetAndAdvance returns the current index and advances it
 // Returns (index, isExhausted)
 func (c *IndexCache) GetAndAdvance(key string, dataLength int) (int, bool) {
