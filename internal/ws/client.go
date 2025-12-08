@@ -269,19 +269,27 @@ func (c *Client) buildDataMsg(group string, encodedData []byte, typeUrl string) 
 }
 
 // IsValidOrderflowGroup validates the orderflow group name format.
-// Expected format: blue_{ticker}_orderflow_orderflow
+// Expected format: {prefix}_{ticker}_orderflow_orderflow
 func IsValidOrderflowGroup(group string) bool {
-	return strings.HasPrefix(group, "blue_") && strings.HasSuffix(group, "_orderflow_orderflow")
+	// Must contain _orderflow_orderflow suffix and have a prefix before it
+	if !strings.HasSuffix(group, "_orderflow_orderflow") {
+		return false
+	}
+	// Ensure there's content before _orderflow_orderflow (prefix_ticker)
+	idx := strings.Index(group, "_orderflow_orderflow")
+	return idx > 0 && strings.Contains(group[:idx], "_")
 }
 
 // IsValidStateGexGroup validates the state_gex group name format.
-// Expected format: blue_{ticker}_state_{gex_full|gex_zero|gex_one}
+// Expected format: {prefix}_{ticker}_state_{gex_full|gex_zero|gex_one}
 func IsValidStateGexGroup(group string) bool {
-	if !strings.HasPrefix(group, "blue_") {
+	// Must contain _state_ separator
+	idx := strings.Index(group, "_state_")
+	if idx <= 0 {
 		return false
 	}
-	// Must contain _state_ separator
-	if !strings.Contains(group, "_state_") {
+	// Ensure there's a prefix before _state_ (prefix_ticker)
+	if !strings.Contains(group[:idx], "_") {
 		return false
 	}
 	// Must end with one of the valid GEX categories
@@ -291,13 +299,15 @@ func IsValidStateGexGroup(group string) bool {
 }
 
 // IsValidClassicGroup validates the classic group name format.
-// Expected format: blue_{ticker}_classic_{gex_full|gex_zero|gex_one}
+// Expected format: {prefix}_{ticker}_classic_{gex_full|gex_zero|gex_one}
 func IsValidClassicGroup(group string) bool {
-	if !strings.HasPrefix(group, "blue_") {
+	// Must contain _classic_ separator
+	idx := strings.Index(group, "_classic_")
+	if idx <= 0 {
 		return false
 	}
-	// Must contain _classic_ separator
-	if !strings.Contains(group, "_classic_") {
+	// Ensure there's a prefix before _classic_ (prefix_ticker)
+	if !strings.Contains(group[:idx], "_") {
 		return false
 	}
 	// Must end with one of the valid GEX categories
@@ -307,13 +317,15 @@ func IsValidClassicGroup(group string) bool {
 }
 
 // IsValidStateGreeksZeroGroup validates the state_greeks_zero group name format.
-// Expected format: blue_{ticker}_state_{delta_zero|gamma_zero|vanna_zero|charm_zero}
+// Expected format: {prefix}_{ticker}_state_{delta_zero|gamma_zero|vanna_zero|charm_zero}
 func IsValidStateGreeksZeroGroup(group string) bool {
-	if !strings.HasPrefix(group, "blue_") {
+	// Must contain _state_ separator
+	idx := strings.Index(group, "_state_")
+	if idx <= 0 {
 		return false
 	}
-	// Must contain _state_ separator
-	if !strings.Contains(group, "_state_") {
+	// Ensure there's a prefix before _state_ (prefix_ticker)
+	if !strings.Contains(group[:idx], "_") {
 		return false
 	}
 	// Must end with one of the valid Greeks zero categories
@@ -324,13 +336,15 @@ func IsValidStateGreeksZeroGroup(group string) bool {
 }
 
 // IsValidStateGreeksOneGroup validates the state_greeks_one group name format.
-// Expected format: blue_{ticker}_state_{delta_one|gamma_one|vanna_one|charm_one}
+// Expected format: {prefix}_{ticker}_state_{delta_one|gamma_one|vanna_one|charm_one}
 func IsValidStateGreeksOneGroup(group string) bool {
-	if !strings.HasPrefix(group, "blue_") {
+	// Must contain _state_ separator
+	idx := strings.Index(group, "_state_")
+	if idx <= 0 {
 		return false
 	}
-	// Must contain _state_ separator
-	if !strings.Contains(group, "_state_") {
+	// Ensure there's a prefix before _state_ (prefix_ticker)
+	if !strings.Contains(group[:idx], "_") {
 		return false
 	}
 	// Must end with one of the valid Greeks one categories

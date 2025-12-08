@@ -230,11 +230,8 @@ func (h *Hub) BroadcastDataDual(group string, encodedData []byte, rawJSON []byte
 
 	for _, client := range clientList {
 		var msg []byte
-		if client.protocol == "json" && rawJSON != nil {
-			// JSON clients get raw JSON format (arrays preserved)
-			msg = buildDataMessageJSONRaw(group, rawJSON)
-		} else if client.protocol == "json" {
-			// Fallback to base64-encoded protobuf for JSON clients without rawJSON
+		if client.protocol == "json" {
+			// JSON clients get base64-encoded protobuf (matches real GexBot API)
 			msg = buildDataMessageJSON(group, encodedData, typeUrl)
 		} else {
 			// Protobuf clients get binary format
@@ -274,11 +271,11 @@ func (h *Hub) GetClientsByAPIKey(group string) map[string][]*Client {
 func (h *Hub) BroadcastToClients(clients []*Client, group string, encodedData []byte, rawJSON []byte, typeUrl string) {
 	for _, client := range clients {
 		var msg []byte
-		if client.protocol == "json" && rawJSON != nil {
-			msg = buildDataMessageJSONRaw(group, rawJSON)
-		} else if client.protocol == "json" {
+		if client.protocol == "json" {
+			// JSON clients get base64-encoded protobuf (matches real GexBot API)
 			msg = buildDataMessageJSON(group, encodedData, typeUrl)
 		} else {
+			// Protobuf clients get binary format
 			msg = buildDataMessage(group, encodedData, typeUrl)
 		}
 		select {

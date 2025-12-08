@@ -19,6 +19,7 @@ type ServerConfig struct {
 	// WebSocket configuration
 	WSEnabled        bool
 	WSStreamInterval time.Duration
+	WSGroupPrefix    string
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -48,8 +49,9 @@ func LoadServerConfig() (*ServerConfig, error) {
 		DataMode:          getEnvOrDefault("DATA_MODE", "memory"),
 		CacheMode:         getEnvOrDefault("CACHE_MODE", "exhaust"),
 		EndpointCacheMode: getEnvOrDefault("ENDPOINT_CACHE_MODE", "shared"),
-		WSEnabled:        getEnvOrDefault("WS_ENABLED", "true") == "true",
-		WSStreamInterval: wsInterval,
+		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
+		WSStreamInterval:  wsInterval,
+		WSGroupPrefix:     getEnvOrDefault("WS_GROUP_PREFIX", "blue"),
 	}
 
 	// Validate

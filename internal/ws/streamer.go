@@ -158,19 +158,23 @@ func (s *Streamer) broadcastNext(ctx context.Context) {
 }
 
 // extractTicker extracts the ticker from an orderflow group name.
-// Group format: blue_{ticker}_orderflow_orderflow
+// Group format: {prefix}_{ticker}_orderflow_orderflow
 func extractTicker(group string) string {
-	if !strings.HasPrefix(group, "blue_") {
-		return ""
-	}
-	trimmed := strings.TrimPrefix(group, "blue_")
-
 	// Find _orderflow_orderflow suffix
 	suffix := "_orderflow_orderflow"
-	idx := strings.Index(trimmed, suffix)
-	if idx < 0 {
+	suffixIdx := strings.Index(group, suffix)
+	if suffixIdx < 0 {
 		return ""
 	}
 
-	return trimmed[:idx]
+	// Everything before suffix is prefix_ticker
+	prefixAndTicker := group[:suffixIdx]
+
+	// Find first underscore to separate prefix from ticker
+	firstUnderscore := strings.Index(prefixAndTicker, "_")
+	if firstUnderscore < 0 || firstUnderscore >= len(prefixAndTicker)-1 {
+		return ""
+	}
+
+	return prefixAndTicker[firstUnderscore+1:]
 }

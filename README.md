@@ -192,6 +192,7 @@ Subscribe to notifications at `https://ntfy.sh/my-gexbot-downloads` or use the n
 | `CACHE_MODE`         | exhaust | `exhaust` (404 at end) or `rotation` (loop) |
 | `WS_ENABLED`         | true    | Enable WebSocket streaming                  |
 | `WS_STREAM_INTERVAL` | 1s      | Broadcast interval                          |
+| `WS_GROUP_PREFIX`    | blue    | Prefix for WebSocket group names            |
 
 ### Downloader Configuration
 

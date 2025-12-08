@@ -6,12 +6,12 @@ Real-time market data streaming via Azure Web PubSub compatible WebSocket protoc
 
 ```
 1. GET /negotiate (Authorization: Basic <API_KEY>)
-   └─> Returns WebSocket URLs for each hub
+   └─> Returns WebSocket URLs and group prefix
 
 2. Connect to hub URL with subprotocol header
    └─> Receive ConnectedMessage with connectionId
 
-3. Send JoinGroupMessage for desired subscriptions
+3. Send JoinGroupMessage for desired subscriptions (use prefix from step 1)
    └─> Receive AckMessage confirming subscription
 
 4. Receive DataMessage broadcasts at configured interval
@@ -29,12 +29,14 @@ Real-time market data streaming via Azure Web PubSub compatible WebSocket protoc
 
 ## Group Naming
 
-All group names follow the pattern: `blue_{TICKER}_{hub_type}_{category}`
+All group names follow the pattern: `{prefix}_{TICKER}_{hub_type}_{category}`
+
+The `prefix` is returned by the `/negotiate` endpoint. Use it when constructing group names.
 
 ### Orderflow Hub
 
 ```
-blue_{TICKER}_orderflow_orderflow
+{prefix}_{TICKER}_orderflow_orderflow
 ```
 
 Example: `blue_SPX_orderflow_orderflow`
@@ -42,7 +44,7 @@ Example: `blue_SPX_orderflow_orderflow`
 ### Classic Hub
 
 ```
-blue_{TICKER}_classic_{category}
+{prefix}_{TICKER}_classic_{category}
 ```
 
 Categories: `gex_full`, `gex_zero`, `gex_one`
@@ -55,7 +57,7 @@ Examples:
 ### State GEX Hub
 
 ```
-blue_{TICKER}_state_{category}
+{prefix}_{TICKER}_state_{category}
 ```
 
 Categories: `gex_full`, `gex_zero`, `gex_one`
@@ -68,7 +70,7 @@ Examples:
 ### State Greeks Zero Hub
 
 ```
-blue_{TICKER}_state_{category}
+{prefix}_{TICKER}_state_{category}
 ```
 
 Categories: `delta_zero`, `gamma_zero`, `vanna_zero`, `charm_zero`
@@ -81,7 +83,7 @@ Examples:
 ### State Greeks One Hub
 
 ```
-blue_{TICKER}_state_{category}
+{prefix}_{TICKER}_state_{category}
 ```
 
 Categories: `delta_one`, `gamma_one`, `vanna_one`, `charm_one`
@@ -240,7 +242,9 @@ resp = requests.get(
     "http://localhost:8080/negotiate",
     headers={"Authorization": "Basic myapikey"}
 )
-urls = resp.json()["websocket_urls"]
+data = resp.json()
+urls = data["websocket_urls"]
+prefix = data["prefix"]
 
 # 2. Connect with protobuf subprotocol
 ws = websocket.create_connection(
@@ -251,8 +255,9 @@ ws = websocket.create_connection(
 # 3. Receive ConnectedMessage
 connected_msg = ws.recv()
 
-# 4. Join group (protobuf format)
-join_msg = build_join_group_message("blue_SPX_state_gex_zero", ack_id=1)
+# 4. Join group (protobuf format) - use prefix from negotiate
+group = f"{prefix}_SPX_state_gex_zero"
+join_msg = build_join_group_message(group, ack_id=1)
 ws.send(join_msg, opcode=websocket.ABNF.OPCODE_BINARY)
 
 # 5. Receive ACK

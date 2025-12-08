@@ -164,25 +164,29 @@ func (s *GreekStreamer) broadcastNext(ctx context.Context) {
 }
 
 // extractGreekTickerAndCategory extracts the ticker and category from a state_greeks group name.
-// Group format: blue_{ticker}_state_{category}
+// Group format: {prefix}_{ticker}_state_{category}
 // Examples:
 //   - blue_SPX_state_delta_zero -> ticker="SPX", category="delta_zero"
 //   - blue_ES_SPX_state_gamma_zero -> ticker="ES_SPX", category="gamma_zero"
 func extractGreekTickerAndCategory(group string) (ticker, category string) {
-	if !strings.HasPrefix(group, "blue_") {
-		return "", ""
-	}
-	trimmed := strings.TrimPrefix(group, "blue_")
-
-	// Find _state_ separator to isolate ticker and category
+	// Find _state_ separator to isolate prefix_ticker and category
 	separator := "_state_"
-	idx := strings.Index(trimmed, separator)
-	if idx < 0 {
+	separatorIdx := strings.Index(group, separator)
+	if separatorIdx < 0 {
 		return "", ""
 	}
 
-	ticker = trimmed[:idx]
-	category = trimmed[idx+len(separator):]
+	// Everything before _state_ is prefix_ticker
+	prefixAndTicker := group[:separatorIdx]
+
+	// Find first underscore to separate prefix from ticker
+	firstUnderscore := strings.Index(prefixAndTicker, "_")
+	if firstUnderscore < 0 || firstUnderscore >= len(prefixAndTicker)-1 {
+		return "", ""
+	}
+
+	ticker = prefixAndTicker[firstUnderscore+1:]
+	category = group[separatorIdx+len(separator):]
 
 	// Validate category is one of the expected Greek categories
 	switch category {

@@ -13,23 +13,25 @@ import (
 // NegotiateResponse matches the real GexBot API negotiate response format.
 type NegotiateResponse struct {
 	WebsocketURLs map[string]string `json:"websocket_urls"`
+	Prefix        string            `json:"prefix"`
 }
 
 // NegotiateHandler handles the /negotiate endpoint.
 type NegotiateHandler struct {
 	logger *zap.Logger
+	prefix string
 }
 
 // NewNegotiateHandler creates a new NegotiateHandler.
-func NewNegotiateHandler(logger *zap.Logger) *NegotiateHandler {
-	return &NegotiateHandler{logger: logger}
+func NewNegotiateHandler(logger *zap.Logger, prefix string) *NegotiateHandler {
+	return &NegotiateHandler{logger: logger, prefix: prefix}
 }
 
 // HandleNegotiate handles GET /negotiate
-// Accepts API key via Authorization header (matching real GexBot API) or query param (fallback).
+// Accepts API key via Authorization header: "Authorization: Basic <API_KEY>"
 // Returns WebSocket URLs for available hubs.
 func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
-	// Extract API key from Authorization header (matches real GexBot API)
+	// Extract API key from Authorization header
 	// Format: "Authorization: Basic <API_KEY>"
 	var apiKey string
 	authHeader := r.Header.Get("Authorization")
@@ -64,6 +66,7 @@ func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Reques
 			"state_greeks_zero": fmt.Sprintf("%s/state_greeks_zero?access_token=%s", baseURL, token),
 			"state_greeks_one":  fmt.Sprintf("%s/state_greeks_one?access_token=%s", baseURL, token),
 		},
+		Prefix: h.prefix,
 	}
 
 	h.logger.Debug("negotiate successful",

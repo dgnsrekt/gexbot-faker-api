@@ -107,7 +107,7 @@ func run() int {
 		wsHubs.Classic = classicHub
 
 		// Create negotiate handler
-		negotiateHandler = ws.NewNegotiateHandler(logger)
+		negotiateHandler = ws.NewNegotiateHandler(logger, cfg.WSGroupPrefix)
 
 		// Create and start orderflow streamer
 		orderflowStreamer, err := ws.NewStreamer(orderflowHub, loader, cache, cfg.WSStreamInterval, logger)
