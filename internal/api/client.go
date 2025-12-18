@@ -6,10 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+)
+
+const (
+	primaryHistDomain  = "hist.gex.bot"
+	fallbackHistDomain = "hist.gexbot.com"
 )
 
 // Client interface for testability
@@ -129,6 +135,27 @@ func (c *HTTPClient) GetDownloadURL(ctx context.Context, ticker, pkg, category, 
 }
 
 func (c *HTTPClient) DownloadFile(ctx context.Context, url string, dest io.Writer) (int64, error) {
+	size, err := c.downloadFileOnce(ctx, url, dest)
+	if err == nil {
+		return size, nil
+	}
+
+	// Check if fallback is applicable
+	if !strings.Contains(url, primaryHistDomain) {
+		return 0, err
+	}
+
+	// Try fallback domain
+	fallbackURL := strings.Replace(url, primaryHistDomain, fallbackHistDomain, 1)
+	c.logger.Info("retrying with fallback domain",
+		zap.String("original", url),
+		zap.String("fallback", fallbackURL),
+		zap.Error(err))
+
+	return c.downloadFileOnce(ctx, fallbackURL, dest)
+}
+
+func (c *HTTPClient) downloadFileOnce(ctx context.Context, url string, dest io.Writer) (int64, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("creating request: %w", err)
