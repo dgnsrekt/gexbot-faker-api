@@ -1163,28 +1163,31 @@ func (r *classicDownloadResponse) VisitDownloadClassicGexResponse(w http.Respons
 
 // DownloadClassicGex implements generated.StrictServerInterface
 func (s *Server) DownloadClassicGex(ctx context.Context, request generated.DownloadClassicGexRequestObject) (generated.DownloadClassicGexResponseObject, error) {
+	date := request.Date
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
 
-	// Construct file path: {DataDir}/{DataDate}/{ticker}/classic/gex_{aggregation}.jsonl
+	// Construct file path: {DataDir}/{date}/{ticker}/classic/gex_{aggregation}.jsonl
 	category := "gex_" + aggregation
-	filePath := filepath.Join(s.config.DataDir, s.config.DataDate, ticker, "classic", category+".jsonl")
+	filePath := filepath.Join(s.config.DataDir, date, ticker, "classic", category+".jsonl")
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		s.logger.Warn("download file not found",
+			zap.String("date", date),
 			zap.String("ticker", ticker),
 			zap.String("aggregation", aggregation),
 			zap.String("filePath", filePath),
 		)
 		return generated.DownloadClassicGex404JSONResponse{
-			Error: ptr(fmt.Sprintf("File not found: %s/classic/%s.jsonl", ticker, category)),
+			Error: ptr(fmt.Sprintf("File not found: %s/%s/classic/%s.jsonl", date, ticker, category)),
 		}, nil
 	}
 
-	filename := fmt.Sprintf("%s_classic_%s.jsonl", ticker, category)
+	filename := fmt.Sprintf("%s_%s_classic_%s.jsonl", date, ticker, category)
 
 	s.logger.Info("download classic request",
+		zap.String("date", date),
 		zap.String("ticker", ticker),
 		zap.String("aggregation", aggregation),
 		zap.String("apiKey", maskAPIKey(request.Params.Key)),
@@ -1206,6 +1209,7 @@ func (r *stateDownloadResponse) VisitDownloadStateDataResponse(w http.ResponseWr
 
 // DownloadStateData implements generated.StrictServerInterface
 func (s *Server) DownloadStateData(ctx context.Context, request generated.DownloadStateDataRequestObject) (generated.DownloadStateDataResponseObject, error) {
+	date := request.Date
 	ticker := request.Ticker
 	typeParam := string(request.Type)
 
@@ -1221,30 +1225,74 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 		}, nil
 	}
 
-	// Construct file path: {DataDir}/{DataDate}/{ticker}/state/{category}.jsonl
-	filePath := filepath.Join(s.config.DataDir, s.config.DataDate, ticker, "state", category+".jsonl")
+	// Construct file path: {DataDir}/{date}/{ticker}/state/{category}.jsonl
+	filePath := filepath.Join(s.config.DataDir, date, ticker, "state", category+".jsonl")
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		s.logger.Warn("download file not found",
+			zap.String("date", date),
 			zap.String("ticker", ticker),
 			zap.String("type", typeParam),
 			zap.String("filePath", filePath),
 		)
 		return generated.DownloadStateData404JSONResponse{
-			Error: ptr(fmt.Sprintf("File not found: %s/state/%s.jsonl", ticker, category)),
+			Error: ptr(fmt.Sprintf("File not found: %s/%s/state/%s.jsonl", date, ticker, category)),
 		}, nil
 	}
 
-	filename := fmt.Sprintf("%s_state_%s.jsonl", ticker, category)
+	filename := fmt.Sprintf("%s_%s_state_%s.jsonl", date, ticker, category)
 
 	s.logger.Info("download state request",
+		zap.String("date", date),
 		zap.String("ticker", ticker),
 		zap.String("type", typeParam),
 		zap.String("apiKey", maskAPIKey(request.Params.Key)),
 	)
 
 	return &stateDownloadResponse{
+		downloadFileResponse: downloadFileResponse{filePath: filePath, filename: filename},
+	}, nil
+}
+
+// orderflowDownloadResponse wraps downloadFileResponse for orderflow data downloads
+type orderflowDownloadResponse struct {
+	downloadFileResponse
+}
+
+func (r *orderflowDownloadResponse) VisitDownloadOrderflowResponse(w http.ResponseWriter) error {
+	return r.serveFile(w)
+}
+
+// DownloadOrderflow implements generated.StrictServerInterface
+func (s *Server) DownloadOrderflow(ctx context.Context, request generated.DownloadOrderflowRequestObject) (generated.DownloadOrderflowResponseObject, error) {
+	date := request.Date
+	ticker := request.Ticker
+
+	// Construct file path: {DataDir}/{date}/{ticker}/orderflow/orderflow.jsonl
+	filePath := filepath.Join(s.config.DataDir, date, ticker, "orderflow", "orderflow.jsonl")
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		s.logger.Warn("download file not found",
+			zap.String("date", date),
+			zap.String("ticker", ticker),
+			zap.String("filePath", filePath),
+		)
+		return generated.DownloadOrderflow404JSONResponse{
+			Error: ptr(fmt.Sprintf("File not found: %s/%s/orderflow/orderflow.jsonl", date, ticker)),
+		}, nil
+	}
+
+	filename := fmt.Sprintf("%s_%s_orderflow.jsonl", date, ticker)
+
+	s.logger.Info("download orderflow request",
+		zap.String("date", date),
+		zap.String("ticker", ticker),
+		zap.String("apiKey", maskAPIKey(request.Params.Key)),
+	)
+
+	return &orderflowDownloadResponse{
 		downloadFileResponse: downloadFileResponse{filePath: filePath, filename: filename},
 	}, nil
 }
