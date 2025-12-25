@@ -87,6 +87,11 @@ REST API serving historical GEX data with sequential playback per API key.
 - `/{ticker}/classic/{aggregation}` - Classic GEX chain data
 - `/{ticker}/state/{type}` - State GEX profiles and Greeks
 - `/{ticker}/orderflow/orderflow` - Orderflow metrics
+- `/available-data/{date}` - Discover available data for a date
+- `/download/{date}/{ticker}/links` - Get all download links for a date/ticker
+- `/download/{date}/{ticker}/classic/{aggregation}` - Download classic data
+- `/download/{date}/{ticker}/state/{type}` - Download state data
+- `/download/{date}/{ticker}/orderflow` - Download orderflow data
 - `/negotiate` - WebSocket connection URLs
 - `/health`, `/tickers`, `/available-dates` - Server info
 
