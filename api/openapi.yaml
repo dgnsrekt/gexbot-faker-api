@@ -550,6 +550,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/AvailableDataResponse'
 
+  /download/{date}/{ticker}/links:
+    get:
+      operationId: getDownloadLinks
+      summary: Get available download links for a date/ticker
+      description: Returns all available download links grouped by package (classic, state, orderflow)
+      tags: [download]
+      parameters:
+        - name: date
+          in: path
+          required: true
+          description: Data date in YYYY-MM-DD format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          example: "2025-12-04"
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (uppercase)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+      responses:
+        '200':
+          description: Available download links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadLinksResponse'
+        '404':
+          description: No data found for date/ticker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /download/{date}/{ticker}/classic/{aggregation}:
     get:
       operationId: downloadClassicGex
@@ -581,14 +618,6 @@ paths:
             type: string
             enum: [full, zero, one]
           example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
       responses:
         '200':
           description: JSONL file download
@@ -597,12 +626,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          description: Missing API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: File not found
           content:
@@ -641,14 +664,6 @@ paths:
             type: string
             enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
           example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
       responses:
         '200':
           description: JSONL file download
@@ -657,12 +672,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          description: Missing API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: File not found
           content:
@@ -693,14 +702,6 @@ paths:
             type: string
             pattern: '^[A-Z_]{1,10}$'
           example: SPX
-        - name: key
-          in: query
-          required: true
-          description: API key
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
       responses:
         '200':
           description: JSONL file download
@@ -709,12 +710,6 @@ paths:
               schema:
                 type: string
                 format: binary
-        '401':
-          description: Missing API key
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: File not found
           content:
@@ -1159,3 +1154,44 @@ components:
           type: integer
           description: Total number of data files
           example: 45
+
+    DownloadLinksResponse:
+      type: object
+      required:
+        - date
+        - ticker
+        - links
+      properties:
+        date:
+          type: string
+          description: Data date
+          example: "2025-12-04"
+        ticker:
+          type: string
+          description: Ticker symbol
+          example: SPX
+        links:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Flat list of download paths grouped by package
+          example:
+            classic:
+              - "/download/2025-12-04/SPX/classic/full"
+              - "/download/2025-12-04/SPX/classic/zero"
+            state:
+              - "/download/2025-12-04/SPX/state/delta_zero"
+            orderflow:
+              - "/download/2025-12-04/SPX/orderflow"
+        summary:
+          $ref: '#/components/schemas/DownloadLinksSummary'
+
+    DownloadLinksSummary:
+      type: object
+      properties:
+        total_links:
+          type: integer
+          description: Total number of download links
+          example: 15

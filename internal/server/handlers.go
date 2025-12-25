@@ -1190,7 +1190,6 @@ func (s *Server) DownloadClassicGex(ctx context.Context, request generated.Downl
 		zap.String("date", date),
 		zap.String("ticker", ticker),
 		zap.String("aggregation", aggregation),
-		zap.String("apiKey", maskAPIKey(request.Params.Key)),
 	)
 
 	return &classicDownloadResponse{
@@ -1247,7 +1246,6 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 		zap.String("date", date),
 		zap.String("ticker", ticker),
 		zap.String("type", typeParam),
-		zap.String("apiKey", maskAPIKey(request.Params.Key)),
 	)
 
 	return &stateDownloadResponse{
@@ -1289,10 +1287,128 @@ func (s *Server) DownloadOrderflow(ctx context.Context, request generated.Downlo
 	s.logger.Info("download orderflow request",
 		zap.String("date", date),
 		zap.String("ticker", ticker),
-		zap.String("apiKey", maskAPIKey(request.Params.Key)),
 	)
 
 	return &orderflowDownloadResponse{
 		downloadFileResponse: downloadFileResponse{filePath: filePath, filename: filename},
+	}, nil
+}
+
+// categoryToPathParam maps file categories to URL path parameters
+func categoryToPathParam(pkg, category string) string {
+	if pkg == "classic" || pkg == "state" {
+		if strings.HasPrefix(category, "gex_") {
+			return strings.TrimPrefix(category, "gex_")
+		}
+	}
+	return category
+}
+
+// buildDownloadPath constructs the download URL path for a given package/category
+func buildDownloadPath(date, ticker, pkg, category string) string {
+	switch pkg {
+	case "classic":
+		return fmt.Sprintf("/download/%s/%s/classic/%s", date, ticker, categoryToPathParam(pkg, category))
+	case "state":
+		return fmt.Sprintf("/download/%s/%s/state/%s", date, ticker, categoryToPathParam(pkg, category))
+	case "orderflow":
+		return fmt.Sprintf("/download/%s/%s/orderflow", date, ticker)
+	}
+	return ""
+}
+
+// GetDownloadLinks implements generated.StrictServerInterface
+func (s *Server) GetDownloadLinks(ctx context.Context, request generated.GetDownloadLinksRequestObject) (generated.GetDownloadLinksResponseObject, error) {
+	date := request.Date
+	ticker := request.Ticker
+
+	s.logger.Debug("download links request",
+		zap.String("date", date),
+		zap.String("ticker", ticker),
+	)
+
+	// Build path to ticker directory
+	tickerPath := filepath.Join(s.config.DataDir, date, ticker)
+
+	// Check if ticker directory exists
+	if _, err := os.Stat(tickerPath); os.IsNotExist(err) {
+		return generated.GetDownloadLinks404JSONResponse{
+			Error: ptr(fmt.Sprintf("No data found for %s/%s", date, ticker)),
+		}, nil
+	}
+
+	// Scan for packages
+	pkgEntries, err := os.ReadDir(tickerPath)
+	if err != nil {
+		s.logger.Error("failed to read ticker directory", zap.Error(err))
+		return nil, err
+	}
+
+	links := make(map[string][]string)
+	totalLinks := 0
+
+	for _, pkgEntry := range pkgEntries {
+		if !pkgEntry.IsDir() {
+			continue
+		}
+		pkgName := pkgEntry.Name()
+
+		// Only process known packages
+		if pkgName != "classic" && pkgName != "state" && pkgName != "orderflow" {
+			continue
+		}
+
+		pkgPath := filepath.Join(tickerPath, pkgName)
+		catEntries, err := os.ReadDir(pkgPath)
+		if err != nil {
+			s.logger.Warn("failed to read package directory",
+				zap.String("package", pkgName),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		var pkgLinks []string
+		for _, catEntry := range catEntries {
+			if catEntry.IsDir() {
+				continue
+			}
+			fileName := catEntry.Name()
+			if !strings.HasSuffix(fileName, ".jsonl") {
+				continue
+			}
+
+			category := strings.TrimSuffix(fileName, ".jsonl")
+			path := buildDownloadPath(date, ticker, pkgName, category)
+
+			pkgLinks = append(pkgLinks, path)
+			totalLinks++
+		}
+
+		if len(pkgLinks) > 0 {
+			sort.Strings(pkgLinks)
+			links[pkgName] = pkgLinks
+		}
+	}
+
+	if totalLinks == 0 {
+		return generated.GetDownloadLinks404JSONResponse{
+			Error: ptr(fmt.Sprintf("No data files found for %s/%s", date, ticker)),
+		}, nil
+	}
+
+	s.logger.Debug("download links response",
+		zap.String("date", date),
+		zap.String("ticker", ticker),
+		zap.Int("totalLinks", totalLinks),
+	)
+
+	return generated.GetDownloadLinks200JSONResponse{
+		Date:   date,
+		Ticker: ticker,
+		Links:  links,
+		Summary: &generated.DownloadLinksSummary{
+			TotalLinks: &totalLinks,
+		},
 	}, nil
 }
