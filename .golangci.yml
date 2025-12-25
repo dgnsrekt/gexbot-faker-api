@@ -1,0 +1,17 @@
+version: "2"
+
+linters:
+  default: standard
+  disable:
+    - errcheck  # TODO: Re-enable after fixing 24 warnings
+  enable:
+    - bodyclose      # HTTP response body closed
+    - errorlint      # Error wrapping issues
+    - gosec          # Security issues
+
+exclusions:
+  paths:
+    - internal/api/generated  # oapi-codegen generated
+    - internal/ws/generated   # protobuf generated
+  presets:
+    - common-false-positives

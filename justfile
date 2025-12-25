@@ -34,6 +34,8 @@ help:
     @echo ""
     @echo "  just test                Run tests"
     @echo "  just lint                Run linter"
+    @echo "  just install-hooks       Install pre-commit hooks"
+    @echo "  just pre-commit          Run pre-commit on all files"
     @echo "  just clean               Clean build artifacts"
     @echo ""
     @echo "Browser Automation Commands"
@@ -112,6 +114,14 @@ test:
 # Run linter
 lint:
     golangci-lint run
+
+# Install pre-commit hooks
+install-hooks:
+    pre-commit install
+
+# Run pre-commit on all files
+pre-commit:
+    pre-commit run --all-files
 
 # Clean build artifacts, staging, and logs
 clean:
