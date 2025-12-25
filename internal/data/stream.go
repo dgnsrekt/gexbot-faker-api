@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -73,7 +74,7 @@ func NewStreamLoader(dataDir, date string, logger *zap.Logger) (*StreamLoader, e
 	})
 
 	if err != nil {
-		loader.Close()
+		_ = loader.Close()
 		return nil, fmt.Errorf("walking data directory: %w", err)
 	}
 
@@ -114,7 +115,7 @@ func (s *StreamLoader) indexFile(path string) ([]int64, *os.File, error) {
 			break
 		}
 		if err != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, nil, err
 		}
 
@@ -166,7 +167,7 @@ func (s *StreamLoader) GetRawAtIndex(ctx context.Context, ticker, pkg, category 
 	// Read the line
 	reader := bufio.NewReader(file)
 	line, err := reader.ReadBytes('\n')
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("read error: %w", err)
 	}
 

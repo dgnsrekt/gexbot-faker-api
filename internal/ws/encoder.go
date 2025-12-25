@@ -168,8 +168,8 @@ func (e *Encoder) EncodeGex(jsonData []byte) ([]byte, error) {
 	}
 
 	// 4. Build protobuf message with integer scaling
-	minDte := int32(gex.MinDTE)
-	secMinDte := int32(gex.SecMinDTE)
+	minDte := int32(gex.MinDTE)       //nolint:gosec // DTE values are always 0-365, safe for int32
+	secMinDte := int32(gex.SecMinDTE) //nolint:gosec // DTE values are always 0-365, safe for int32
 
 	pbMsg := &gexpb.Gex{
 		Timestamp:  gex.Timestamp,
@@ -279,8 +279,8 @@ func (e *Encoder) EncodeGreek(jsonData []byte) ([]byte, error) {
 	}
 
 	// 3. Build OptionProfile protobuf message with integer scaling
-	minDte := int32(greek.MinDTE)
-	secMinDte := int32(greek.SecMinDTE)
+	minDte := int32(greek.MinDTE)       //nolint:gosec // DTE values are always 0-365, safe for int32
+	secMinDte := int32(greek.SecMinDTE) //nolint:gosec // DTE values are always 0-365, safe for int32
 
 	pbMsg := &greekpb.OptionProfile{
 		Timestamp:       greek.Timestamp,

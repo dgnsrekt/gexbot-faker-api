@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -138,7 +139,7 @@ func (m *Manager) processTask(ctx context.Context, task Task) TaskResult {
 	// Get signed URL
 	signedURL, err := m.client.GetDownloadURL(ctx, task.Ticker, task.Package, task.Category, task.Date)
 	if err != nil {
-		if err == api.ErrNotFound {
+		if errors.Is(err, api.ErrNotFound) {
 			m.logger.Debug("not found", zap.String("task", task.String()))
 			result.NotFound = true
 			return result

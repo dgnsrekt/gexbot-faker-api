@@ -42,7 +42,7 @@ func setupLogger(verbose bool, logCfg *config.LoggingConfig) (*zap.Logger, error
 
 	// Add file output if enabled
 	if logCfg != nil && logCfg.Enabled {
-		if err := os.MkdirAll(logCfg.Directory, 0755); err != nil {
+		if err := os.MkdirAll(logCfg.Directory, 0750); err != nil {
 			return nil, fmt.Errorf("creating logs directory: %w", err)
 		}
 		timestamp := time.Now().Format("2006-01-02_15-04-05")

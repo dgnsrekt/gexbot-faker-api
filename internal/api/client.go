@@ -98,7 +98,7 @@ func (c *HTTPClient) GetDownloadURL(ctx context.Context, ticker, pkg, category, 
 
 		// Read body before closing for error messages
 		body, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if readErr != nil {
 			lastErr = readErr

@@ -8,6 +8,10 @@ linters:
     - bodyclose      # HTTP response body closed
     - errorlint      # Error wrapping issues
     - gosec          # Security issues
+  settings:
+    gosec:
+      excludes:
+        - G304  # File path from variable - false positives in internal code
 
 exclusions:
   paths:

@@ -39,10 +39,10 @@ func (t *DownloadTracker) GetLastDownloadDate() string {
 func (t *DownloadTracker) SetLastDownloadDate(date string) error {
 	// Ensure directory exists
 	dir := filepath.Dir(t.stateFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
-	return os.WriteFile(t.stateFile, []byte(date+"\n"), 0644)
+	return os.WriteFile(t.stateFile, []byte(date+"\n"), 0600)
 }
 
 // AlreadyDownloaded checks if the given date was already downloaded

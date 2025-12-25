@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,7 +32,7 @@ func TestGetDownloadURL_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(HistoryResponse{URL: "https://storage.example.com/file.json"})
+		_ = json.NewEncoder(w).Encode(HistoryResponse{URL: "https://storage.example.com/file.json"})
 	}))
 	defer server.Close()
 
@@ -58,7 +59,7 @@ func TestGetDownloadURL_NotFound(t *testing.T) {
 	client := NewClient(server.URL, "test-key", 10, 30*time.Second, 1*time.Second, 0, logger)
 
 	_, err := client.GetDownloadURL(context.Background(), "SPX", "state", "gex_full", "2025-11-14")
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }

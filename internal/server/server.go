@@ -135,19 +135,19 @@ func maskQueryKey(rawQuery string) string {
 
 func openapiHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml")
-	w.Write(api.OpenAPISpec)
+	_, _ = w.Write(api.OpenAPISpec)
 }
 
 func swaggerUIBundleHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=31536000")
-	w.Write(api.SwaggerUIBundle)
+	_, _ = w.Write(api.SwaggerUIBundle)
 }
 
 func swaggerUICSSHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=31536000")
-	w.Write(api.SwaggerUICSS)
+	_, _ = w.Write(api.SwaggerUICSS)
 }
 
 func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
@@ -176,5 +176,5 @@ func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	_, _ = w.Write([]byte(html))
 }

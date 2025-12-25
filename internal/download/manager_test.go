@@ -100,10 +100,10 @@ func TestDownloadManager_Resume(t *testing.T) {
 
 	// Pre-create a file in the final directory
 	finalPath := filepath.Join(tmpDir, "2025-11-14", "SPX", "state", "gex_full.json")
-	if err := os.MkdirAll(filepath.Dir(finalPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(finalPath), 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(finalPath, []byte("existing"), 0644); err != nil {
+	if err := os.WriteFile(finalPath, []byte("existing"), 0600); err != nil {
 		t.Fatal(err)
 	}
 

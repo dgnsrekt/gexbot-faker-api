@@ -36,12 +36,12 @@ func (m *Manager) StagingDir(date string) string {
 
 func (m *Manager) PrepareStaging(date string) error {
 	dir := m.StagingDir(date)
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0750)
 }
 
 func (m *Manager) DownloadToStaging(ctx context.Context, client api.Client, url, destPath string) (int64, error) {
 	// Create parent directories
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 		return 0, fmt.Errorf("creating directories: %w", err)
 	}
 
@@ -58,13 +58,13 @@ func (m *Manager) DownloadToStaging(ctx context.Context, client api.Client, url,
 	}
 
 	if err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return 0, fmt.Errorf("downloading file: %w", err)
 	}
 
 	// Atomic rename
 	if err := os.Rename(tmpPath, destPath); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return 0, fmt.Errorf("renaming temp file: %w", err)
 	}
 
@@ -90,7 +90,7 @@ func (m *Manager) CommitStaging(date string) error {
 		}
 
 		destPath := filepath.Join(finalDir, relPath)
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(destPath), 0750); err != nil {
 			return err
 		}
 

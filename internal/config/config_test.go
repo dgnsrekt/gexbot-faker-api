@@ -6,8 +6,8 @@ import (
 )
 
 func TestLoadWithAPIKey(t *testing.T) {
-	os.Setenv("GEXBOT_API_KEY", "test-key-123")
-	defer os.Unsetenv("GEXBOT_API_KEY")
+	_ = os.Setenv("GEXBOT_API_KEY", "test-key-123")
+	defer func() { _ = os.Unsetenv("GEXBOT_API_KEY") }()
 
 	cfg, err := Load("")
 	if err != nil {
@@ -28,7 +28,7 @@ func TestLoadWithAPIKey(t *testing.T) {
 }
 
 func TestLoadWithoutAPIKey(t *testing.T) {
-	os.Unsetenv("GEXBOT_API_KEY")
+	_ = os.Unsetenv("GEXBOT_API_KEY")
 
 	_, err := Load("")
 	if err == nil {
