@@ -517,6 +517,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/CurrentDateResponse'
 
+  /available-data/{date}:
+    get:
+      operationId: getAvailableData
+      summary: Get available data for a date
+      description: |
+        Returns hierarchical listing of available data for a specific date.
+        Shows tickers, packages, and categories that exist in the data directory.
+      tags: [info]
+      parameters:
+        - name: date
+          in: path
+          required: true
+          description: Date in YYYY-MM-DD format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          example: "2025-12-04"
+        - name: ticker
+          in: query
+          required: false
+          description: Filter to a specific ticker
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+      responses:
+        '200':
+          description: Available data for the date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableDataResponse'
+
   /{ticker}/classic/{aggregation}/download:
     get:
       operationId: downloadClassicGex
@@ -1003,3 +1036,58 @@ components:
           type: integer
           description: Number of data files loaded
           example: 12
+
+    AvailableDataResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          description: The requested date
+          example: "2025-12-04"
+        tickers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TickerData'
+          description: Available tickers with their packages
+        summary:
+          $ref: '#/components/schemas/DataSummary'
+
+    TickerData:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Ticker symbol
+          example: SPX
+        packages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageData'
+          description: Available packages for this ticker
+
+    PackageData:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Package name
+          enum: [classic, state, orderflow]
+          example: classic
+        categories:
+          type: array
+          items:
+            type: string
+          description: Available categories in this package
+          example: ["gex_full", "gex_one", "gex_zero"]
+
+    DataSummary:
+      type: object
+      properties:
+        total_tickers:
+          type: integer
+          description: Number of tickers with data
+          example: 3
+        total_files:
+          type: integer
+          description: Total number of data files
+          example: 45

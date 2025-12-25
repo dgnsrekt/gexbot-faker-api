@@ -982,6 +982,147 @@ func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurren
 	}, nil
 }
 
+// GetAvailableData implements generated.StrictServerInterface
+func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvailableDataRequestObject) (generated.GetAvailableDataResponseObject, error) {
+	date := request.Date
+	tickerFilter := ""
+	if request.Params.Ticker != nil {
+		tickerFilter = *request.Params.Ticker
+	}
+
+	s.logger.Debug("available data request",
+		zap.String("date", date),
+		zap.String("tickerFilter", tickerFilter),
+	)
+
+	// Build path to date directory
+	datePath := filepath.Join(s.config.DataDir, date)
+
+	// Check if date directory exists
+	if _, err := os.Stat(datePath); os.IsNotExist(err) {
+		// Return empty response for non-existent date
+		emptyTickers := []generated.TickerData{}
+		totalTickers := 0
+		totalFiles := 0
+		return generated.GetAvailableData200JSONResponse{
+			Date:    &date,
+			Tickers: &emptyTickers,
+			Summary: &generated.DataSummary{
+				TotalTickers: &totalTickers,
+				TotalFiles:   &totalFiles,
+			},
+		}, nil
+	}
+
+	// Scan for tickers
+	tickerEntries, err := os.ReadDir(datePath)
+	if err != nil {
+		s.logger.Error("failed to read date directory", zap.Error(err))
+		return nil, err
+	}
+
+	tickers := []generated.TickerData{}
+	totalFiles := 0
+
+	for _, tickerEntry := range tickerEntries {
+		if !tickerEntry.IsDir() {
+			continue
+		}
+		tickerName := tickerEntry.Name()
+
+		// Apply ticker filter if specified
+		if tickerFilter != "" && tickerName != tickerFilter {
+			continue
+		}
+
+		tickerPath := filepath.Join(datePath, tickerName)
+		pkgEntries, err := os.ReadDir(tickerPath)
+		if err != nil {
+			s.logger.Warn("failed to read ticker directory", zap.String("ticker", tickerName), zap.Error(err))
+			continue
+		}
+
+		var packages []generated.PackageData
+
+		for _, pkgEntry := range pkgEntries {
+			if !pkgEntry.IsDir() {
+				continue
+			}
+			pkgName := pkgEntry.Name()
+
+			// Only include known packages
+			var packageName generated.PackageDataName
+			switch pkgName {
+			case "classic":
+				packageName = generated.Classic
+			case "state":
+				packageName = generated.State
+			case "orderflow":
+				packageName = generated.Orderflow
+			default:
+				continue
+			}
+
+			pkgPath := filepath.Join(tickerPath, pkgName)
+			categoryEntries, err := os.ReadDir(pkgPath)
+			if err != nil {
+				s.logger.Warn("failed to read package directory", zap.String("package", pkgName), zap.Error(err))
+				continue
+			}
+
+			var categories []string
+			for _, catEntry := range categoryEntries {
+				if catEntry.IsDir() {
+					continue
+				}
+				fileName := catEntry.Name()
+				if strings.HasSuffix(fileName, ".jsonl") {
+					category := strings.TrimSuffix(fileName, ".jsonl")
+					categories = append(categories, category)
+					totalFiles++
+				}
+			}
+
+			if len(categories) > 0 {
+				sort.Strings(categories)
+				packages = append(packages, generated.PackageData{
+					Name:       &packageName,
+					Categories: &categories,
+				})
+			}
+		}
+
+		if len(packages) > 0 {
+			tickers = append(tickers, generated.TickerData{
+				Symbol:   &tickerName,
+				Packages: &packages,
+			})
+		}
+	}
+
+	// Sort tickers alphabetically
+	sort.Slice(tickers, func(i, j int) bool {
+		return *tickers[i].Symbol < *tickers[j].Symbol
+	})
+
+	totalTickers := len(tickers)
+
+	s.logger.Debug("available data response",
+		zap.String("date", date),
+		zap.Int("totalTickers", totalTickers),
+		zap.Int("totalFiles", totalFiles),
+	)
+
+	return generated.GetAvailableData200JSONResponse{
+		Date:    &date,
+		Tickers: &tickers,
+		Summary: &generated.DataSummary{
+			TotalTickers: &totalTickers,
+			TotalFiles:   &totalFiles,
+		},
+	}, nil
+}
+
 // downloadFileResponse implements file streaming for download endpoints
 type downloadFileResponse struct {
 	filePath string
