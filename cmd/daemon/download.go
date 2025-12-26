@@ -252,7 +252,7 @@ func convertFile(jsonPath, jsonlPath string) error {
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	// Write each item as a line
 	for _, item := range items {

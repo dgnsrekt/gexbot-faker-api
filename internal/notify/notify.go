@@ -85,7 +85,7 @@ func (c *Client) send(ctx context.Context, title, message, tags, priority string
 		c.logger.Warn("failed to send notification", zap.Error(err))
 		return fmt.Errorf("sending notification: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Drain response body to allow connection reuse
 	_, _ = io.Copy(io.Discard, resp.Body)

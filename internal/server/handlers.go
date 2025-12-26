@@ -1135,7 +1135,7 @@ func (r *downloadFileResponse) serveFile(w http.ResponseWriter) error {
 		http.Error(w, "Failed to open file", http.StatusInternalServerError)
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	stat, err := file.Stat()
 	if err != nil {

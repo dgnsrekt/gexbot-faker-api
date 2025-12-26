@@ -28,7 +28,7 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
 		return 1
 	}
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	// Load config
 	cfg, err := config.LoadServerConfig()
@@ -66,7 +66,7 @@ func run() int {
 		logger.Error("failed to load data", zap.Error(err))
 		return 1
 	}
-	defer loader.Close()
+	defer func() { _ = loader.Close() }()
 
 	logger.Info("data loaded", zap.Duration("duration", time.Since(start)))
 

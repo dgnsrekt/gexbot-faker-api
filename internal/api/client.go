@@ -165,7 +165,7 @@ func (c *HTTPClient) downloadFileOnce(ctx context.Context, url string, dest io.W
 	if err != nil {
 		return 0, fmt.Errorf("executing request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status: %d", resp.StatusCode)

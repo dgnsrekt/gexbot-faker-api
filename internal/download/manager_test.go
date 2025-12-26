@@ -42,7 +42,7 @@ func TestDownloadManager(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	client := &mockClient{
 		data:     []byte(`{"test": "data"}`),
@@ -88,7 +88,7 @@ func TestDownloadManager_Resume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	client := &mockClient{
 		data: []byte(`{"test": "data"}`),

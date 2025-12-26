@@ -25,7 +25,7 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
 		return 1
 	}
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 
 	// Load daemon config
 	daemonCfg := LoadDaemonConfig()
