@@ -52,12 +52,12 @@ func run() int {
 	logger.Info("loading data...", zap.String("mode", cfg.DataMode))
 	start := time.Now()
 
-	var loader data.DataLoader
+	var initialLoader data.DataLoader
 	switch cfg.DataMode {
 	case "memory":
-		loader, err = data.NewMemoryLoader(cfg.DataDir, cfg.DataDate, logger)
+		initialLoader, err = data.NewMemoryLoader(cfg.DataDir, cfg.DataDate, logger)
 	case "stream":
-		loader, err = data.NewStreamLoader(cfg.DataDir, cfg.DataDate, logger)
+		initialLoader, err = data.NewStreamLoader(cfg.DataDir, cfg.DataDate, logger)
 	default:
 		logger.Error("unknown data mode", zap.String("mode", cfg.DataMode))
 		return 1
@@ -66,7 +66,10 @@ func run() int {
 		logger.Error("failed to load data", zap.Error(err))
 		return 1
 	}
-	defer func() { _ = loader.Close() }()
+
+	// Wrap in reloadable loader for hot reload support
+	reloadableLoader := data.NewReloadableLoader(initialLoader)
+	defer func() { _ = reloadableLoader.Close() }()
 
 	logger.Info("data loaded", zap.Duration("duration", time.Since(start)))
 
@@ -77,8 +80,11 @@ func run() int {
 	}
 	cache := data.NewIndexCache(cacheMode)
 
-	// Create server
-	srv := server.NewServer(loader, cache, cfg, logger)
+	// Create reload manager for hot reload support
+	reloadManager := server.NewReloadManager(reloadableLoader, cache, cfg, logger)
+
+	// Create server with reload manager
+	srv := server.NewServer(reloadableLoader, cache, cfg, logger, reloadManager)
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -110,7 +116,7 @@ func run() int {
 		negotiateHandler = ws.NewNegotiateHandler(logger, cfg.WSGroupPrefix)
 
 		// Create and start orderflow streamer
-		orderflowStreamer, err := ws.NewStreamer(orderflowHub, loader, cache, cfg.WSStreamInterval, logger)
+		orderflowStreamer, err := ws.NewStreamer(orderflowHub, reloadableLoader, cache, cfg.WSStreamInterval, logger, reloadManager)
 		if err != nil {
 			logger.Error("failed to create orderflow streamer", zap.Error(err))
 			return 1
@@ -118,7 +124,7 @@ func run() int {
 		go orderflowStreamer.Run(ctx)
 
 		// Create and start GEX streamer
-		gexStreamer, err := ws.NewGexStreamer(stateGexHub, loader, cache, cfg.WSStreamInterval, logger)
+		gexStreamer, err := ws.NewGexStreamer(stateGexHub, reloadableLoader, cache, cfg.WSStreamInterval, logger, reloadManager)
 		if err != nil {
 			logger.Error("failed to create gex streamer", zap.Error(err))
 			return 1
@@ -126,7 +132,7 @@ func run() int {
 		go gexStreamer.Run(ctx)
 
 		// Create and start classic streamer
-		classicStreamer, err := ws.NewClassicStreamer(classicHub, loader, cache, cfg.WSStreamInterval, logger)
+		classicStreamer, err := ws.NewClassicStreamer(classicHub, reloadableLoader, cache, cfg.WSStreamInterval, logger, reloadManager)
 		if err != nil {
 			logger.Error("failed to create classic streamer", zap.Error(err))
 			return 1
@@ -139,7 +145,7 @@ func run() int {
 		wsHubs.StateGreeksZero = stateGreeksZeroHub
 
 		// Create and start greek streamer
-		greekStreamer, err := ws.NewGreekStreamer(stateGreeksZeroHub, loader, cache, cfg.WSStreamInterval, logger)
+		greekStreamer, err := ws.NewGreekStreamer(stateGreeksZeroHub, reloadableLoader, cache, cfg.WSStreamInterval, logger, reloadManager)
 		if err != nil {
 			logger.Error("failed to create greek streamer", zap.Error(err))
 			return 1
@@ -152,7 +158,7 @@ func run() int {
 		wsHubs.StateGreeksOne = stateGreeksOneHub
 
 		// Create and start greek one streamer
-		greekOneStreamer, err := ws.NewGreekOneStreamer(stateGreeksOneHub, loader, cache, cfg.WSStreamInterval, logger)
+		greekOneStreamer, err := ws.NewGreekOneStreamer(stateGreeksOneHub, reloadableLoader, cache, cfg.WSStreamInterval, logger, reloadManager)
 		if err != nil {
 			logger.Error("failed to create greek one streamer", zap.Error(err))
 			return 1

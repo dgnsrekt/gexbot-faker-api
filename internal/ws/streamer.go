@@ -10,31 +10,39 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 )
 
+// ReloadChecker provides a way to check if a data reload is in progress.
+// Streamers should skip broadcasts during reload to prevent data inconsistencies.
+type ReloadChecker interface {
+	IsReloading() bool
+}
+
 // Streamer broadcasts data from JSONL files to subscribed clients.
 // Uses per-API-key position tracking via shared IndexCache.
 type Streamer struct {
-	hub      *Hub
-	loader   data.DataLoader
-	cache    *data.IndexCache
-	encoder  *Encoder
-	interval time.Duration
-	logger   *zap.Logger
+	hub           *Hub
+	loader        data.DataLoader
+	cache         *data.IndexCache
+	encoder       *Encoder
+	interval      time.Duration
+	logger        *zap.Logger
+	reloadChecker ReloadChecker
 }
 
 // NewStreamer creates a new Streamer with shared cache for per-API-key tracking.
-func NewStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger) (*Streamer, error) {
+func NewStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger, reloadChecker ReloadChecker) (*Streamer, error) {
 	enc, err := NewEncoder()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Streamer{
-		hub:      hub,
-		loader:   loader,
-		cache:    cache,
-		encoder:  enc,
-		interval: interval,
-		logger:   logger,
+		hub:           hub,
+		loader:        loader,
+		cache:         cache,
+		encoder:       enc,
+		interval:      interval,
+		logger:        logger,
+		reloadChecker: reloadChecker,
 	}, nil
 }
 
@@ -81,6 +89,11 @@ func (s *Streamer) Run(ctx context.Context) {
 // broadcastNext sends the next data point to all active groups.
 // Each API key receives data from its own position in the stream.
 func (s *Streamer) broadcastNext(ctx context.Context) {
+	// Skip broadcast during data reload
+	if s.reloadChecker != nil && s.reloadChecker.IsReloading() {
+		return
+	}
+
 	groups := s.hub.GetActiveGroups()
 	if len(groups) == 0 {
 		return

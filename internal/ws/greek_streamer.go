@@ -14,28 +14,30 @@ import (
 // Supports delta_zero, gamma_zero, vanna_zero, and charm_zero categories.
 // Uses per-API-key position tracking via shared IndexCache.
 type GreekStreamer struct {
-	hub      *Hub
-	loader   data.DataLoader
-	cache    *data.IndexCache
-	encoder  *Encoder
-	interval time.Duration
-	logger   *zap.Logger
+	hub           *Hub
+	loader        data.DataLoader
+	cache         *data.IndexCache
+	encoder       *Encoder
+	interval      time.Duration
+	logger        *zap.Logger
+	reloadChecker ReloadChecker
 }
 
 // NewGreekStreamer creates a new GreekStreamer with shared cache for per-API-key tracking.
-func NewGreekStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger) (*GreekStreamer, error) {
+func NewGreekStreamer(hub *Hub, loader data.DataLoader, cache *data.IndexCache, interval time.Duration, logger *zap.Logger, reloadChecker ReloadChecker) (*GreekStreamer, error) {
 	enc, err := NewEncoder()
 	if err != nil {
 		return nil, err
 	}
 
 	return &GreekStreamer{
-		hub:      hub,
-		loader:   loader,
-		cache:    cache,
-		encoder:  enc,
-		interval: interval,
-		logger:   logger,
+		hub:           hub,
+		loader:        loader,
+		cache:         cache,
+		encoder:       enc,
+		interval:      interval,
+		logger:        logger,
+		reloadChecker: reloadChecker,
 	}, nil
 }
 
@@ -82,6 +84,11 @@ func (s *GreekStreamer) Run(ctx context.Context) {
 // broadcastNext sends the next data point to all active groups.
 // Each API key receives data from its own position in the stream.
 func (s *GreekStreamer) broadcastNext(ctx context.Context) {
+	// Skip broadcast during data reload
+	if s.reloadChecker != nil && s.reloadChecker.IsReloading() {
+		return
+	}
+
 	groups := s.hub.GetActiveGroups()
 	if len(groups) == 0 {
 		return

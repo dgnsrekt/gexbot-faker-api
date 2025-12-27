@@ -40,20 +40,22 @@ func (r stateProfileGreekDataResponse) VisitGetStateProfileResponse(w http.Respo
 }
 
 type Server struct {
-	loader   data.DataLoader
-	cache    *data.IndexCache
-	config   *config.ServerConfig
-	logger   *zap.Logger
-	loadedAt time.Time
+	loader        data.DataLoader
+	cache         *data.IndexCache
+	config        *config.ServerConfig
+	logger        *zap.Logger
+	loadedAt      time.Time
+	reloadManager *ReloadManager
 }
 
-func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger) *Server {
+func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger, reloadManager *ReloadManager) *Server {
 	return &Server{
-		loader:   loader,
-		cache:    cache,
-		config:   cfg,
-		logger:   logger,
-		loadedAt: time.Now(),
+		loader:        loader,
+		cache:         cache,
+		config:        cfg,
+		logger:        logger,
+		loadedAt:      time.Now(),
+		reloadManager: reloadManager,
 	}
 }
 
@@ -1410,5 +1412,65 @@ func (s *Server) GetDownloadLinks(ctx context.Context, request generated.GetDown
 		Summary: &generated.DownloadLinksSummary{
 			TotalLinks: &totalLinks,
 		},
+	}, nil
+}
+
+// ReloadDate implements generated.StrictServerInterface
+func (s *Server) ReloadDate(ctx context.Context, request generated.ReloadDateRequestObject) (generated.ReloadDateResponseObject, error) {
+	newDate := request.Body.Date
+
+	s.logger.Info("reload date request",
+		zap.String("currentDate", s.config.DataDate),
+		zap.String("newDate", newDate),
+	)
+
+	// Check if reload manager is available
+	if s.reloadManager == nil {
+		return generated.ReloadDate500JSONResponse{
+			Error: ptr("Reload not available: server not configured for hot reload"),
+		}, nil
+	}
+
+	// Perform the reload
+	result, err := s.reloadManager.Reload(ctx, newDate)
+	if err != nil {
+		errMsg := err.Error()
+
+		// Check for specific error types
+		if strings.Contains(errMsg, "already in progress") {
+			return generated.ReloadDate409JSONResponse{
+				Error: ptr(errMsg),
+			}, nil
+		}
+
+		if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "invalid date format") {
+			return generated.ReloadDate400JSONResponse{
+				Error: ptr(errMsg),
+			}, nil
+		}
+
+		return generated.ReloadDate500JSONResponse{
+			Error: ptr(errMsg),
+		}, nil
+	}
+
+	// Update server's loadedAt time
+	s.loadedAt = result.LoadedAt
+
+	status := "success"
+
+	s.logger.Info("reload date complete",
+		zap.String("previousDate", result.PreviousDate),
+		zap.String("newDate", result.NewDate),
+		zap.Time("loadedAt", result.LoadedAt),
+		zap.Int("filesLoaded", result.FilesLoaded),
+	)
+
+	return generated.ReloadDate200JSONResponse{
+		Status:       &status,
+		PreviousDate: &result.PreviousDate,
+		NewDate:      &result.NewDate,
+		LoadedAt:     &result.LoadedAt,
+		FilesLoaded:  &result.FilesLoaded,
 	}, nil
 }
