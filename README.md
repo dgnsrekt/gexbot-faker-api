@@ -13,6 +13,7 @@ NOTE: This only downloads and replays GexBot market data.
 - REST API with Swagger UI documentation at `/docs`
 - WebSocket streaming (5 hubs, Azure Web PubSub compatible)
 - Per-API-key playback position tracking
+- Hot reload data dates without server restart
 - CLI for downloading historical data from GexBot
 - Daemon for scheduled automatic downloads
 - Push notifications via ntfy.sh on download completion
@@ -94,8 +95,37 @@ REST API serving historical GEX data with sequential playback per API key.
 - `/download/{date}/{ticker}/orderflow` - Download orderflow data
 - `/negotiate` - WebSocket connection URLs
 - `/health`, `/tickers`, `/available-dates` - Server info
+- `/reload-date` - Hot reload data for a different date
 
 **Key behavior**: Each API key maintains independent playback position. Data advances on each request.
+
+### Hot Reload
+
+Switch data dates at runtime without restarting the server:
+
+```bash
+# Reload to a different date
+curl -X POST http://localhost:8080/reload-date \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2025-12-04"}'
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "previous_date": "2025-11-28",
+  "new_date": "2025-12-04",
+  "loaded_at": "2025-12-27T15:30:00Z",
+  "files_loaded": 45
+}
+```
+
+**Behavior:**
+- Validates the date exists before unloading current data
+- Pauses WebSocket streaming during reload
+- Resets all cache positions to 0 for clean playback
+- Returns 400 for invalid/missing dates, 409 if reload already in progress
 
 ### WebSocket Streaming
 
