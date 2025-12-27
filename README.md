@@ -162,7 +162,7 @@ curl -N "http://localhost:8080/sync/stream?key=my-api-key"
 ```
 event: snapshot
 id: 1
-data: {"broadcaster_id":"gexbot-faker","data_date":"2025-12-05","cache_mode":"exhaust","timestamp":1766870060074,"sequence":1,"positions":[{"cache_key":"SPX/classic/my-api-key","index":42,"data_length":23375,"data_timestamp":1764945003,"exhausted":false}]}
+data: {"broadcaster_id":"gexbot-faker","data_date":"2025-12-05","cache_mode":"exhaust","timestamp":1766870060074,"sequence":1,"positions":[{"cache_key":"SPX/classic/my-a****","index":42,"data_length":23375,"data_timestamp":1764945003,"exhausted":false}]}
 
 event: batch
 id: 2
@@ -170,7 +170,7 @@ data: {...positions updated every interval...}
 ```
 
 **Position fields:**
-- `cache_key`: Full cache key path (REST or WebSocket format)
+- `cache_key`: Cache key path with masked API key (REST or WebSocket format)
 - `index`: Current playback position
 - `data_length`: Total records available
 - `data_timestamp`: Unix timestamp from the data at current position
