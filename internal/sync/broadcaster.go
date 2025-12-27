@@ -233,7 +233,7 @@ func (sb *SyncBroadcaster) buildPositions(ctx context.Context, apiKey string) []
 		}
 
 		positions = append(positions, SyncPosition{
-			CacheKey:      cacheKey,
+			CacheKey:      maskCacheKey(cacheKey),
 			Index:         index,
 			DataLength:    length,
 			DataTimestamp: dataTimestamp,
@@ -380,4 +380,23 @@ func (sb *SyncBroadcaster) formatEvent(eventType string, data interface{}) ([]by
 
 	event := fmt.Sprintf("event: %s\nid: %d\ndata: %s\n\n", eventType, seq, jsonData)
 	return []byte(event), nil
+}
+
+// maskAPIKey masks an API key, showing only the first 4 characters.
+func maskAPIKey(key string) string {
+	if len(key) <= 4 {
+		return "****"
+	}
+	return key[:4] + "****"
+}
+
+// maskCacheKey masks the API key portion of a cache key.
+// Supports formats: ticker/pkg/category/apiKey, ticker/pkg/apiKey, ws/hub/ticker/category/apiKey
+func maskCacheKey(cacheKey string) string {
+	parts := strings.Split(cacheKey, "/")
+	if len(parts) >= 3 {
+		parts[len(parts)-1] = maskAPIKey(parts[len(parts)-1])
+		return strings.Join(parts, "/")
+	}
+	return cacheKey
 }
