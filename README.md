@@ -14,6 +14,7 @@ NOTE: This only downloads and replays GexBot market data.
 - WebSocket streaming (5 hubs, Azure Web PubSub compatible)
 - Per-API-key playback position tracking
 - Hot reload data dates without server restart
+- Sync Broadcast System for external service synchronization
 - CLI for downloading historical data from GexBot
 - Daemon for scheduled automatic downloads
 - Push notifications via ntfy.sh on download completion
@@ -141,6 +142,42 @@ Real-time data streaming via 5 specialized hubs:
 
 See [WEBSOCKET.md](WEBSOCKET.md) for protocol details.
 
+### Sync Broadcast System
+
+SSE-based market time broadcast for synchronizing external services with the faker's playback position. External services subscribe to receive position updates and can seek their own data to match.
+
+**Endpoint:** `GET /sync/stream?key={api-key}`
+
+**Enable via environment:**
+```bash
+SYNC_BROADCAST_SYSTEM_ENABLED=true
+```
+
+**Example subscription:**
+```bash
+curl -N "http://localhost:8080/sync/stream?key=my-api-key"
+```
+
+**Response (SSE stream):**
+```
+event: snapshot
+id: 1
+data: {"broadcaster_id":"gexbot-faker","data_date":"2025-12-05","cache_mode":"exhaust","timestamp":1766870060074,"sequence":1,"positions":[{"cache_key":"SPX/classic/my-api-key","index":42,"data_length":23375,"data_timestamp":1764945003,"exhausted":false}]}
+
+event: batch
+id: 2
+data: {...positions updated every interval...}
+```
+
+**Position fields:**
+- `cache_key`: Full cache key path (REST or WebSocket format)
+- `index`: Current playback position
+- `data_length`: Total records available
+- `data_timestamp`: Unix timestamp from the data at current position
+- `exhausted`: True if position has reached end (exhaust mode only)
+
+**Use case:** Other faker-like services with timestamp-indexed data can subscribe and seek their own data to match the broadcaster's market time.
+
 ### Python WebSocket Client
 
 Use [quant-python-sockets](https://github.com/nfa-llc/quant-python-sockets) to connect to the WebSocket feeds.
@@ -218,16 +255,19 @@ Subscribe to notifications at `https://ntfy.sh/my-gexbot-downloads` or use the n
 
 ### Server Environment Variables
 
-| Variable             | Default | Description                                 |
-| -------------------- | ------- | ------------------------------------------- |
-| `PORT`               | 8080    | HTTP server port                            |
-| `DATA_DIR`           | ./data  | Data directory path                         |
-| `DATA_DATE`          | latest  | Date to load (YYYY-MM-DD or "latest")       |
-| `DATA_MODE`          | memory  | `memory` (fast) or `stream` (low RAM)       |
-| `CACHE_MODE`         | exhaust | `exhaust` (404 at end) or `rotation` (loop) |
-| `WS_ENABLED`         | true    | Enable WebSocket streaming                  |
-| `WS_STREAM_INTERVAL` | 1s      | Broadcast interval                          |
-| `WS_GROUP_PREFIX`    | blue    | Prefix for WebSocket group names            |
+| Variable                         | Default  | Description                                 |
+| -------------------------------- | -------- | ------------------------------------------- |
+| `PORT`                           | 8080     | HTTP server port                            |
+| `DATA_DIR`                       | ./data   | Data directory path                         |
+| `DATA_DATE`                      | latest   | Date to load (YYYY-MM-DD or "latest")       |
+| `DATA_MODE`                      | memory   | `memory` (fast) or `stream` (low RAM)       |
+| `CACHE_MODE`                     | exhaust  | `exhaust` (404 at end) or `rotation` (loop) |
+| `WS_ENABLED`                     | true     | Enable WebSocket streaming                  |
+| `WS_STREAM_INTERVAL`             | 1s       | Broadcast interval                          |
+| `WS_GROUP_PREFIX`                | blue     | Prefix for WebSocket group names            |
+| `SYNC_BROADCAST_SYSTEM_ENABLED`  | false    | Enable SSE sync broadcast endpoint          |
+| `SYNC_BROADCAST_SYSTEM_ID`       | hostname | Broadcaster identifier                      |
+| `SYNC_BROADCAST_SYSTEM_INTERVAL` | 1s       | Position broadcast interval                 |
 
 ### Downloader Configuration
 
