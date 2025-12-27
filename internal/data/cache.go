@@ -101,3 +101,24 @@ func (c *IndexCache) GetIndex(key string) int {
 	defer c.mu.RUnlock()
 	return c.indexes[key]
 }
+
+// GetPositionsByAPIKey returns all positions matching the given API key suffix.
+// Cache keys are formatted as "ticker/pkg/category/apiKey" or "ws/hub/ticker/category/apiKey".
+func (c *IndexCache) GetPositionsByAPIKey(apiKey string) map[string]int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	suffix := "/" + apiKey
+	result := make(map[string]int)
+	for k, v := range c.indexes {
+		if len(k) > len(suffix) && k[len(k)-len(suffix):] == suffix {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// GetMode returns the current cache mode.
+func (c *IndexCache) GetMode() CacheMode {
+	return c.mode
+}

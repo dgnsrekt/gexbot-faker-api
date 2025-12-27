@@ -20,6 +20,10 @@ type ServerConfig struct {
 	WSEnabled        bool
 	WSStreamInterval time.Duration
 	WSGroupPrefix    string
+	// Sync Broadcast System configuration
+	SyncBroadcastSystemEnabled  bool
+	SyncBroadcastSystemID       string
+	SyncBroadcastSystemInterval time.Duration
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -42,6 +46,24 @@ func LoadServerConfig() (*ServerConfig, error) {
 		wsInterval = time.Second // Default to 1s on parse error
 	}
 
+	// Parse Sync Broadcast System interval
+	syncIntervalStr := getEnvOrDefault("SYNC_BROADCAST_SYSTEM_INTERVAL", "1s")
+	syncInterval, err := time.ParseDuration(syncIntervalStr)
+	if err != nil {
+		syncInterval = time.Second // Default to 1s on parse error
+	}
+
+	// Get default broadcast ID from hostname
+	syncBroadcastID := getEnvOrDefault("SYNC_BROADCAST_SYSTEM_ID", "")
+	if syncBroadcastID == "" {
+		hostname, _ := os.Hostname()
+		if hostname != "" {
+			syncBroadcastID = hostname
+		} else {
+			syncBroadcastID = "gexbot-faker"
+		}
+	}
+
 	cfg := &ServerConfig{
 		Port:              getEnvOrDefault("PORT", "8080"),
 		DataDir:           dataDir,
@@ -52,6 +74,10 @@ func LoadServerConfig() (*ServerConfig, error) {
 		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
 		WSStreamInterval:  wsInterval,
 		WSGroupPrefix:     getEnvOrDefault("WS_GROUP_PREFIX", "blue"),
+		// Sync Broadcast System
+		SyncBroadcastSystemEnabled:  getEnvOrDefault("SYNC_BROADCAST_SYSTEM_ENABLED", "false") == "true",
+		SyncBroadcastSystemID:       syncBroadcastID,
+		SyncBroadcastSystemInterval: syncInterval,
 	}
 
 	// Validate

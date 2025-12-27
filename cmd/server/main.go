@@ -14,6 +14,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 	"github.com/dgnsrekt/gexbot-downloader/internal/server"
+	"github.com/dgnsrekt/gexbot-downloader/internal/sync"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
@@ -46,6 +47,8 @@ func run() int {
 		zap.String("endpointCacheMode", cfg.EndpointCacheMode),
 		zap.Bool("wsEnabled", cfg.WSEnabled),
 		zap.Duration("wsStreamInterval", cfg.WSStreamInterval),
+		zap.Bool("syncBroadcastSystemEnabled", cfg.SyncBroadcastSystemEnabled),
+		zap.Duration("syncBroadcastSystemInterval", cfg.SyncBroadcastSystemInterval),
 	)
 
 	// Load data
@@ -171,8 +174,20 @@ func run() int {
 		)
 	}
 
+	// Sync Broadcast System (optional)
+	var syncBroadcaster *sync.SyncBroadcaster
+	if cfg.SyncBroadcastSystemEnabled {
+		syncBroadcaster = sync.NewSyncBroadcaster(cache, reloadableLoader, cfg, logger)
+		go syncBroadcaster.Run(ctx)
+
+		logger.Info("Sync Broadcast System enabled",
+			zap.String("broadcasterID", cfg.SyncBroadcastSystemID),
+			zap.Duration("interval", cfg.SyncBroadcastSystemInterval),
+		)
+	}
+
 	// Create router
-	router, err := server.NewRouter(srv, wsHubs, negotiateHandler, logger)
+	router, err := server.NewRouter(srv, wsHubs, negotiateHandler, syncBroadcaster, logger)
 	if err != nil {
 		logger.Error("failed to create router", zap.Error(err))
 		return 1

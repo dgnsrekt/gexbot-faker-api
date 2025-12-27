@@ -12,6 +12,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/api"
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
+	"github.com/dgnsrekt/gexbot-downloader/internal/sync"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
@@ -24,7 +25,7 @@ type WebSocketHubs struct {
 	StateGreeksOne  *ws.Hub
 }
 
-func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, logger *zap.Logger) (http.Handler, error) {
+func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.NegotiateHandler, syncBroadcaster *sync.SyncBroadcaster, logger *zap.Logger) (http.Handler, error) {
 	// Load OpenAPI spec for validation
 	swagger, err := generated.GetSwagger()
 	if err != nil {
@@ -67,6 +68,11 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 		if wsHubs.StateGreeksOne != nil {
 			r.HandleFunc("/ws/state_greeks_one", wsHubs.StateGreeksOne.HandleOrderflowWS)
 		}
+	}
+
+	// Sync Broadcast System route (SSE stream, outside OpenAPI validation)
+	if syncBroadcaster != nil {
+		r.Get("/sync/stream", syncBroadcaster.HandleSSE)
 	}
 
 	// API routes with compression and OpenAPI validation
