@@ -198,7 +198,7 @@ func run() int {
 		Addr:         ":" + cfg.Port,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 0, // Disabled for SSE/WebSocket support
 	}
 
 	// Start server in goroutine
