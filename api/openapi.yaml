@@ -489,6 +489,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/ResetCacheResponse'
 
+  /seek-to-timestamp:
+    post:
+      operationId: seekToTimestamp
+      summary: Seek playback positions to timestamp
+      description: |
+        Sets all cache positions for the given API key to the index
+        where data timestamp >= the given timestamp. This allows
+        seeking to a specific point in the historical data playback.
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeekToTimestampRequest'
+      responses:
+        '200':
+          description: Seek successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeekToTimestampResponse'
+        '400':
+          description: Invalid request or timestamp out of range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /reload-date:
     post:
       operationId: reloadDate
@@ -875,6 +904,59 @@ components:
           type: integer
           description: Number of positions reset
           example: 12
+
+    SeekToTimestampRequest:
+      type: object
+      required:
+        - timestamp
+        - key
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp to seek to
+          example: 1732900000
+        key:
+          type: string
+          description: API key for playback position tracking
+          minLength: 1
+          example: test1234
+
+    SeekToTimestampResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Seeked 15 positions to timestamp 1732900000
+        positions_set:
+          type: integer
+          description: Number of cache positions that were set
+          example: 15
+        details:
+          type: array
+          description: Details of each position that was set
+          items:
+            $ref: '#/components/schemas/SeekPositionDetail'
+
+    SeekPositionDetail:
+      type: object
+      properties:
+        data_key:
+          type: string
+          description: The data key (ticker/pkg/category)
+          example: SPX/classic/gex_zero
+        index:
+          type: integer
+          description: The index position set
+          example: 142
+        timestamp:
+          type: integer
+          format: int64
+          description: The actual timestamp at that index
+          example: 1732900005
 
     GexMajorsData:
       type: object

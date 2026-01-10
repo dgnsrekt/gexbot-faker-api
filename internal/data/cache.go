@@ -102,6 +102,13 @@ func (c *IndexCache) GetIndex(key string) int {
 	return c.indexes[key]
 }
 
+// SetIndex sets the index for a specific cache key
+func (c *IndexCache) SetIndex(key string, index int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.indexes[key] = index
+}
+
 // GetPositionsByAPIKey returns all positions matching the given API key suffix.
 // Cache keys are formatted as "ticker/pkg/category/apiKey" or "ws/hub/ticker/category/apiKey".
 func (c *IndexCache) GetPositionsByAPIKey(apiKey string) map[string]int {

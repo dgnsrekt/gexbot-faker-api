@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("data not found")
-	ErrIndexOutOfBounds = errors.New("index out of bounds")
+	ErrNotFound            = errors.New("data not found")
+	ErrIndexOutOfBounds    = errors.New("index out of bounds")
+	ErrTimestampOutOfRange = errors.New("timestamp out of range")
 )
 
 // DataLoader provides random access to GEX data
@@ -27,6 +28,12 @@ type DataLoader interface {
 
 	// GetLoadedKeys returns all loaded data keys (for /tickers endpoint)
 	GetLoadedKeys() []string
+
+	// FindIndexByTimestamp returns the first index where timestamp >= target.
+	// Returns (index, actualTimestamp, error).
+	// Returns ErrNotFound if no data exists for the key.
+	// Returns ErrTimestampOutOfRange if target is after all data.
+	FindIndexByTimestamp(ctx context.Context, ticker, pkg, category string, targetTimestamp int64) (int, int64, error)
 
 	// Close releases any resources
 	Close() error

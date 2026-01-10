@@ -72,5 +72,12 @@ func (r *ReloadableLoader) Close() error {
 	return r.current.Close()
 }
 
+// FindIndexByTimestamp delegates to the underlying loader.
+func (r *ReloadableLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, category string, targetTimestamp int64) (int, int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.current.FindIndexByTimestamp(ctx, ticker, pkg, category, targetTimestamp)
+}
+
 // Compile-time interface verification
 var _ DataLoader = (*ReloadableLoader)(nil)

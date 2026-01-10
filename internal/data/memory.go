@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"go.uber.org/zap"
 )
@@ -155,4 +156,41 @@ func (m *MemoryLoader) GetLoadedKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// FindIndexByTimestamp returns the first index where timestamp >= target.
+// Uses binary search for O(log n) performance.
+func (m *MemoryLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, category string, target int64) (int, int64, error) {
+	key := DataKey(ticker, pkg, category)
+	data, ok := m.data[key]
+	if !ok {
+		return 0, 0, ErrNotFound
+	}
+
+	if len(data) == 0 {
+		return 0, 0, ErrNotFound
+	}
+
+	// Binary search for first index where timestamp >= target
+	idx := sort.Search(len(data), func(i int) bool {
+		ts := extractTimestamp(data[i])
+		return ts >= target
+	})
+
+	// If idx == len(data), target is after all data
+	if idx >= len(data) {
+		return 0, 0, ErrTimestampOutOfRange
+	}
+
+	actualTs := extractTimestamp(data[idx])
+	return idx, actualTs, nil
+}
+
+// extractTimestamp quickly extracts timestamp from JSON without full unmarshal
+func extractTimestamp(raw []byte) int64 {
+	var partial struct {
+		Timestamp int64 `json:"timestamp"`
+	}
+	_ = json.Unmarshal(raw, &partial)
+	return partial.Timestamp
 }

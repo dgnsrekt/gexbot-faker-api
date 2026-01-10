@@ -434,6 +434,101 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 	}, nil
 }
 
+// SeekToTimestamp implements generated.StrictServerInterface
+func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTimestampRequestObject) (generated.SeekToTimestampResponseObject, error) {
+	targetTs := request.Body.Timestamp
+	apiKey := request.Body.Key
+
+	s.logger.Info("seek to timestamp request",
+		zap.Int64("targetTimestamp", targetTs),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+	)
+
+	// Get all loaded data keys
+	dataKeys := s.loader.GetLoadedKeys()
+
+	var details []generated.SeekPositionDetail
+	var outOfRangeCount int
+	positionsSet := 0
+
+	for _, dataKey := range dataKeys {
+		// Parse ticker/pkg/category from key (format: "ticker/pkg/category")
+		ticker, pkg, category := parseDataKey(dataKey)
+		if ticker == "" {
+			continue
+		}
+
+		// Find index for this data stream
+		idx, actualTs, err := s.loader.FindIndexByTimestamp(ctx, ticker, pkg, category, targetTs)
+		if err != nil {
+			if errors.Is(err, data.ErrTimestampOutOfRange) {
+				outOfRangeCount++
+			}
+			continue
+		}
+
+		// Build cache key and set position
+		var cacheKey string
+		if s.config.EndpointCacheMode == "shared" {
+			cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
+		} else {
+			cacheKey = data.CacheKey(ticker, pkg, category, apiKey)
+		}
+
+		s.cache.SetIndex(cacheKey, idx)
+		positionsSet++
+
+		details = append(details, generated.SeekPositionDetail{
+			DataKey:   &dataKey,
+			Index:     &idx,
+			Timestamp: &actualTs,
+		})
+	}
+
+	// If ALL streams returned timestamp out of range, return error
+	if positionsSet == 0 && outOfRangeCount > 0 {
+		s.logger.Warn("seek to timestamp failed: timestamp out of range",
+			zap.Int64("targetTimestamp", targetTs),
+			zap.Int("outOfRangeCount", outOfRangeCount),
+		)
+		return generated.SeekToTimestamp400JSONResponse{
+			Error: ptr("Timestamp is after all available data"),
+		}, nil
+	}
+
+	// If no data was found at all
+	if positionsSet == 0 {
+		return generated.SeekToTimestamp400JSONResponse{
+			Error: ptr("No data found to seek"),
+		}, nil
+	}
+
+	status := "success"
+	message := fmt.Sprintf("Seeked %d positions to timestamp %d", positionsSet, targetTs)
+
+	s.logger.Info("seek to timestamp complete",
+		zap.Int64("targetTimestamp", targetTs),
+		zap.String("apiKey", maskAPIKey(apiKey)),
+		zap.Int("positionsSet", positionsSet),
+	)
+
+	return generated.SeekToTimestamp200JSONResponse{
+		Status:       &status,
+		Message:      &message,
+		PositionsSet: &positionsSet,
+		Details:      &details,
+	}, nil
+}
+
+// parseDataKey splits a data key into ticker, pkg, and category
+func parseDataKey(key string) (ticker, pkg, category string) {
+	parts := strings.Split(key, "/")
+	if len(parts) != 3 {
+		return "", "", ""
+	}
+	return parts[0], parts[1], parts[2]
+}
+
 // Type classification helpers
 var aggregationTypes = map[string]bool{"full": true, "zero": true, "one": true}
 var greekTypes = map[string]bool{

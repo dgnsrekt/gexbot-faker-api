@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"go.uber.org/zap"
@@ -221,4 +222,55 @@ func (s *StreamLoader) Close() error {
 	s.indexes = nil
 	s.files = nil
 	return nil
+}
+
+// FindIndexByTimestamp returns the first index where timestamp >= target.
+// Uses binary search for O(log n) performance, reading from disk at each probe.
+func (s *StreamLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, category string, target int64) (int, int64, error) {
+	key := DataKey(ticker, pkg, category)
+
+	s.mu.RLock()
+	offsets, ok := s.indexes[key]
+	s.mu.RUnlock()
+
+	if !ok {
+		return 0, 0, ErrNotFound
+	}
+
+	if len(offsets) == 0 {
+		return 0, 0, ErrNotFound
+	}
+
+	// Binary search for first index where timestamp >= target
+	idx := sort.Search(len(offsets), func(i int) bool {
+		raw, err := s.GetRawAtIndex(ctx, ticker, pkg, category, i)
+		if err != nil {
+			return false
+		}
+		ts := extractTimestampFromRaw(raw)
+		return ts >= target
+	})
+
+	// If idx == len(offsets), target is after all data
+	if idx >= len(offsets) {
+		return 0, 0, ErrTimestampOutOfRange
+	}
+
+	// Get actual timestamp at found index
+	raw, err := s.GetRawAtIndex(ctx, ticker, pkg, category, idx)
+	if err != nil {
+		return 0, 0, err
+	}
+	actualTs := extractTimestampFromRaw(raw)
+
+	return idx, actualTs, nil
+}
+
+// extractTimestampFromRaw quickly extracts timestamp from JSON without full unmarshal
+func extractTimestampFromRaw(raw []byte) int64 {
+	var partial struct {
+		Timestamp int64 `json:"timestamp"`
+	}
+	_ = json.Unmarshal(raw, &partial)
+	return partial.Timestamp
 }
