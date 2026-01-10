@@ -467,7 +467,7 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 			continue
 		}
 
-		// Build cache key and set position
+		// Build cache key and set position for REST API
 		var cacheKey string
 		if s.config.EndpointCacheMode == "shared" {
 			cacheKey = data.SharedCacheKey(ticker, pkg, apiKey)
@@ -477,6 +477,14 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 
 		s.cache.SetIndex(cacheKey, idx)
 		positionsSet++
+
+		// Also update WebSocket positions for this data stream
+		wsHubs := mapDataKeyToWSHubs(pkg, category)
+		for _, hub := range wsHubs {
+			wsCacheKey := data.WSCacheKey(hub, ticker, category, apiKey)
+			s.cache.SetIndex(wsCacheKey, idx)
+			positionsSet++
+		}
 
 		details = append(details, generated.SeekPositionDetail{
 			DataKey:   &dataKey,
@@ -527,6 +535,31 @@ func parseDataKey(key string) (ticker, pkg, category string) {
 		return "", "", ""
 	}
 	return parts[0], parts[1], parts[2]
+}
+
+// mapDataKeyToWSHubs returns the WebSocket hub names for a given package/category.
+// This maps REST data keys to their corresponding WebSocket cache key hubs.
+func mapDataKeyToWSHubs(pkg, category string) []string {
+	switch pkg {
+	case "orderflow":
+		return []string{"orderflow"}
+	case "classic":
+		if strings.HasPrefix(category, "gex_") {
+			return []string{"classic"}
+		}
+	case "state":
+		if strings.HasPrefix(category, "gex_") {
+			return []string{"state_gex"}
+		}
+		// Greek categories
+		switch category {
+		case "delta_zero", "gamma_zero", "vanna_zero", "charm_zero":
+			return []string{"state_greeks_zero"}
+		case "delta_one", "gamma_one", "vanna_one", "charm_one":
+			return []string{"state_greeks_one"}
+		}
+	}
+	return nil
 }
 
 // Type classification helpers
