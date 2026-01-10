@@ -97,6 +97,8 @@ REST API serving historical GEX data with sequential playback per API key.
 - `/negotiate` - WebSocket connection URLs
 - `/health`, `/tickers`, `/available-dates` - Server info
 - `/reload-date` - Hot reload data for a different date
+- `/reset-cache` - Reset playback positions
+- `/seek-to-timestamp` - Seek positions to a specific timestamp
 
 **Key behavior**: Each API key maintains independent playback position. Data advances on each request.
 
@@ -127,6 +129,41 @@ curl -X POST http://localhost:8080/reload-date \
 - Pauses WebSocket streaming during reload
 - Resets all cache positions to 0 for clean playback
 - Returns 400 for invalid/missing dates, 409 if reload already in progress
+
+### Cache Management
+
+Control playback positions for testing and synchronization.
+
+**Reset positions:**
+```bash
+# Reset all positions for an API key
+curl -X POST "http://localhost:8080/reset-cache?key=mykey"
+
+# Reset ALL positions (all keys)
+curl -X POST http://localhost:8080/reset-cache
+```
+
+**Seek to timestamp:**
+```bash
+# Seek all positions for an API key to a specific timestamp
+curl -X POST http://localhost:8080/seek-to-timestamp \
+  -H "Content-Type: application/json" \
+  -d '{"timestamp": 1767191500, "key": "mykey"}'
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Seeked 45 positions to timestamp 1767191500",
+  "positions_set": 45,
+  "details": [
+    {"data_key": "SPX/classic/gex_zero", "index": 98, "timestamp": 1767191500}
+  ]
+}
+```
+
+**Use case:** Sync with external services by seeking to a broadcast timestamp from the Sync Broadcast System.
 
 ### WebSocket Streaming
 
