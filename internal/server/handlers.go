@@ -487,7 +487,7 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 
 	// If ALL streams returned timestamp out of range, return error
 	if positionsSet == 0 && outOfRangeCount > 0 {
-		s.logger.Warn("seek to timestamp failed: timestamp out of range",
+		s.logger.Debug("seek to timestamp: timestamp out of range",
 			zap.Int64("targetTimestamp", targetTs),
 			zap.Int("outOfRangeCount", outOfRangeCount),
 		)
