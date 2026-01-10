@@ -166,8 +166,18 @@ func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
 <head>
     <title>GEX Faker API</title>
     <link rel="stylesheet" href="/swagger-ui.css">
+    <style>
+        .nav-bar { background: #1b1b1b; padding: 10px 20px; display: flex; gap: 20px; align-items: center; }
+        .nav-bar a { color: #61affe; text-decoration: none; font-family: sans-serif; font-size: 14px; }
+        .nav-bar a:hover { text-decoration: underline; }
+        .nav-bar .current { color: #fff; font-weight: bold; }
+    </style>
 </head>
 <body>
+    <div class="nav-bar">
+        <span class="current">REST API Docs</span>
+        <a href="/asyncapi">WebSocket Docs</a>
+    </div>
     <div id="swagger-ui"></div>
     <script src="/swagger-ui.js"></script>
     <script>
@@ -200,8 +210,19 @@ func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
 <head>
     <title>GEX Faker WebSocket API</title>
     <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
+    <style>
+        .nav-bar { background: #263238; padding: 10px 20px; display: flex; gap: 20px; align-items: center; }
+        .nav-bar a { color: #87ceeb; text-decoration: none; font-family: sans-serif; font-size: 14px; }
+        .nav-bar a:hover { text-decoration: underline; }
+        .nav-bar .current { color: #fff; font-weight: bold; }
+    </style>
 </head>
 <body>
+    <div class="nav-bar">
+        <a href="/docs">REST API Docs</a>
+        <span class="current">WebSocket Docs</span>
+        <a href="/asyncapi.yaml">/asyncapi.yaml</a>
+    </div>
     <div id="asyncapi"></div>
     <script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
     <script>
