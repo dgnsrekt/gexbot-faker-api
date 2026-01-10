@@ -1,0 +1,697 @@
+asyncapi: 2.6.0
+info:
+  title: GEX Faker WebSocket API
+  version: 2.0.0
+  description: |
+    Real-time options/derivatives data streaming using Azure Web PubSub-compatible protocol.
+
+    ## Connection Flow
+    1. Call `GET /negotiate` with API key to get WebSocket URLs
+    2. Connect to one or more WebSocket endpoints
+    3. Receive `ConnectedMessage` with connection ID
+    4. Join groups using `JoinGroupMessage`
+    5. Receive periodic `DataMessage` broadcasts
+
+    ## Protocol
+    Supports two subprotocols:
+    - `protobuf.webpubsub.azure.v1` - Binary protobuf (Zstandard compressed)
+    - `json.webpubsub.azure.v1` - JSON format
+
+    ## Group Naming Convention
+    Groups follow the pattern: `blue_{TICKER}_{hub_type}_{category}`
+
+    Examples:
+    - `blue_SPX_orderflow_orderflow` - SPX orderflow data
+    - `blue_SPX_classic_gex_zero` - SPX classic GEX (0DTE)
+    - `blue_NDX_state_delta_zero` - NDX delta profile (0DTE)
+
+servers:
+  development:
+    url: ws://localhost:8080
+    protocol: ws
+    description: Local development server
+
+channels:
+  /ws/orderflow:
+    description: |
+      Orderflow metrics hub - real-time orderflow data for nearest and next expiries.
+
+      **Valid groups:** `blue_{TICKER}_orderflow_orderflow`
+
+      **Supported tickers:** SPX, NDX, RUT, VIX, ES_SPX, NQ_NDX, AAPL, NVDA, TSLA, etc.
+    bindings:
+      ws:
+        query:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token from /negotiate endpoint
+    subscribe:
+      operationId: receiveOrderflowData
+      summary: Receive orderflow metrics
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectedMessage'
+          - $ref: '#/components/messages/OrderflowDataMessage'
+          - $ref: '#/components/messages/AckMessage'
+          - $ref: '#/components/messages/PongMessage'
+    publish:
+      operationId: sendOrderflowCommand
+      summary: Send commands to orderflow hub
+      message:
+        oneOf:
+          - $ref: '#/components/messages/JoinGroupMessage'
+          - $ref: '#/components/messages/LeaveGroupMessage'
+          - $ref: '#/components/messages/PingMessage'
+
+  /ws/classic:
+    description: |
+      Classic GEX hub - ladder-style GEX histogram by Open Interest and Volume.
+
+      **Valid groups:** `blue_{TICKER}_classic_{category}`
+
+      **Categories:** gex_full, gex_zero, gex_one
+    bindings:
+      ws:
+        query:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token from /negotiate endpoint
+    subscribe:
+      operationId: receiveClassicGexData
+      summary: Receive classic GEX data
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectedMessage'
+          - $ref: '#/components/messages/GexDataMessage'
+          - $ref: '#/components/messages/AckMessage'
+          - $ref: '#/components/messages/PongMessage'
+    publish:
+      operationId: sendClassicCommand
+      summary: Send commands to classic hub
+      message:
+        oneOf:
+          - $ref: '#/components/messages/JoinGroupMessage'
+          - $ref: '#/components/messages/LeaveGroupMessage'
+          - $ref: '#/components/messages/PingMessage'
+
+  /ws/state_gex:
+    description: |
+      State GEX hub - nets imbalanced calls against puts to locate significant exposure areas.
+
+      **Valid groups:** `blue_{TICKER}_state_{category}`
+
+      **Categories:** gex_full, gex_zero, gex_one
+    bindings:
+      ws:
+        query:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token from /negotiate endpoint
+    subscribe:
+      operationId: receiveStateGexData
+      summary: Receive state GEX profile data
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectedMessage'
+          - $ref: '#/components/messages/GexDataMessage'
+          - $ref: '#/components/messages/AckMessage'
+          - $ref: '#/components/messages/PongMessage'
+    publish:
+      operationId: sendStateGexCommand
+      summary: Send commands to state GEX hub
+      message:
+        oneOf:
+          - $ref: '#/components/messages/JoinGroupMessage'
+          - $ref: '#/components/messages/LeaveGroupMessage'
+          - $ref: '#/components/messages/PingMessage'
+
+  /ws/state_greeks_zero:
+    description: |
+      0DTE Greeks hub - Greek profiles for 0DTE options (delta, gamma, vanna, charm).
+
+      **Valid groups:** `blue_{TICKER}_state_{category}`
+
+      **Categories:** delta_zero, gamma_zero, vanna_zero, charm_zero
+    bindings:
+      ws:
+        query:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token from /negotiate endpoint
+    subscribe:
+      operationId: receiveGreeksZeroData
+      summary: Receive 0DTE Greek profile data
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectedMessage'
+          - $ref: '#/components/messages/GreekDataMessage'
+          - $ref: '#/components/messages/AckMessage'
+          - $ref: '#/components/messages/PongMessage'
+    publish:
+      operationId: sendGreeksZeroCommand
+      summary: Send commands to 0DTE Greeks hub
+      message:
+        oneOf:
+          - $ref: '#/components/messages/JoinGroupMessage'
+          - $ref: '#/components/messages/LeaveGroupMessage'
+          - $ref: '#/components/messages/PingMessage'
+
+  /ws/state_greeks_one:
+    description: |
+      1DTE+ Greeks hub - Greek profiles for 1DTE and beyond options.
+
+      **Valid groups:** `blue_{TICKER}_state_{category}`
+
+      **Categories:** delta_one, gamma_one, vanna_one, charm_one
+    bindings:
+      ws:
+        query:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token from /negotiate endpoint
+    subscribe:
+      operationId: receiveGreeksOneData
+      summary: Receive 1DTE+ Greek profile data
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ConnectedMessage'
+          - $ref: '#/components/messages/GreekDataMessage'
+          - $ref: '#/components/messages/AckMessage'
+          - $ref: '#/components/messages/PongMessage'
+    publish:
+      operationId: sendGreeksOneCommand
+      summary: Send commands to 1DTE+ Greeks hub
+      message:
+        oneOf:
+          - $ref: '#/components/messages/JoinGroupMessage'
+          - $ref: '#/components/messages/LeaveGroupMessage'
+          - $ref: '#/components/messages/PingMessage'
+
+components:
+  messages:
+    # === Upstream Messages (Client to Server) ===
+    JoinGroupMessage:
+      name: JoinGroupMessage
+      title: Join Group
+      summary: Subscribe to a data group
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/JoinGroupPayload'
+
+    LeaveGroupMessage:
+      name: LeaveGroupMessage
+      title: Leave Group
+      summary: Unsubscribe from a data group
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LeaveGroupPayload'
+
+    PingMessage:
+      name: PingMessage
+      title: Ping
+      summary: Keepalive ping (server responds with PongMessage)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PingPayload'
+
+    # === Downstream Messages (Server to Client) ===
+    ConnectedMessage:
+      name: ConnectedMessage
+      title: Connected
+      summary: Sent when WebSocket connection is established
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ConnectedPayload'
+
+    AckMessage:
+      name: AckMessage
+      title: Acknowledgment
+      summary: Response to join/leave requests
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AckPayload'
+
+    PongMessage:
+      name: PongMessage
+      title: Pong
+      summary: Response to ping message
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PongPayload'
+
+    OrderflowDataMessage:
+      name: OrderflowDataMessage
+      title: Orderflow Data
+      summary: Periodic orderflow metrics broadcast
+      description: |
+        Contains real-time orderflow metrics including DEX, GEX, convexity, vanna, and charm.
+
+        **Encoding:** Protobuf wrapped in `google.protobuf.Any` with Zstandard compression.
+
+        **Type URL:** `proto.orderflow`
+      contentType: application/octet-stream
+      payload:
+        $ref: '#/components/schemas/OrderflowData'
+
+    GexDataMessage:
+      name: GexDataMessage
+      title: GEX Data
+      summary: Periodic GEX chain broadcast
+      description: |
+        Contains GEX ladder/histogram data with strikes, major levels, and prior values.
+
+        **Encoding:** Protobuf wrapped in `google.protobuf.Any` with Zstandard compression.
+
+        **Type URL:** `proto.gex`
+      contentType: application/octet-stream
+      payload:
+        $ref: '#/components/schemas/GexData'
+
+    GreekDataMessage:
+      name: GreekDataMessage
+      title: Greek Profile Data
+      summary: Periodic Greek profile broadcast
+      description: |
+        Contains Greek profile data showing net imbalance of transactions per strike.
+
+        **Encoding:** Protobuf wrapped in `google.protobuf.Any` with Zstandard compression.
+
+        **Type URL:** `proto.greek`
+      contentType: application/octet-stream
+      payload:
+        $ref: '#/components/schemas/OptionProfile'
+
+  schemas:
+    # === Upstream Schemas ===
+    JoinGroupPayload:
+      type: object
+      required:
+        - type
+        - group
+      properties:
+        type:
+          type: string
+          const: joinGroup
+        group:
+          type: string
+          description: Group name following pattern `blue_{TICKER}_{hub}_{category}`
+          example: blue_SPX_classic_gex_zero
+        ackId:
+          type: integer
+          description: Optional acknowledgment ID for tracking responses
+          format: int64
+
+    LeaveGroupPayload:
+      type: object
+      required:
+        - type
+        - group
+      properties:
+        type:
+          type: string
+          const: leaveGroup
+        group:
+          type: string
+          description: Group name to unsubscribe from
+          example: blue_SPX_classic_gex_zero
+        ackId:
+          type: integer
+          format: int64
+
+    PingPayload:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          const: ping
+
+    # === Downstream Schemas ===
+    ConnectedPayload:
+      type: object
+      properties:
+        type:
+          type: string
+          const: system
+        event:
+          type: string
+          const: connected
+        connectionId:
+          type: string
+          description: Unique connection identifier
+        userId:
+          type: string
+          description: API key used for authentication
+
+    AckPayload:
+      type: object
+      properties:
+        type:
+          type: string
+          const: ack
+        ackId:
+          type: integer
+          format: int64
+        success:
+          type: boolean
+        error:
+          type: object
+          properties:
+            name:
+              type: string
+            message:
+              type: string
+
+    PongPayload:
+      type: object
+      properties:
+        type:
+          type: string
+          const: pong
+
+    # === Data Schemas (Protobuf) ===
+    OrderflowData:
+      type: object
+      title: Orderflow
+      description: |
+        Real-time orderflow metrics for nearest and next expiries.
+
+        **Scaling factors:**
+        - `spot`, `*_gamma` fields: Multiply by 100 (2 decimal places)
+        - All other fields: No scaling (integers)
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp
+        ticker:
+          type: string
+          example: SPX
+        spot:
+          type: integer
+          description: Spot price x100
+        zero_major_long_gamma:
+          type: integer
+          description: 0DTE major long gamma strike x100
+        zero_major_short_gamma:
+          type: integer
+          description: 0DTE major short gamma strike x100
+        one_major_long_gamma:
+          type: integer
+          description: 1DTE+ major long gamma strike x100
+        one_major_short_gamma:
+          type: integer
+          description: 1DTE+ major short gamma strike x100
+        zero_major_call_gamma:
+          type: integer
+          description: 0DTE major call gamma strike x100
+        zero_major_put_gamma:
+          type: integer
+          description: 0DTE major put gamma strike x100
+        one_major_call_gamma:
+          type: integer
+          description: 1DTE+ major call gamma strike x100
+        one_major_put_gamma:
+          type: integer
+          description: 1DTE+ major put gamma strike x100
+        zero_convexity_ratio:
+          type: integer
+          description: 0DTE convexity ratio (CVR)
+        one_convexity_ratio:
+          type: integer
+          description: 1DTE+ convexity ratio (CVR)
+        zero_gex_ratio:
+          type: integer
+          description: 0DTE GEX ratio
+        one_gex_ratio:
+          type: integer
+          description: 1DTE+ GEX ratio
+        zero_net_vanna:
+          type: integer
+          description: 0DTE net vanna
+        one_net_vanna:
+          type: integer
+          description: 1DTE+ net vanna
+        zero_net_charm:
+          type: integer
+          description: 0DTE net charm
+        one_net_charm:
+          type: integer
+          description: 1DTE+ net charm
+        zero_agg_total_dex:
+          type: integer
+          description: 0DTE aggregate total DEX
+        one_agg_total_dex:
+          type: integer
+          description: 1DTE+ aggregate total DEX
+        zero_agg_call_dex:
+          type: integer
+          description: 0DTE aggregate call DEX
+        one_agg_call_dex:
+          type: integer
+          description: 1DTE+ aggregate call DEX
+        zero_agg_put_dex:
+          type: integer
+          description: 0DTE aggregate put DEX
+        one_agg_put_dex:
+          type: integer
+          description: 1DTE+ aggregate put DEX
+        zero_net_total_dex:
+          type: integer
+          description: 0DTE net total DEX
+        one_net_total_dex:
+          type: integer
+          description: 1DTE+ net total DEX
+        zero_net_call_dex:
+          type: integer
+          description: 0DTE net call DEX
+        one_net_call_dex:
+          type: integer
+          description: 1DTE+ net call DEX
+        zero_net_put_dex:
+          type: integer
+          description: 0DTE net put DEX
+        one_net_put_dex:
+          type: integer
+          description: 1DTE+ net put DEX
+        dex_orderflow:
+          type: integer
+          description: 0DTE DEX orderflow indicator
+        gex_orderflow:
+          type: integer
+          description: 0DTE GEX orderflow indicator
+        convexity_orderflow:
+          type: integer
+          description: 0DTE convexity orderflow indicator
+        one_dex_orderflow:
+          type: integer
+          description: 1DTE+ DEX orderflow indicator
+        one_gex_orderflow:
+          type: integer
+          description: 1DTE+ GEX orderflow indicator
+        one_convexity_orderflow:
+          type: integer
+          description: 1DTE+ convexity orderflow indicator
+
+    GexData:
+      type: object
+      title: Gex
+      description: |
+        Gamma Exposure (GEX) ladder/histogram data.
+
+        **Scaling factors:**
+        - `spot`, `zero_gamma`, `major_*` fields: Multiply by 100 (2 decimal places)
+        - `sum_gex_vol`, `sum_gex_oi`, `delta_risk_reversal`: Multiply by 1000 (3 decimal places)
+        - Strike values: Multiply by 100
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp
+        ticker:
+          type: string
+          example: SPX
+        min_dte:
+          type: integer
+          description: Minimum days to expiration
+        sec_min_dte:
+          type: integer
+          description: Second minimum days to expiration
+        spot:
+          type: integer
+          description: Spot price x100
+        zero_gamma:
+          type: integer
+          description: Zero gamma level x100
+        major_pos_vol:
+          type: integer
+          description: Major positive GEX by volume x100
+        major_pos_oi:
+          type: integer
+          description: Major positive GEX by open interest x100
+        major_neg_vol:
+          type: integer
+          description: Major negative GEX by volume x100
+        major_neg_oi:
+          type: integer
+          description: Major negative GEX by open interest x100
+        strikes:
+          type: array
+          description: Array of strike data
+          items:
+            $ref: '#/components/schemas/Strike'
+        sum_gex_vol:
+          type: integer
+          description: Sum of GEX by volume x1000
+        sum_gex_oi:
+          type: integer
+          description: Sum of GEX by open interest x1000
+        delta_risk_reversal:
+          type: integer
+          description: Delta risk reversal x1000
+        max_priors:
+          $ref: '#/components/schemas/MaxPriors'
+
+    Strike:
+      type: object
+      description: Strike price with GEX values
+      properties:
+        strike_price:
+          type: integer
+          description: Strike price x100
+        value_1:
+          type: integer
+          description: GEX value 1 (by OI) x100
+        value_2:
+          type: integer
+          description: GEX value 2 (by volume) x100
+        priors:
+          type: array
+          description: Historical lookback values x100
+          items:
+            type: integer
+
+    MaxPriors:
+      type: object
+      description: Maximum GEX change across lookback periods (current, 1m, 5m, 10m, 15m, 30m)
+      properties:
+        tuples:
+          type: array
+          description: Array of 6 tuples [strike x100, gex_change x1000]
+          items:
+            type: object
+            properties:
+              first_value:
+                type: integer
+                description: Strike price x100
+              second_value:
+                type: integer
+                description: GEX change value x1000
+
+    OptionProfile:
+      type: object
+      title: OptionProfile
+      description: |
+        Greek profile data showing net imbalance of transactions per strike.
+
+        **Scaling factors:**
+        - `spot`, `major_*_gamma`, `strike` fields: Multiply by 100
+        - `call_ivol`, `put_ivol`: Multiply by 1000
+        - `call_cvolume`, `call_cvolume_priors`: Multiply by 100
+        - `put_cvolume`, `put_cvolume_priors`: No scaling (already integers)
+      required:
+        - timestamp
+        - ticker
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp
+        ticker:
+          type: string
+          example: SPX
+        spot:
+          type: integer
+          description: Spot price x100
+        min_dte:
+          type: integer
+          description: Minimum days to expiration
+        sec_min_dte:
+          type: integer
+          description: Second minimum days to expiration
+        major_call_gamma:
+          type: integer
+          description: Major call gamma strike x100
+        major_put_gamma:
+          type: integer
+          description: Major put gamma strike x100
+        major_long_gamma:
+          type: integer
+          description: Major long gamma strike x100
+        major_short_gamma:
+          type: integer
+          description: Major short gamma strike x100
+        mini_contracts:
+          type: array
+          description: Array of mini contract data per strike
+          items:
+            $ref: '#/components/schemas/MiniContract'
+
+    MiniContract:
+      type: object
+      description: Per-strike Greek profile data
+      properties:
+        strike:
+          type: integer
+          description: Strike price x100
+        call_ivol:
+          type: integer
+          description: Call implied volatility x1000
+        put_ivol:
+          type: integer
+          description: Put implied volatility x1000
+        call_cvolume:
+          type: integer
+          description: Call cumulative volume x100
+        call_cvolume_priors:
+          type: array
+          description: Historical call volume values x100
+          items:
+            type: integer
+        put_cvolume:
+          type: integer
+          description: Put cumulative volume (no scaling)
+        put_cvolume_priors:
+          type: array
+          description: Historical put volume values (no scaling)
+          items:
+            type: integer
+
+  securitySchemes:
+    apiKey:
+      type: httpApiKey
+      name: Authorization
+      in: header
+      description: |
+        API key authentication for the /negotiate endpoint.
+
+        Format: `Basic {API_KEY}`
+
+        The negotiate endpoint returns access tokens for WebSocket connections.

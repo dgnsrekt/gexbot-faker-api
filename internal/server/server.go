@@ -48,6 +48,10 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	r.Get("/swagger-ui.js", swaggerUIBundleHandler)
 	r.Get("/swagger-ui.css", swaggerUICSSHandler)
 
+	// AsyncAPI documentation for WebSocket endpoints
+	r.Get("/asyncapi.yaml", asyncapiHandler)
+	r.Get("/asyncapi", asyncapiUIHandler)
+
 	// WebSocket routes (outside OpenAPI validation)
 	if negotiateHandler != nil {
 		r.Get("/negotiate", negotiateHandler.HandleNegotiate)
@@ -178,6 +182,38 @@ func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
                 layout: "BaseLayout"
             });
         };
+    </script>
+</body>
+</html>`
+	w.Header().Set("Content-Type", "text/html")
+	_, _ = w.Write([]byte(html))
+}
+
+func asyncapiHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml")
+	_, _ = w.Write(api.AsyncAPISpec)
+}
+
+func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
+	html := `<!DOCTYPE html>
+<html>
+<head>
+    <title>GEX Faker WebSocket API</title>
+    <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
+</head>
+<body>
+    <div id="asyncapi"></div>
+    <script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
+    <script>
+        AsyncApiStandalone.render({
+            schema: {
+                url: '/asyncapi.yaml',
+                options: { method: "GET", mode: "cors" },
+            },
+            config: {
+                show: { sidebar: true }
+            },
+        }, document.getElementById('asyncapi'));
     </script>
 </body>
 </html>`
