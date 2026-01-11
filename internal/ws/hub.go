@@ -83,7 +83,7 @@ func (h *Hub) Run(ctx context.Context) {
 						}
 					}
 				}
-				close(client.send)
+				client.Close()
 			}
 			h.mu.Unlock()
 			h.logger.Debug("client unregistered",
@@ -95,10 +95,8 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.RLock()
 			if clients, ok := h.groups[msg.Group]; ok {
 				for client := range clients {
-					select {
-					case client.send <- msg.Payload:
-					default:
-						// Buffer full, schedule disconnect
+					if !client.SafeSend(msg.Payload) {
+						// Buffer full or closed, schedule disconnect
 						go func(c *Client) {
 							h.unregister <- c
 						}(client)
@@ -116,7 +114,7 @@ func (h *Hub) shutdown() {
 	defer h.mu.Unlock()
 
 	for client := range h.clients {
-		close(client.send)
+		client.Close()
 		delete(h.clients, client)
 	}
 	h.groups = make(map[string]map[*Client]bool)
@@ -199,10 +197,8 @@ func (h *Hub) BroadcastData(group string, encodedData []byte, typeUrl string) {
 	for _, client := range clientList {
 		// Build message in client's protocol format
 		msg := client.buildDataMsg(group, encodedData, typeUrl)
-		select {
-		case client.send <- msg:
-		default:
-			// Buffer full, schedule disconnect
+		if !client.SafeSend(msg) {
+			// Buffer full or closed, schedule disconnect
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
@@ -237,10 +233,8 @@ func (h *Hub) BroadcastDataDual(group string, encodedData []byte, rawJSON []byte
 			// Protobuf clients get binary format
 			msg = buildDataMessage(group, encodedData, typeUrl)
 		}
-		select {
-		case client.send <- msg:
-		default:
-			// Buffer full, schedule disconnect
+		if !client.SafeSend(msg) {
+			// Buffer full or closed, schedule disconnect
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
@@ -278,10 +272,8 @@ func (h *Hub) BroadcastToClients(clients []*Client, group string, encodedData []
 			// Protobuf clients get binary format
 			msg = buildDataMessage(group, encodedData, typeUrl)
 		}
-		select {
-		case client.send <- msg:
-		default:
-			// Buffer full, schedule disconnect
+		if !client.SafeSend(msg) {
+			// Buffer full or closed, schedule disconnect
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)

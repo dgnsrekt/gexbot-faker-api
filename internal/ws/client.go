@@ -3,6 +3,7 @@ package ws
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,11 +44,34 @@ type Client struct {
 	hub      *Hub
 	conn     *websocket.Conn
 	send     chan []byte
+	closed   atomic.Bool // prevents send after close
 	apiKey   string
 	connID   string
 	groups   map[string]bool
 	logger   *zap.Logger
 	protocol string // "protobuf" or "json"
+}
+
+// SafeSend attempts to send a message to the client.
+// Returns true if sent, false if closed or buffer full.
+func (c *Client) SafeSend(msg []byte) bool {
+	if c.closed.Load() {
+		return false
+	}
+	select {
+	case c.send <- msg:
+		return true
+	default:
+		return false
+	}
+}
+
+// Close marks the client as closed and closes the send channel.
+// Safe to call multiple times.
+func (c *Client) Close() {
+	if c.closed.CompareAndSwap(false, true) {
+		close(c.send)
+	}
 }
 
 // HandleOrderflowWS handles WebSocket upgrade for the orderflow hub.
@@ -113,7 +137,7 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		connectedMsg = buildConnectedMessage(connID, apiKey)
 	}
-	client.send <- connectedMsg
+	client.SafeSend(connectedMsg)
 
 	// Start read/write pumps
 	go client.writePump()
@@ -220,7 +244,7 @@ func (c *Client) handleMessage(data []byte) {
 		if c.hub.ValidateGroup(m.group) {
 			c.hub.JoinGroup(c, m.group)
 			if m.ackID != nil {
-				c.send <- c.buildAck(*m.ackID, true)
+				c.SafeSend(c.buildAck(*m.ackID, true))
 			}
 		} else {
 			c.logger.Debug("invalid group name",
@@ -228,18 +252,18 @@ func (c *Client) handleMessage(data []byte) {
 				zap.String("group", m.group),
 			)
 			if m.ackID != nil {
-				c.send <- c.buildAck(*m.ackID, false)
+				c.SafeSend(c.buildAck(*m.ackID, false))
 			}
 		}
 
 	case *leaveGroupRequest:
 		c.hub.LeaveGroup(c, m.group)
 		if m.ackID != nil {
-			c.send <- c.buildAck(*m.ackID, true)
+			c.SafeSend(c.buildAck(*m.ackID, true))
 		}
 
 	case *pingRequest:
-		c.send <- c.buildPong()
+		c.SafeSend(c.buildPong())
 	}
 }
 
