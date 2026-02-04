@@ -1,8 +1,7 @@
 package main
 
 import (
-	"os"
-	"strconv"
+	"github.com/dgnsrekt/gexbot-downloader/internal/envutil"
 )
 
 // DaemonConfig holds daemon-specific configuration
@@ -18,36 +17,11 @@ type DaemonConfig struct {
 // LoadDaemonConfig loads configuration from environment variables
 func LoadDaemonConfig() *DaemonConfig {
 	return &DaemonConfig{
-		ConfigPath:     getEnvOrDefault("DAEMON_CONFIG_PATH", "/app/configs/default.yaml"),
-		ScheduleHour:   getEnvIntOrDefault("DAEMON_SCHEDULE_HOUR", 20),
-		ScheduleMinute: getEnvIntOrDefault("DAEMON_SCHEDULE_MINUTE", 0),
-		Timezone:       getEnvOrDefault("DAEMON_TIMEZONE", "America/New_York"),
-		StateFile:      getEnvOrDefault("DAEMON_STATE_FILE", "/app/data/.daemon-state"),
-		RunOnStartup:   getEnvBoolOrDefault("DAEMON_RUN_ON_STARTUP", true),
+		ConfigPath:     envutil.GetString("DAEMON_CONFIG_PATH", "/app/configs/default.yaml"),
+		ScheduleHour:   envutil.GetInt("DAEMON_SCHEDULE_HOUR", 20),
+		ScheduleMinute: envutil.GetInt("DAEMON_SCHEDULE_MINUTE", 0),
+		Timezone:       envutil.GetString("DAEMON_TIMEZONE", "America/New_York"),
+		StateFile:      envutil.GetString("DAEMON_STATE_FILE", "/app/data/.daemon-state"),
+		RunOnStartup:   envutil.GetBool("DAEMON_RUN_ON_STARTUP", true),
 	}
-}
-
-func getEnvOrDefault(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
-
-func getEnvIntOrDefault(key string, defaultVal int) int {
-	if val := os.Getenv(key); val != "" {
-		if i, err := strconv.Atoi(val); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
-
-func getEnvBoolOrDefault(key string, defaultVal bool) bool {
-	if val := os.Getenv(key); val != "" {
-		if b, err := strconv.ParseBool(val); err == nil {
-			return b
-		}
-	}
-	return defaultVal
 }

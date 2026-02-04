@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"time"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/envutil"
 )
 
 type ServerConfig struct {
@@ -27,8 +29,8 @@ type ServerConfig struct {
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
-	dataDir := getEnvOrDefault("DATA_DIR", "./data")
-	dataDate := getEnvOrDefault("DATA_DATE", "")
+	dataDir := envutil.GetString("DATA_DIR", "./data")
+	dataDate := envutil.GetString("DATA_DATE", "")
 
 	// Auto-detect latest date if DATA_DATE is empty or "latest"
 	if dataDate == "" || dataDate == "latest" {
@@ -39,22 +41,8 @@ func LoadServerConfig() (*ServerConfig, error) {
 		dataDate = detected
 	}
 
-	// Parse WebSocket stream interval
-	wsIntervalStr := getEnvOrDefault("WS_STREAM_INTERVAL", "1s")
-	wsInterval, err := time.ParseDuration(wsIntervalStr)
-	if err != nil {
-		wsInterval = time.Second // Default to 1s on parse error
-	}
-
-	// Parse Sync Broadcast System interval
-	syncIntervalStr := getEnvOrDefault("SYNC_BROADCAST_SYSTEM_INTERVAL", "1s")
-	syncInterval, err := time.ParseDuration(syncIntervalStr)
-	if err != nil {
-		syncInterval = time.Second // Default to 1s on parse error
-	}
-
 	// Get default broadcast ID from hostname
-	syncBroadcastID := getEnvOrDefault("SYNC_BROADCAST_SYSTEM_ID", "")
+	syncBroadcastID := envutil.GetString("SYNC_BROADCAST_SYSTEM_ID", "")
 	if syncBroadcastID == "" {
 		hostname, _ := os.Hostname()
 		if hostname != "" {
@@ -65,19 +53,19 @@ func LoadServerConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		Port:              getEnvOrDefault("PORT", "8080"),
+		Port:              envutil.GetString("PORT", "8080"),
 		DataDir:           dataDir,
 		DataDate:          dataDate,
-		DataMode:          getEnvOrDefault("DATA_MODE", "memory"),
-		CacheMode:         getEnvOrDefault("CACHE_MODE", "exhaust"),
-		EndpointCacheMode: getEnvOrDefault("ENDPOINT_CACHE_MODE", "shared"),
-		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
-		WSStreamInterval:  wsInterval,
-		WSGroupPrefix:     getEnvOrDefault("WS_GROUP_PREFIX", "blue"),
+		DataMode:          envutil.GetString("DATA_MODE", "memory"),
+		CacheMode:         envutil.GetString("CACHE_MODE", "exhaust"),
+		EndpointCacheMode: envutil.GetString("ENDPOINT_CACHE_MODE", "shared"),
+		WSEnabled:         envutil.GetBool("WS_ENABLED", true),
+		WSStreamInterval:  envutil.GetDuration("WS_STREAM_INTERVAL", time.Second),
+		WSGroupPrefix:     envutil.GetString("WS_GROUP_PREFIX", "blue"),
 		// Sync Broadcast System
-		SyncBroadcastSystemEnabled:  getEnvOrDefault("SYNC_BROADCAST_SYSTEM_ENABLED", "false") == "true",
+		SyncBroadcastSystemEnabled:  envutil.GetBool("SYNC_BROADCAST_SYSTEM_ENABLED", false),
 		SyncBroadcastSystemID:       syncBroadcastID,
-		SyncBroadcastSystemInterval: syncInterval,
+		SyncBroadcastSystemInterval: envutil.GetDuration("SYNC_BROADCAST_SYSTEM_INTERVAL", time.Second),
 	}
 
 	// Validate
@@ -129,9 +117,3 @@ func detectLatestDate(dataDir string) (string, error) {
 	return dates[0], nil
 }
 
-func getEnvOrDefault(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}

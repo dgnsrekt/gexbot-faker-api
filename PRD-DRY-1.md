@@ -41,7 +41,7 @@ Primary focus: WebSocket streamers (largest duplication) and safe shared utiliti
 
 ### Task 3: Small shared utilities (low risk)
 - [x] Move identical timestamp extraction logic to a shared helper in `internal/data/` (or `internal/common/`) and reuse in both loaders.
-- [ ] Consolidate `getEnvOrDefault`/bool/duration parsing into a small `internal/envutil` package and update callers.
+- [x] Consolidate `getEnvOrDefault`/bool/duration parsing into a small `internal/envutil` package and update callers.
 
 ### Task 4: Verify behavior + tests
 - [ ] Run `go test ./...`

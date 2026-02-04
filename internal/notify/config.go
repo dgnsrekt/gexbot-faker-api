@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/envutil"
 )
 
 // Config holds ntfy notification configuration.
@@ -20,11 +21,11 @@ type Config struct {
 // LoadConfig loads notification config from environment variables.
 func LoadConfig() *Config {
 	return &Config{
-		Enabled:  getEnvBoolOrDefault("NTFY_ENABLED", false),
-		Server:   getEnvOrDefault("NTFY_SERVER", "https://ntfy.sh"),
+		Enabled:  envutil.GetBool("NTFY_ENABLED", false),
+		Server:   envutil.GetString("NTFY_SERVER", "https://ntfy.sh"),
 		Topic:    os.Getenv("NTFY_TOPIC"),
-		Priority: getEnvOrDefault("NTFY_PRIORITY", "default"),
-		Tags:     getEnvOrDefault("NTFY_TAGS", "package"),
+		Priority: envutil.GetString("NTFY_PRIORITY", "default"),
+		Tags:     envutil.GetString("NTFY_TAGS", "package"),
 		Token:    os.Getenv("NTFY_TOKEN"),
 	}
 }
@@ -47,20 +48,4 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-}
-
-func getEnvOrDefault(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
-
-func getEnvBoolOrDefault(key string, defaultVal bool) bool {
-	if val := os.Getenv(key); val != "" {
-		if b, err := strconv.ParseBool(val); err == nil {
-			return b
-		}
-	}
-	return defaultVal
 }

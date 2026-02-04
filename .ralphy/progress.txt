@@ -52,3 +52,33 @@
 - All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
 - `go vet ./...` passes
 
+## 2026-02-04: Task 3 (complete) - Consolidate env parsing helpers
+
+### What was done:
+- Created `internal/envutil/envutil.go` package with:
+  - `GetString(key, defaultVal string) string` - replaces `getEnvOrDefault`
+  - `GetBool(key string, defaultVal bool) bool` - replaces `getEnvBoolOrDefault`
+  - `GetInt(key string, defaultVal int) int` - replaces `getEnvIntOrDefault`
+  - `GetDuration(key string, defaultVal time.Duration) time.Duration` - new helper for cleaner duration parsing
+
+- Created `internal/envutil/envutil_test.go` with comprehensive tests:
+  - 4 test cases for `GetString()` (set, unset, empty, whitespace)
+  - 11 test cases for `GetBool()` (true/false variants, invalid values)
+  - 7 test cases for `GetInt()` (positive, negative, zero, invalid values)
+  - 10 test cases for `GetDuration()` (seconds, ms, minutes, hours, combined, fractional, invalid)
+
+- Updated callers to use new envutil package:
+  - `internal/config/server.go`: Removed local `getEnvOrDefault`, now uses `envutil.GetString`, `envutil.GetBool`, `envutil.GetDuration`
+  - `cmd/daemon/config.go`: Removed local `getEnvOrDefault`, `getEnvIntOrDefault`, `getEnvBoolOrDefault`, now uses envutil
+  - `internal/notify/config.go`: Removed local `getEnvOrDefault`, `getEnvBoolOrDefault`, now uses envutil
+
+### Lines eliminated:
+- ~45 lines of duplicated env helper code removed from 3 files
+- Replaced inline duration parsing with cleaner `envutil.GetDuration` calls
+- Replaced string comparison boolean parsing (`== "true"`) with proper `envutil.GetBool`
+
+### Verification:
+- All tests pass: `go test ./...`
+- All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
+- `go vet ./...` passes
+
