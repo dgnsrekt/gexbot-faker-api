@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 )
 
@@ -42,4 +43,14 @@ type DataLoader interface {
 // DataKey creates a unique key for ticker/package/category
 func DataKey(ticker, pkg, category string) string {
 	return ticker + "/" + pkg + "/" + category
+}
+
+// ExtractTimestamp quickly extracts timestamp from JSON without full unmarshal.
+// This is used by both MemoryLoader and StreamLoader for binary search operations.
+func ExtractTimestamp(raw []byte) int64 {
+	var partial struct {
+		Timestamp int64 `json:"timestamp"`
+	}
+	_ = json.Unmarshal(raw, &partial)
+	return partial.Timestamp
 }

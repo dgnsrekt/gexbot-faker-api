@@ -247,7 +247,7 @@ func (s *StreamLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, ca
 		if err != nil {
 			return false
 		}
-		ts := extractTimestampFromRaw(raw)
+		ts := ExtractTimestamp(raw)
 		return ts >= target
 	})
 
@@ -261,16 +261,7 @@ func (s *StreamLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, ca
 	if err != nil {
 		return 0, 0, err
 	}
-	actualTs := extractTimestampFromRaw(raw)
+	actualTs := ExtractTimestamp(raw)
 
 	return idx, actualTs, nil
-}
-
-// extractTimestampFromRaw quickly extracts timestamp from JSON without full unmarshal
-func extractTimestampFromRaw(raw []byte) int64 {
-	var partial struct {
-		Timestamp int64 `json:"timestamp"`
-	}
-	_ = json.Unmarshal(raw, &partial)
-	return partial.Timestamp
 }

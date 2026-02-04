@@ -40,7 +40,7 @@ Primary focus: WebSocket streamers (largest duplication) and safe shared utiliti
 - [x] Add unit tests for extraction parsing edge cases.
 
 ### Task 3: Small shared utilities (low risk)
-- [ ] Move identical timestamp extraction logic to a shared helper in `internal/data/` (or `internal/common/`) and reuse in both loaders.
+- [x] Move identical timestamp extraction logic to a shared helper in `internal/data/` (or `internal/common/`) and reuse in both loaders.
 - [ ] Consolidate `getEnvOrDefault`/bool/duration parsing into a small `internal/envutil` package and update callers.
 
 ### Task 4: Verify behavior + tests

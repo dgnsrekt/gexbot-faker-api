@@ -34,3 +34,21 @@
 - All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
 - `go vet ./...` passes
 
+## 2026-02-04: Task 3 (partial) - Consolidate timestamp extraction helper
+
+### What was done:
+- Moved duplicate `extractTimestamp` / `extractTimestampFromRaw` functions to shared `ExtractTimestamp` in `internal/data/loader.go`
+- Updated `internal/data/memory.go` to use shared `ExtractTimestamp`
+- Updated `internal/data/stream.go` to use shared `ExtractTimestamp`
+- Created `internal/data/loader_test.go` with comprehensive tests for:
+  - `ExtractTimestamp()` with 15 test cases covering valid JSON, edge cases, error conditions
+  - `DataKey()` function
+
+### Lines eliminated:
+- ~14 lines of duplicated code removed (7 lines x 2 identical functions)
+
+### Verification:
+- All tests pass: `go test ./...`
+- All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
+- `go vet ./...` passes
+

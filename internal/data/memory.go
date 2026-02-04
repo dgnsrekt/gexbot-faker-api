@@ -173,7 +173,7 @@ func (m *MemoryLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, ca
 
 	// Binary search for first index where timestamp >= target
 	idx := sort.Search(len(data), func(i int) bool {
-		ts := extractTimestamp(data[i])
+		ts := ExtractTimestamp(data[i])
 		return ts >= target
 	})
 
@@ -182,15 +182,6 @@ func (m *MemoryLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg, ca
 		return 0, 0, ErrTimestampOutOfRange
 	}
 
-	actualTs := extractTimestamp(data[idx])
+	actualTs := ExtractTimestamp(data[idx])
 	return idx, actualTs, nil
-}
-
-// extractTimestamp quickly extracts timestamp from JSON without full unmarshal
-func extractTimestamp(raw []byte) int64 {
-	var partial struct {
-		Timestamp int64 `json:"timestamp"`
-	}
-	_ = json.Unmarshal(raw, &partial)
-	return partial.Timestamp
 }
