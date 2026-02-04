@@ -82,3 +82,19 @@
 - All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
 - `go vet ./...` passes
 
+## 2026-02-04: Task 4 - Verify behavior + tests
+
+### What was done:
+- Ran `go test ./...` - all tests pass
+- Compiled all three binaries successfully:
+  - `cmd/server` - OK
+  - `cmd/downloader` - OK
+  - `cmd/daemon` - OK
+- Ran `go vet ./...` - passes with no issues
+- `golangci-lint` not installed locally; CI will validate
+
+### Verification:
+- All tests pass
+- All binaries compile without errors
+- Code is lint-clean (`go vet` passes)
+

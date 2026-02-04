@@ -44,9 +44,9 @@ Primary focus: WebSocket streamers (largest duplication) and safe shared utiliti
 - [x] Consolidate `getEnvOrDefault`/bool/duration parsing into a small `internal/envutil` package and update callers.
 
 ### Task 4: Verify behavior + tests
-- [ ] Run `go test ./...`
-- [ ] Run a quick sanity compile of `cmd/server`, `cmd/downloader`, `cmd/daemon`.
-- [ ] Ensure websocket server still starts (build only).
+- [x] Run `go test ./...`
+- [x] Run a quick sanity compile of `cmd/server`, `cmd/downloader`, `cmd/daemon`.
+- [x] Ensure websocket server still starts (build only).
 
 ### Task 5: Commit + push
 - [ ] Commit with message like `refactor(ws): consolidate streamers` and `refactor: shared env/timestamp helpers` (or a single commit).
