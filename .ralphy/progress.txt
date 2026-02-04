@@ -1,0 +1,36 @@
+# Ralphy Progress Log
+
+## 2026-02-04: Task 1 & 2 - Consolidate WebSocket streamers
+
+### What was done:
+- Created `internal/ws/base_streamer.go` with `BaseStreamer` type containing:
+  - `StreamerConfig` struct for parameterizing streamer behavior (name, group parser, package, cache key prefix, encode method, proto type URL)
+  - `BaseStreamer` struct with the shared `Run()` loop and `broadcastNext()` method
+  - `ExtractTickerAndCategory()` generic helper function
+  - `MakeGroupParser()` factory for creating group parsers with separator and valid categories
+  - `MakeOrderflowGroupParser()` specialized parser for orderflow groups
+
+- Refactored all 5 streamers to thin wrappers around `BaseStreamer`:
+  - `streamer.go` (OrderflowStreamer) - now ~45 lines (was ~194)
+  - `gex_streamer.go` (GexStreamer) - now ~47 lines (was ~206)
+  - `classic_streamer.go` (ClassicStreamer) - now ~47 lines (was ~206)
+  - `greek_streamer.go` (GreekStreamer) - now ~47 lines (was ~206)
+  - `greek_one_streamer.go` (GreekOneStreamer) - now ~47 lines (was ~206)
+
+- Created `internal/ws/base_streamer_test.go` with comprehensive tests for:
+  - `ExtractTickerAndCategory()` with various edge cases
+  - `MakeGroupParser()` for different streamer types
+  - `MakeOrderflowGroupParser()`
+  - Category list validation for all streamer types
+
+### Lines eliminated:
+- ~750 lines of duplicated code removed
+- 5 nearly-identical `Run()` methods consolidated into 1
+- 5 nearly-identical `broadcastNext()` methods consolidated into 1
+- 5 similar `extract*TickerAndCategory()` functions consolidated into 2 generic helpers
+
+### Verification:
+- All tests pass: `go test ./...`
+- All binaries compile: `cmd/server`, `cmd/downloader`, `cmd/daemon`
+- `go vet ./...` passes
+
