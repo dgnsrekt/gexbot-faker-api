@@ -51,11 +51,19 @@ func TestGetString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clean up before and after
-			os.Unsetenv(tt.key)
-			defer os.Unsetenv(tt.key)
+			if err := os.Unsetenv(tt.key); err != nil {
+				t.Fatalf("Unsetenv(%q): %v", tt.key, err)
+			}
+			t.Cleanup(func() {
+				if err := os.Unsetenv(tt.key); err != nil {
+					t.Fatalf("Unsetenv(%q) cleanup: %v", tt.key, err)
+				}
+			})
 
 			if tt.setEnv {
-				os.Setenv(tt.key, tt.envValue)
+				if err := os.Setenv(tt.key, tt.envValue); err != nil {
+					t.Fatalf("Setenv(%q): %v", tt.key, err)
+				}
 			}
 
 			got := GetString(tt.key, tt.defaultVal)
@@ -166,11 +174,19 @@ func TestGetBool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv(tt.key)
-			defer os.Unsetenv(tt.key)
+			if err := os.Unsetenv(tt.key); err != nil {
+				t.Fatalf("Unsetenv(%q): %v", tt.key, err)
+			}
+			t.Cleanup(func() {
+				if err := os.Unsetenv(tt.key); err != nil {
+					t.Fatalf("Unsetenv(%q) cleanup: %v", tt.key, err)
+				}
+			})
 
 			if tt.setEnv {
-				os.Setenv(tt.key, tt.envValue)
+				if err := os.Setenv(tt.key, tt.envValue); err != nil {
+					t.Fatalf("Setenv(%q): %v", tt.key, err)
+				}
 			}
 
 			got := GetBool(tt.key, tt.defaultVal)
@@ -249,11 +265,19 @@ func TestGetInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv(tt.key)
-			defer os.Unsetenv(tt.key)
+			if err := os.Unsetenv(tt.key); err != nil {
+				t.Fatalf("Unsetenv(%q): %v", tt.key, err)
+			}
+			t.Cleanup(func() {
+				if err := os.Unsetenv(tt.key); err != nil {
+					t.Fatalf("Unsetenv(%q) cleanup: %v", tt.key, err)
+				}
+			})
 
 			if tt.setEnv {
-				os.Setenv(tt.key, tt.envValue)
+				if err := os.Setenv(tt.key, tt.envValue); err != nil {
+					t.Fatalf("Setenv(%q): %v", tt.key, err)
+				}
 			}
 
 			got := GetInt(tt.key, tt.defaultVal)
@@ -356,11 +380,19 @@ func TestGetDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Unsetenv(tt.key)
-			defer os.Unsetenv(tt.key)
+			if err := os.Unsetenv(tt.key); err != nil {
+				t.Fatalf("Unsetenv(%q): %v", tt.key, err)
+			}
+			t.Cleanup(func() {
+				if err := os.Unsetenv(tt.key); err != nil {
+					t.Fatalf("Unsetenv(%q) cleanup: %v", tt.key, err)
+				}
+			})
 
 			if tt.setEnv {
-				os.Setenv(tt.key, tt.envValue)
+				if err := os.Setenv(tt.key, tt.envValue); err != nil {
+					t.Fatalf("Setenv(%q): %v", tt.key, err)
+				}
 			}
 
 			got := GetDuration(tt.key, tt.defaultVal)
