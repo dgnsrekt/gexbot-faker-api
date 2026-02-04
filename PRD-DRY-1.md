@@ -49,15 +49,15 @@ Primary focus: WebSocket streamers (largest duplication) and safe shared utiliti
 - [x] Ensure websocket server still starts (build only).
 
 ### Task 5: Commit + push
-- [ ] Commit with message like `refactor(ws): consolidate streamers` and `refactor: shared env/timestamp helpers` (or a single commit).
-- [ ] Push branch.
+- [x] Commit with message like `refactor(ws): consolidate streamers` and `refactor: shared env/timestamp helpers` (or a single commit).
+- [x] Push branch.
 
 ## Test plan
 - `go test ./...`
 - (Optional) `golangci-lint run` if installed
 
 ## Acceptance checklist
-- [ ] WebSocket streamer duplication reduced substantially (no 5 nearly-identical streamer loops).
-- [ ] Tests pass.
-- [ ] Changes committed on `refactor/dry-cleanup-1`.
-- [ ] Branch pushed to origin.
+- [x] WebSocket streamer duplication reduced substantially (no 5 nearly-identical streamer loops).
+- [x] Tests pass.
+- [x] Changes committed on `refactor/dry-cleanup-1`.
+- [x] Branch pushed to origin.

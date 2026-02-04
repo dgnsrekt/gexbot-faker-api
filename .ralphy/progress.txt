@@ -98,3 +98,29 @@
 - All binaries compile without errors
 - Code is lint-clean (`go vet` passes)
 
+## 2026-02-04: Task 5 - Commit + push
+
+### What was done:
+- Verified all tests pass: `go test ./...`
+- Verified linting passes: `go vet ./...` (golangci-lint not installed locally, CI will validate)
+- Pushed branch to origin: `git push -u origin refactor/dry-cleanup-1`
+- Updated PRD to mark Task 5 complete and acceptance checklist complete
+
+### Commits on branch (from oldest to newest):
+1. `refactor(ws): consolidate streamers into parameterized BaseStreamer` - Task 1 & 2
+2. `refactor(data): consolidate duplicate timestamp extraction helper` - Task 3 (partial)
+3. `refactor(config): consolidate env parsing helpers into internal/envutil` - Task 3 (complete)
+4. `docs: mark Task 4 verification complete in PRD` - Task 4
+
+### Branch status:
+- Branch `refactor/dry-cleanup-1` pushed to origin
+- Remote URL: https://github.com/dgnsrekt/gexbot-faker-api/pull/new/refactor/dry-cleanup-1
+- Ready for pull request creation
+
+### Summary of DRY refactor:
+- ~750 lines of duplicated WebSocket streamer code eliminated
+- ~14 lines of duplicated timestamp extraction code eliminated
+- ~45 lines of duplicated env parsing code eliminated
+- **Total: ~809 lines of duplicated code removed**
+- All tests pass, all binaries compile, code is lint-clean
+
