@@ -90,18 +90,12 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 
 	// Negotiate subprotocol - check what client requested
 	protocol := "protobuf" // default
-	var responseHeader http.Header
 	for _, proto := range websocket.Subprotocols(r) {
 		switch proto {
 		case "protobuf.webpubsub.azure.v1":
 			protocol = "protobuf"
-			responseHeader = http.Header{"Sec-WebSocket-Protocol": {proto}}
 		case "json.reliable.webpubsub.azure.v1", "json.webpubsub.azure.v1":
 			protocol = "json"
-			responseHeader = http.Header{"Sec-WebSocket-Protocol": {proto}}
-		}
-		if responseHeader != nil {
-			break
 		}
 	}
 
@@ -111,7 +105,7 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Upgrade to WebSocket
-	conn, err := upgrader.Upgrade(w, r, responseHeader)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		h.logger.Error("websocket upgrade failed", zap.Error(err))
 		return
