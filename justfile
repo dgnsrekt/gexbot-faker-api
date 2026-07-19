@@ -129,16 +129,6 @@ clean:
     rm -rf data/.staging/
     rm -rf logs/
 
-# --- Browser Automation Commands ---
-
-# Start Chrome with remote debugging enabled
-start-browser:
-    ./scripts/start-chromium.sh
-
-# Start Chrome with debugging and console logs
-start-browser-logs:
-    ./scripts/start-chromium.sh --with-logs
-
 # --- Docker Commands ---
 
 # Rebuild and start all containers

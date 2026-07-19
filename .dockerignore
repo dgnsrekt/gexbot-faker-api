@@ -15,10 +15,6 @@ bin/
 # Logs
 logs/
 
-# Browser automation
-chromium-profile*/
-.playwright-mcp/
-
 # Environment files
 .env
 
