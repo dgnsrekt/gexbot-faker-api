@@ -18,6 +18,12 @@ bin/
 # Test output
 coverage.out
 
+# Graphify local state
+graphify-out/cost.json
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/
+
 # Config files (keep default.yaml tracked)
 configs/*.yaml
 !configs/default.yaml
