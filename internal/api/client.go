@@ -135,24 +135,49 @@ func (c *HTTPClient) GetDownloadURL(ctx context.Context, ticker, pkg, category, 
 }
 
 func (c *HTTPClient) DownloadFile(ctx context.Context, url string, dest io.Writer) (int64, error) {
-	size, err := c.downloadFileOnce(ctx, url, dest)
-	if err == nil {
-		return size, nil
+	var lastErr error
+
+	for attempt := 0; attempt <= c.retryCount; attempt++ {
+		if attempt > 0 {
+			delay := c.retryDelay * time.Duration(1<<(attempt-1))
+			c.logger.Debug("retrying download", zap.Int("attempt", attempt), zap.Duration("delay", delay))
+
+			select {
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		size, err := c.downloadFileOnce(ctx, url, dest)
+		if err == nil {
+			return size, nil
+		}
+
+		// Don't retry if data was partially written — would corrupt the output
+		if size > 0 {
+			return size, err
+		}
+
+		lastErr = err
+		c.logger.Warn("download attempt failed",
+			zap.Int("attempt", attempt+1),
+			zap.Int("max_attempts", c.retryCount+1),
+			zap.Error(err))
 	}
 
-	// Check if fallback is applicable
-	if !strings.Contains(url, primaryHistDomain) {
-		return 0, err
+	// All retries exhausted — try fallback domain if applicable
+	if strings.Contains(url, primaryHistDomain) {
+		fallbackURL := strings.Replace(url, primaryHistDomain, fallbackHistDomain, 1)
+		c.logger.Info("retrying with fallback domain",
+			zap.String("original", url),
+			zap.String("fallback", fallbackURL),
+			zap.Error(lastErr))
+
+		return c.downloadFileOnce(ctx, fallbackURL, dest)
 	}
 
-	// Try fallback domain
-	fallbackURL := strings.Replace(url, primaryHistDomain, fallbackHistDomain, 1)
-	c.logger.Info("retrying with fallback domain",
-		zap.String("original", url),
-		zap.String("fallback", fallbackURL),
-		zap.Error(err))
-
-	return c.downloadFileOnce(ctx, fallbackURL, dest)
+	return 0, fmt.Errorf("download failed after %d attempts: %w", c.retryCount+1, lastErr)
 }
 
 func (c *HTTPClient) downloadFileOnce(ctx context.Context, url string, dest io.Writer) (int64, error) {
