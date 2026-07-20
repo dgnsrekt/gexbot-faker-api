@@ -1,0 +1,90 @@
+{
+  "observed_at": "2026-07-19T20:18:00-05:00",
+  "base_url": "https://api.gex.bot",
+  "sanitized": true,
+  "user_agent": "gexbot-faker-audit/1.0",
+  "probes": [
+    {
+      "operation": "GET /v2/tickers",
+      "status": 200,
+      "auth": "none",
+      "content_type": "application/json",
+      "fields": ["stocks", "indexes", "futures"]
+    },
+    {
+      "operation": "GET /state/categories",
+      "status": 200,
+      "auth": "none",
+      "content_type": "application/json",
+      "body_type": "array"
+    },
+    {
+      "operation": "GET /tickers/quant",
+      "status": 200,
+      "without_auth_status": 401,
+      "content_type": "application/json",
+      "fields": ["stocks", "indexes"]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero",
+      "status": 200,
+      "without_auth_status": 400,
+      "without_user_agent_status": 400,
+      "without_accept_status": 200,
+      "content_type": "application/json",
+      "fields": ["timestamp", "ticker", "min_dte", "sec_min_dte", "spot", "zero_gamma", "major_pos_vol", "major_pos_oi", "major_neg_vol", "major_neg_oi", "strikes", "sum_gex_vol", "sum_gex_oi", "delta_risk_reversal", "max_priors"]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero/majors",
+      "status": 200,
+      "content_type": "application/json",
+      "fields": ["timestamp", "ticker", "spot", "mpos_vol", "mpos_oi", "mneg_vol", "mneg_oi", "zero_gamma", "net_gex_vol", "net_gex_oi"]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero/maxchange",
+      "status": 200,
+      "content_type": "application/json",
+      "fields": ["timestamp", "ticker", "current", "one", "five", "ten", "fifteen", "thirty"]
+    },
+    {
+      "operation": "GET /v2/SPX/state/gamma_zero",
+      "status": 200,
+      "content_type": "application/json",
+      "fields": ["timestamp", "ticker", "spot", "min_dte", "sec_min_dte", "major_positive", "major_negative", "major_long_gamma", "major_short_gamma", "mini_contracts"]
+    },
+    {
+      "operation": "GET /v2/SPX/orderflow/orderflow",
+      "status": 200,
+      "content_type": "application/json",
+      "fields": ["timestamp", "ticker", "spot", "z_mlgamma", "z_msgamma", "o_mlgamma", "o_msgamma", "zero_mcall", "zero_mput", "one_mcall", "one_mput", "zcvr", "ocvr", "zgr", "ogr", "zvanna", "ovanna", "zcharm", "ocharm", "agg_dex", "one_agg_dex", "agg_call_dex", "one_agg_call_dex", "agg_put_dex", "one_agg_put_dex", "net_dex", "one_net_dex", "net_call_dex", "one_net_call_dex", "net_put_dex", "one_net_put_dex", "dexoflow", "gexoflow", "cvroflow", "one_dexoflow", "one_gexoflow", "one_cvroflow"]
+    },
+    {
+      "operation": "GET /v2/options/SPX/expiries",
+      "status": 200,
+      "content_type": "application/json",
+      "fields": ["ticker", "start_date", "end_date", "expiries"]
+    },
+    {
+      "operation": "GET /v2/futures/conversion",
+      "status": 200,
+      "invalid_pair_status": 400,
+      "content_type": "application/json",
+      "fields": ["future_contract", "multiplier", "additive"]
+    },
+    {
+      "operation": "GET /hist/eod/SPY",
+      "alias": "GET /v2/hist/eod/SPY",
+      "status": 200,
+      "content_type": "application/zip",
+      "content_disposition": "attachment; filename=eod_report_SPY_2026-07-17.zip",
+      "content_length": 81644081,
+      "body_downloaded": false
+    },
+    {
+      "operation": "GET /v2/hist/SPX/classic/gex_zero/2026-07-17?noredirect",
+      "status": 429,
+      "content_type": "application/json",
+      "conclusion": "inconclusive due to rate limiting"
+    }
+  ]
+}
