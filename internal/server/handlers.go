@@ -20,6 +20,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
 // Custom response types for GetStateProfile oneOf responses
@@ -1115,6 +1116,9 @@ func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurren
 // GetAvailableData implements generated.StrictServerInterface
 func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvailableDataRequestObject) (generated.GetAvailableDataResponseObject, error) {
 	date := request.Date
+	if _, err := os.Stat(filepath.Join(s.config.DataDir, date)); os.IsNotExist(err) {
+		_ = eod.MaterializeDate(s.config.DataDir, date)
+	}
 	tickerFilter := ""
 	if request.Params.Ticker != nil {
 		tickerFilter = *request.Params.Ticker
@@ -1296,6 +1300,7 @@ func (s *Server) DownloadClassicGex(ctx context.Context, request generated.Downl
 	date := request.Date
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/classic/gex_{aggregation}.jsonl
 	category := "gex_" + aggregation
@@ -1341,6 +1346,7 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 	date := request.Date
 	ticker := request.Ticker
 	typeParam := string(request.Type)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
 
 	// Determine category based on type (same logic as GetStateProfile)
 	var category string
@@ -1396,6 +1402,7 @@ func (r *orderflowDownloadResponse) VisitDownloadOrderflowResponse(w http.Respon
 func (s *Server) DownloadOrderflow(ctx context.Context, request generated.DownloadOrderflowRequestObject) (generated.DownloadOrderflowResponseObject, error) {
 	date := request.Date
 	ticker := request.Ticker
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/orderflow/orderflow.jsonl
 	filePath := filepath.Join(s.config.DataDir, date, ticker, "orderflow", "orderflow.jsonl")
@@ -1451,6 +1458,7 @@ func buildDownloadPath(date, ticker, pkg, category string) string {
 func (s *Server) GetDownloadLinks(ctx context.Context, request generated.GetDownloadLinksRequestObject) (generated.GetDownloadLinksResponseObject, error) {
 	date := request.Date
 	ticker := request.Ticker
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
 
 	s.logger.Debug("download links request",
 		zap.String("date", date),

@@ -118,7 +118,6 @@ func detectLatestDate(dataDir string) (string, error) {
 			}
 		}
 	}
-
 	if len(dates) == 0 {
 		return "", fmt.Errorf("no date folders found in %s", dataDir)
 	}

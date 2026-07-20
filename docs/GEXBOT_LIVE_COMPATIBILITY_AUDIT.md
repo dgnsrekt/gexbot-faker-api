@@ -151,6 +151,13 @@ All 15 local SPY files have the same 22,166-record count. First and last records
 
 The endpoint returns the newest completed report and may return the prior trading day's report before the current export completes.
 
+The daily daemon now treats the exact EOD ZIP as the canonical archive under
+`data/eod/{date}/{ticker}/`, validates the member date and configured datasets,
+and materializes the existing JSONL replay tree on demand. Existing JSONL dates
+can be converted with `gexbot-downloader eod pack`; pruning is allowed only
+after the generated archive is reopened and verified. This storage migration
+does not yet add the live `/v2/hist/eod/{ticker}` route to the faker API.
+
 ### Futures conversion
 
 The new endpoint returns:

@@ -8,8 +8,8 @@ import (
 // DaemonConfig holds daemon-specific configuration
 type DaemonConfig struct {
 	ConfigPath     string // Path to downloader config YAML
-	ScheduleHour   int    // Hour in timezone (default: 20 for 8 PM)
-	ScheduleMinute int    // Minute (default: 0)
+	ScheduleHour   int    // Hour in timezone (default: 17 for 5 PM)
+	ScheduleMinute int    // Minute (default: 5)
 	Timezone       string // Timezone (default: America/New_York)
 	StateFile      string // File to track last download date
 	RunOnStartup   bool   // Check/download on startup if missed
@@ -19,8 +19,8 @@ type DaemonConfig struct {
 func LoadDaemonConfig() *DaemonConfig {
 	return &DaemonConfig{
 		ConfigPath:     getEnvOrDefault("DAEMON_CONFIG_PATH", "/app/configs/default.yaml"),
-		ScheduleHour:   getEnvIntOrDefault("DAEMON_SCHEDULE_HOUR", 20),
-		ScheduleMinute: getEnvIntOrDefault("DAEMON_SCHEDULE_MINUTE", 0),
+		ScheduleHour:   getEnvIntOrDefault("DAEMON_SCHEDULE_HOUR", 17),
+		ScheduleMinute: getEnvIntOrDefault("DAEMON_SCHEDULE_MINUTE", 5),
 		Timezone:       getEnvOrDefault("DAEMON_TIMEZONE", "America/New_York"),
 		StateFile:      getEnvOrDefault("DAEMON_STATE_FILE", "/app/data/.daemon-state"),
 		RunOnStartup:   getEnvBoolOrDefault("DAEMON_RUN_ON_STARTUP", true),

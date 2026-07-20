@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/server"
 	"github.com/dgnsrekt/gexbot-downloader/internal/sync"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
@@ -54,6 +56,12 @@ func run() int {
 	// Load data
 	logger.Info("loading data...", zap.String("mode", cfg.DataMode))
 	start := time.Now()
+	if _, statErr := os.Stat(filepath.Join(cfg.DataDir, cfg.DataDate)); os.IsNotExist(statErr) {
+		if err := eod.MaterializeDate(cfg.DataDir, cfg.DataDate); err != nil {
+			logger.Error("failed to materialize EOD archive", zap.Error(err))
+			return 1
+		}
+	}
 
 	var initialLoader data.DataLoader
 	switch cfg.DataMode {
@@ -68,6 +76,10 @@ func run() int {
 	if err != nil {
 		logger.Error("failed to load data", zap.Error(err))
 		return 1
+	}
+	latest, _ := eod.LatestDate(cfg.DataDir)
+	if err := eod.CleanupMaterialized(cfg.DataDir, cfg.DataDate, latest); err != nil {
+		logger.Warn("failed to clean materialized EOD cache", zap.Error(err))
 	}
 
 	// Wrap in reloadable loader for hot reload support
