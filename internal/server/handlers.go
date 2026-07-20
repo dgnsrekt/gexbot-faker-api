@@ -1116,6 +1116,15 @@ func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurren
 // GetAvailableData implements generated.StrictServerInterface
 func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvailableDataRequestObject) (generated.GetAvailableDataResponseObject, error) {
 	date := request.Date
+	if !isValidDateFormat(date) {
+		emptyTickers := []generated.TickerData{}
+		total := 0
+		return generated.GetAvailableData200JSONResponse{
+			Date:    &date,
+			Tickers: &emptyTickers,
+			Summary: &generated.DataSummary{TotalTickers: &total, TotalFiles: &total},
+		}, nil
+	}
 	if _, err := os.Stat(filepath.Join(s.config.DataDir, date)); os.IsNotExist(err) {
 		_ = eod.MaterializeDate(s.config.DataDir, date)
 	}

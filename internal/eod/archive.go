@@ -188,31 +188,34 @@ func MaterializeTicker(root, date, ticker string) error {
 	}
 	defer zr.Close()
 
-	tmp := filepath.Join(root, ".eod-staging", date, ticker)
-	_ = os.RemoveAll(tmp)
+	stagingRoot := filepath.Join(root, ".eod-staging", date)
+	if err := os.MkdirAll(stagingRoot, 0750); err != nil {
+		return err
+	}
+	tmp, err := os.MkdirTemp(stagingRoot, ticker+"-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(tmp) }()
 	for _, f := range zr.File {
 		if f.FileInfo().IsDir() {
 			continue
 		}
 		pkg, category, err := parseMember(f.Name, date, ticker)
 		if err != nil {
-			_ = os.RemoveAll(tmp)
 			return err
 		}
 		target := filepath.Join(tmp, pkg, category+".jsonl")
 		if err := os.MkdirAll(filepath.Dir(target), 0750); err != nil {
-			_ = os.RemoveAll(tmp)
 			return err
 		}
 		out, err := os.Create(target)
 		if err != nil {
-			_ = os.RemoveAll(tmp)
 			return err
 		}
 		r, err := f.Open()
 		if err != nil {
 			_ = out.Close()
-			_ = os.RemoveAll(tmp)
 			return err
 		}
 		gz, err := gzip.NewReader(r)
@@ -225,23 +228,22 @@ func MaterializeTicker(root, date, ticker string) error {
 			err = closeErr
 		}
 		if err != nil {
-			_ = os.RemoveAll(tmp)
 			return fmt.Errorf("%s: %w", f.Name, err)
 		}
 	}
 	if err := os.WriteFile(filepath.Join(tmp, markerName), []byte(archive+"\n"), 0600); err != nil {
-		_ = os.RemoveAll(tmp)
 		return err
 	}
 	if _, err := os.Stat(dest); err == nil {
-		_ = os.RemoveAll(tmp)
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0750); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.RemoveAll(tmp)
+		if info, statErr := os.Stat(dest); statErr == nil && info.IsDir() {
+			return nil
+		}
 		return err
 	}
 	return nil
