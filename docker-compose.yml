@@ -8,7 +8,7 @@ services:
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
-      - ./data:/app/data:ro
+      - ./data:/app/data:rw
     environment:
       - PORT=8080
       - DATA_DIR=/app/data
@@ -31,8 +31,8 @@ services:
       - ./data:/app/data:rw
       - ./configs:/app/configs:ro
     environment:
-      - DAEMON_SCHEDULE_HOUR=${DAEMON_SCHEDULE_HOUR:-20}
-      - DAEMON_SCHEDULE_MINUTE=${DAEMON_SCHEDULE_MINUTE:-0}
+      - DAEMON_SCHEDULE_HOUR=${DAEMON_SCHEDULE_HOUR:-17}
+      - DAEMON_SCHEDULE_MINUTE=${DAEMON_SCHEDULE_MINUTE:-5}
       - DAEMON_TIMEZONE=${DAEMON_TIMEZONE:-America/New_York}
       - DAEMON_STATE_FILE=/app/data/.daemon-state
       - DAEMON_CONFIG_PATH=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/api"
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/staging"
 )
 
@@ -121,6 +123,95 @@ func executeDownload(ctx context.Context, cfg *config.Config, date string, logge
 	}
 
 	return result, nil
+}
+
+func executeEODDownload(ctx context.Context, cfg *config.Config, date string, logger *zap.Logger) (*download.BatchResult, error) {
+	tickers := cfg.Tickers
+	if len(tickers) == 0 {
+		tickers = config.DefaultTickers()
+	}
+	result := &download.BatchResult{Total: len(tickers)}
+	client := api.NewClient(
+		cfg.API.BaseURL, cfg.API.APIKey, cfg.Download.RatePerSecond,
+		time.Duration(cfg.API.TimeoutSec)*time.Second,
+		time.Duration(cfg.API.RetryDelay)*time.Second, cfg.API.RetryCount, logger,
+	)
+
+	for _, ticker := range tickers {
+		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
+		if _, err := os.Stat(eod.ManifestPath(archive)); err == nil {
+			result.Skipped++
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(archive), 0750); err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", ticker, err))
+			continue
+		}
+		tmp := archive + ".tmp"
+		file, err := os.Create(tmp)
+		if err == nil {
+			_, err = client.DownloadEODReport(ctx, ticker, file)
+			if closeErr := file.Close(); err == nil {
+				err = closeErr
+			}
+		}
+		if err == nil {
+			err = os.Rename(tmp, archive)
+		}
+		if err == nil {
+			var manifest *eod.Manifest
+			manifest, err = eod.Verify(archive, date, ticker, "gexbot-eod")
+			if err == nil {
+				err = validateEODManifest(cfg, ticker, manifest)
+			}
+		}
+		if err != nil {
+			_ = os.Remove(tmp)
+			_ = os.Remove(archive)
+			_ = os.Remove(eod.ManifestPath(archive))
+			result.Failed++
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", ticker, err))
+			continue
+		}
+		result.Success++
+	}
+	if result.Failed == 0 {
+		if err := eod.MaterializeDate(cfg.Output.Directory, date); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+func validateEODManifest(cfg *config.Config, ticker string, manifest *eod.Manifest) error {
+	have := make(map[string]bool, len(manifest.Members))
+	for _, member := range manifest.Members {
+		have[member.Package+"/"+member.Category] = true
+	}
+	for _, task := range generateTasksForDate(cfg, manifest.Date) {
+		if task.Ticker == ticker && !have[task.Package+"/"+task.Category] {
+			return fmt.Errorf("missing EOD member %s/%s", task.Package, task.Category)
+		}
+	}
+	return nil
+}
+
+func packMissingArchives(cfg *config.Config, date string) error {
+	tickers := cfg.Tickers
+	if len(tickers) == 0 {
+		tickers = config.DefaultTickers()
+	}
+	for _, ticker := range tickers {
+		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
+		if _, err := os.Stat(eod.ManifestPath(archive)); err == nil {
+			continue
+		}
+		if _, err := eod.Pack(cfg.Output.Directory, date, ticker, "individual-fallback"); err != nil {
+			return fmt.Errorf("%s: %w", ticker, err)
+		}
+	}
+	return nil
 }
 
 // generateTasksForDate creates download tasks for a single date based on config

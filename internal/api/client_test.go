@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,28 @@ import (
 
 	"go.uber.org/zap"
 )
+
+func TestDownloadEODReport(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/hist/eod/SPY" {
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Errorf("unexpected auth %s", got)
+		}
+		_, _ = w.Write([]byte("zip"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key", 10, 30*time.Second, time.Millisecond, 0, zap.NewNop())
+	var out bytes.Buffer
+	if _, err := client.DownloadEODReport(context.Background(), "SPY", &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "zip" {
+		t.Fatalf("unexpected body %q", out.String())
+	}
+}
 
 func TestGetDownloadURL_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

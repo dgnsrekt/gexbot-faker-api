@@ -12,6 +12,7 @@ type Scheduler struct {
 	minute   int
 	location *time.Location
 	nyse     *calendar.Calendar
+	now      func() time.Time
 }
 
 // NewScheduler creates a new scheduler with the given schedule time and timezone
@@ -25,18 +26,29 @@ func NewScheduler(hour, minute int, timezone string) *Scheduler {
 		minute:   minute,
 		location: loc,
 		nyse:     calendar.XNYS(),
+		now:      time.Now,
 	}
 }
 
 // IsScheduledTime checks if current time matches the schedule (within the same minute)
 func (s *Scheduler) IsScheduledTime() bool {
-	now := time.Now().In(s.location)
+	now := s.now().In(s.location)
 	return now.Hour() == s.hour && now.Minute() == s.minute
+}
+
+// IsScheduledOrLater supports catch-up after restarts and retrying failed EOD reports.
+func (s *Scheduler) IsScheduledOrLater() bool {
+	now := s.now().In(s.location)
+	return now.Hour() > s.hour || (now.Hour() == s.hour && now.Minute() >= s.minute)
+}
+
+func (s *Scheduler) IsFallbackTime() bool {
+	return s.now().In(s.location).Hour() >= 20
 }
 
 // TodayDate returns today's date in YYYY-MM-DD format in the configured timezone
 func (s *Scheduler) TodayDate() string {
-	return time.Now().In(s.location).Format("2006-01-02")
+	return s.now().In(s.location).Format("2006-01-02")
 }
 
 // IsMarketDay checks if the given date is a trading day (not weekend/holiday)

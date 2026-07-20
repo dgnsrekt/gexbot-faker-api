@@ -45,6 +45,14 @@ func run() int {
 		logger.Error("failed to load downloader config", zap.Error(err))
 		return 1
 	}
+	tickers := cfg.Tickers
+	if len(tickers) == 0 {
+		tickers = config.DefaultTickers()
+	}
+	if err := config.ValidateDownloadConfig(tickers, cfg.Packages); err != nil {
+		logger.Error("invalid downloader configuration", zap.Error(err))
+		return 1
+	}
 
 	logger.Info("downloader configuration loaded",
 		zap.String("outputDir", cfg.Output.Directory),
@@ -83,10 +91,13 @@ func run() int {
 	)
 
 	// Check on startup if enabled
+	var nextAttempt time.Time
 	if daemonCfg.RunOnStartup {
 		logger.Info("checking for missed download on startup")
 		if shouldDownload(scheduler, tracker, logger) {
-			runDownload(ctx, cfg, scheduler, tracker, notifier, logger)
+			if !runDownload(ctx, cfg, scheduler, tracker, notifier, logger) {
+				nextAttempt = time.Now().Add(5 * time.Minute)
+			}
 		}
 	}
 
@@ -102,8 +113,12 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
-			if shouldDownload(scheduler, tracker, logger) {
-				runDownload(ctx, cfg, scheduler, tracker, notifier, logger)
+			if shouldDownload(scheduler, tracker, logger) && (nextAttempt.IsZero() || !time.Now().Before(nextAttempt)) {
+				if runDownload(ctx, cfg, scheduler, tracker, notifier, logger) {
+					nextAttempt = time.Time{}
+				} else {
+					nextAttempt = time.Now().Add(5 * time.Minute)
+				}
 			}
 
 		case <-ctx.Done():
@@ -129,7 +144,7 @@ func shouldDownload(scheduler *Scheduler, tracker *DownloadTracker, logger *zap.
 	}
 
 	// Check if it's the scheduled time
-	if !scheduler.IsScheduledTime() {
+	if !scheduler.IsScheduledOrLater() {
 		return false
 	}
 
@@ -142,48 +157,44 @@ func shouldDownload(scheduler *Scheduler, tracker *DownloadTracker, logger *zap.
 }
 
 // runDownload executes the download and updates the tracker
-func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger) {
+func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger) bool {
 	today := scheduler.TodayDate()
 
-	logger.Info("starting scheduled download", zap.String("date", today))
+	logger.Info("starting scheduled EOD download", zap.String("date", today))
 	start := time.Now()
 
-	result, err := executeDownload(ctx, cfg, today, logger)
+	result, err := executeEODDownload(ctx, cfg, today, logger)
 	duration := time.Since(start)
 
-	if err != nil {
-		logger.Error("download failed", zap.Error(err), zap.String("date", today))
-		// Send failure notification
-		if notifyErr := notifier.SendFailure(ctx, result, today, duration, err); notifyErr != nil {
-			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
-		}
-		return
-	}
-
-	// Check if there were any failed downloads
-	if result != nil && result.Failed > 0 {
-		logger.Warn("download completed with failures",
-			zap.String("date", today),
-			zap.Int("failed", result.Failed),
-			zap.Duration("duration", duration),
-		)
-		// Send failure notification for partial failures
-		if notifyErr := notifier.SendFailure(ctx, result, today, duration, fmt.Errorf("%d downloads failed", result.Failed)); notifyErr != nil {
-			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
-		}
-	} else {
-		logger.Info("download succeeded",
-			zap.String("date", today),
-			zap.Duration("duration", duration),
-		)
-		// Send success notification
-		if notifyErr := notifier.SendSuccess(ctx, result, today, duration); notifyErr != nil {
-			logger.Warn("failed to send success notification", zap.Error(notifyErr))
+	if (err != nil || result == nil || result.Failed > 0) && scheduler.IsFallbackTime() {
+		logger.Warn("EOD unavailable at fallback deadline; using individual downloads", zap.String("date", today))
+		result, err = executeDownload(ctx, cfg, today, logger)
+		if err == nil && result.Failed == 0 {
+			err = packMissingArchives(cfg, today)
 		}
 	}
 
-	// Update tracker to prevent re-download
+	duration = time.Since(start)
+	if err != nil || result == nil || result.Failed > 0 {
+		if err == nil {
+			err = fmt.Errorf("%d EOD reports unavailable", result.Failed)
+		}
+		retryErr := fmt.Errorf("%w; retrying in 5 minutes", err)
+		logger.Warn("download incomplete", zap.String("date", today), zap.Error(retryErr))
+		if notifyErr := notifier.SendFailure(ctx, result, today, duration, retryErr); notifyErr != nil {
+			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
+		}
+		return false
+	}
+
+	logger.Info("download succeeded", zap.String("date", today), zap.Duration("duration", duration))
+	if notifyErr := notifier.SendSuccess(ctx, result, today, duration); notifyErr != nil {
+		logger.Warn("failed to send success notification", zap.Error(notifyErr))
+	}
+
 	if err := tracker.SetLastDownloadDate(today); err != nil {
 		logger.Error("failed to update tracker", zap.Error(err))
+		return false
 	}
+	return true
 }

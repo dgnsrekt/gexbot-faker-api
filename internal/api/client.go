@@ -134,6 +134,33 @@ func (c *HTTPClient) GetDownloadURL(ctx context.Context, ticker, pkg, category, 
 	return "", fmt.Errorf("max retries exceeded: %w", lastErr)
 }
 
+// DownloadEODReport downloads the latest completed EOD ZIP for a ticker.
+func (c *HTTPClient) DownloadEODReport(ctx context.Context, ticker string, dest io.Writer) (int64, error) {
+	if err := c.limiter.Wait(ctx); err != nil {
+		return 0, fmt.Errorf("rate limiter: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		fmt.Sprintf("%s/v2/hist/eod/%s", c.baseURL, ticker), nil)
+	if err != nil {
+		return 0, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	req.Header.Set("Accept", "application/zip")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("executing request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotFound {
+		return 0, ErrNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return 0, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+	return io.Copy(dest, resp.Body)
+}
+
 func (c *HTTPClient) DownloadFile(ctx context.Context, url string, dest io.Writer) (int64, error) {
 	var lastErr error
 

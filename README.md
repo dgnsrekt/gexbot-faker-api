@@ -254,14 +254,28 @@ Download historical data from the GexBot API.
 ./bin/gexbot-downloader download --dry-run 2025-11-14
 ```
 
+EOD reports are retained as the canonical compressed archive under
+`data/eod/YYYY-MM-DD/TICKER/`. JSONL is materialized only when the server
+needs a date.
+
+```bash
+# Convert and verify existing JSONL; --prune removes it after verification
+./bin/gexbot-downloader eod pack 2026-07-17 --ticker SPY --prune
+
+# Verify every archive or restore a date for replay
+./bin/gexbot-downloader eod verify all
+./bin/gexbot-downloader eod materialize 2026-07-17
+```
+
 ### Daemon Service
 
-Automated daily downloads with market day awareness.
+Automated EOD downloads with market-day awareness. Reports are retried every
+five minutes; after 8:00 PM ET the daemon falls back to individual downloads.
 
 | Variable                 | Default          | Description             |
 | ------------------------ | ---------------- | ----------------------- |
-| `DAEMON_SCHEDULE_HOUR`   | 20               | Hour to run (0-23)      |
-| `DAEMON_SCHEDULE_MINUTE` | 0                | Minute to run           |
+| `DAEMON_SCHEDULE_HOUR`   | 17               | First EOD attempt (ET)   |
+| `DAEMON_SCHEDULE_MINUTE` | 5                | First EOD attempt minute |
 | `DAEMON_TIMEZONE`        | America/New_York | Timezone                |
 | `DAEMON_RUN_ON_STARTUP`  | true             | Check/download on start |
 
@@ -346,16 +360,22 @@ Futures: ES_SPX, NQ_NDX
 
 ```
 data/
-└── 2025-11-14/
+├── eod/
+│   └── 2025-11-14/
+│       └── SPX/
+│           ├── eod_report_SPX_2025-11-14.zip
+│           └── eod_report_SPX_2025-11-14.zip.manifest.json
+└── 2025-11-14/                 # materialized replay cache
     └── SPX/
-        ├── classic/
-        │   └── gex_zero.jsonl
-        ├── state/
-        │   ├── gex_zero.jsonl
-        │   └── delta_zero.jsonl
-        └── orderflow/
-            └── orderflow.jsonl
+        ├── classic/gex_zero.jsonl
+        ├── state/delta_zero.jsonl
+        └── orderflow/orderflow.jsonl
 ```
+
+The ZIP is the canonical archive. Its members use GEXBot's
+`TICKER/package/category/date_ticker_package_category.json.gz` layout and
+contain JSON arrays. JSONL remains uncompressed because stream playback needs
+record offsets that gzip cannot provide efficiently.
 
 ## Development
 

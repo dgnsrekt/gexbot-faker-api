@@ -14,6 +14,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
 // ReloadManager coordinates data reloading across server components.
@@ -102,6 +103,11 @@ func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadRes
 
 	// Check if date directory exists
 	datePath := filepath.Join(rm.config.DataDir, newDate)
+	if _, err := os.Stat(datePath); os.IsNotExist(err) {
+		if err := eod.MaterializeDate(rm.config.DataDir, newDate); err != nil {
+			return nil, fmt.Errorf("date not found: %s", newDate)
+		}
+	}
 	info, err := os.Stat(datePath)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("date not found: %s", newDate)
@@ -154,6 +160,10 @@ func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadRes
 	// Close old loader (release resources)
 	if err := oldLoader.Close(); err != nil {
 		rm.logger.Warn("failed to close old loader", zap.Error(err))
+	}
+	latest, _ := eod.LatestDate(rm.config.DataDir)
+	if err := eod.CleanupMaterialized(rm.config.DataDir, newDate, latest); err != nil {
+		rm.logger.Warn("failed to clean materialized EOD cache", zap.Error(err))
 	}
 
 	rm.logger.Info("hot reload complete",

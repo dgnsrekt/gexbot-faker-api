@@ -88,6 +88,7 @@ func main() {
 
 	rootCmd.AddCommand(downloadCmd())
 	rootCmd.AddCommand(convertCmd())
+	rootCmd.AddCommand(eodCmd())
 
 	// Setup signal handling
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
