@@ -25,24 +25,24 @@
     "semantic_hash": "6c23777357d2beae9650f9aa035d93fb"
   },
   "cmd/daemon/config.go": {
-    "mtime": 1784498486.930004,
-    "ast_hash": "506fdac3aa39f5cfe3c17dd382fead18",
-    "semantic_hash": "506fdac3aa39f5cfe3c17dd382fead18"
+    "mtime": 1784515187.194823,
+    "ast_hash": "102e0325a93935d1cc3855053c3383aa",
+    "semantic_hash": "102e0325a93935d1cc3855053c3383aa"
   },
   "cmd/daemon/download.go": {
-    "mtime": 1784498486.9300902,
-    "ast_hash": "1efafd8caddc606b3a9272401c682bff",
-    "semantic_hash": "1efafd8caddc606b3a9272401c682bff"
+    "mtime": 1784515762.5806422,
+    "ast_hash": "0e77e6e9fd8e1bd2348eb1c5105e6f8b",
+    "semantic_hash": "0e77e6e9fd8e1bd2348eb1c5105e6f8b"
   },
   "cmd/daemon/main.go": {
-    "mtime": 1784498486.9300902,
-    "ast_hash": "d2f73ba2c624c63a9dffb4abea7c3878",
-    "semantic_hash": "d2f73ba2c624c63a9dffb4abea7c3878"
+    "mtime": 1784515430.6760063,
+    "ast_hash": "742225d32044b14263d178fd6ef2ee07",
+    "semantic_hash": "742225d32044b14263d178fd6ef2ee07"
   },
   "cmd/daemon/scheduler.go": {
-    "mtime": 1784498486.9300902,
-    "ast_hash": "d76c28d8ce31bdd9035d98c67560dd1d",
-    "semantic_hash": "d76c28d8ce31bdd9035d98c67560dd1d"
+    "mtime": 1784515718.1479316,
+    "ast_hash": "0dcb3cd086552757da29a4de6cd5d95d",
+    "semantic_hash": "0dcb3cd086552757da29a4de6cd5d95d"
   },
   "cmd/downloader/convert.go": {
     "mtime": 1784498486.9300902,
@@ -60,14 +60,14 @@
     "semantic_hash": "5cb06728919580cf5e3f8d549e1df8fa"
   },
   "cmd/downloader/main.go": {
-    "mtime": 1784498486.930714,
-    "ast_hash": "666011534977fc66aa380620aaacbc70",
-    "semantic_hash": "666011534977fc66aa380620aaacbc70"
+    "mtime": 1784515247.2783678,
+    "ast_hash": "8686c74db809c67ff781c3600b664dd1",
+    "semantic_hash": "8686c74db809c67ff781c3600b664dd1"
   },
   "cmd/server/main.go": {
-    "mtime": 1784498486.930714,
-    "ast_hash": "0027b2c00125a0a797af56a96012f506",
-    "semantic_hash": "0027b2c00125a0a797af56a96012f506"
+    "mtime": 1784515377.4312136,
+    "ast_hash": "fe2e9114d7682905931352854414a6ce",
+    "semantic_hash": "fe2e9114d7682905931352854414a6ce"
   },
   "go.mod": {
     "mtime": 1784498486.930714,
@@ -75,14 +75,14 @@
     "semantic_hash": "7596928ccb3924e7a47c71f9e284f828"
   },
   "internal/api/client.go": {
-    "mtime": 1784498486.9315615,
-    "ast_hash": "30ca5ccf995e2acec9d91198a42f7b48",
-    "semantic_hash": "30ca5ccf995e2acec9d91198a42f7b48"
+    "mtime": 1784515136.4872098,
+    "ast_hash": "07dfc9e1c1836af576a0a20a0e90cd29",
+    "semantic_hash": "07dfc9e1c1836af576a0a20a0e90cd29"
   },
   "internal/api/client_test.go": {
-    "mtime": 1784498486.931674,
-    "ast_hash": "f7aa2afe465fec1b817bb0a679f3312d",
-    "semantic_hash": "f7aa2afe465fec1b817bb0a679f3312d"
+    "mtime": 1784515149.9121065,
+    "ast_hash": "1e3d7a6f14b7c4e7c52154f676024480",
+    "semantic_hash": "1e3d7a6f14b7c4e7c52154f676024480"
   },
   "internal/api/errors.go": {
     "mtime": 1784498486.931674,
@@ -105,9 +105,9 @@
     "semantic_hash": "b0411d26539e83baf84fa3d3c6223e6c"
   },
   "internal/config/server.go": {
-    "mtime": 1784498486.9323606,
-    "ast_hash": "4d0b38ca687dc80e52efb8af9d7ce08c",
-    "semantic_hash": "4d0b38ca687dc80e52efb8af9d7ce08c"
+    "mtime": 1784515762.5816422,
+    "ast_hash": "c77ed7dc31175389c7df832100c10bc0",
+    "semantic_hash": "c77ed7dc31175389c7df832100c10bc0"
   },
   "internal/config/types.go": {
     "mtime": 1784498486.9323606,
@@ -185,14 +185,14 @@
     "semantic_hash": "3ffd51aaa290477ec51b2dde7a698302"
   },
   "internal/server/handlers.go": {
-    "mtime": 1784498486.9332998,
-    "ast_hash": "5e8645c315d8b6df1163321bd2b93e7b",
-    "semantic_hash": "5e8645c315d8b6df1163321bd2b93e7b"
+    "mtime": 1784515297.5129888,
+    "ast_hash": "a948821cbb75f830ab44998434847d48",
+    "semantic_hash": "a948821cbb75f830ab44998434847d48"
   },
   "internal/server/reload.go": {
-    "mtime": 1784498486.9337478,
-    "ast_hash": "bd776142f5413cd2369866633be6f210",
-    "semantic_hash": "bd776142f5413cd2369866633be6f210"
+    "mtime": 1784515280.6981144,
+    "ast_hash": "b0caf4875135f18fd26ca57cdf1bd03a",
+    "semantic_hash": "b0caf4875135f18fd26ca57cdf1bd03a"
   },
   "internal/server/server.go": {
     "mtime": 1784507546.4574766,
@@ -410,13 +410,38 @@
     "semantic_hash": "919abfdc71ff5b0b05ed057e6827c76f"
   },
   "compatibility/live-probes/2026-07-19.json": {
-    "mtime": 1784510548.5633025,
-    "ast_hash": "3f93e764018cea0c184a37a327914dcc",
-    "semantic_hash": "3f93e764018cea0c184a37a327914dcc"
+    "mtime": 1784512422.9521153,
+    "ast_hash": "c7d50583b79f414733c5da71d4b1f0e3",
+    "semantic_hash": "c7d50583b79f414733c5da71d4b1f0e3"
   },
   "compatibility/matrix.json": {
     "mtime": 1784510548.5623026,
     "ast_hash": "2cbb55aec869751a93de7a9d3ad22b82",
     "semantic_hash": "2cbb55aec869751a93de7a9d3ad22b82"
+  },
+  "cmd/daemon/config_test.go": {
+    "mtime": 1784515734.1278315,
+    "ast_hash": "d45c724c766709b575b89afba13e7eef",
+    "semantic_hash": "d45c724c766709b575b89afba13e7eef"
+  },
+  "cmd/daemon/scheduler_test.go": {
+    "mtime": 1784515718.1489315,
+    "ast_hash": "e9f737aba63a5ea0bb9f624a2f690526",
+    "semantic_hash": "e9f737aba63a5ea0bb9f624a2f690526"
+  },
+  "cmd/downloader/eod.go": {
+    "mtime": 1784515247.2783678,
+    "ast_hash": "89c801af1e99db3250fe7b881ac86ea0",
+    "semantic_hash": "89c801af1e99db3250fe7b881ac86ea0"
+  },
+  "internal/eod/archive.go": {
+    "mtime": 1784515424.7950497,
+    "ast_hash": "43da2c5181012358549ed5f879054e46",
+    "semantic_hash": "43da2c5181012358549ed5f879054e46"
+  },
+  "internal/eod/archive_test.go": {
+    "mtime": 1784515123.9093065,
+    "ast_hash": "bc11bf813e5db48e85e8d5d0c701608e",
+    "semantic_hash": "bc11bf813e5db48e85e8d5d0c701608e"
   }
 }
