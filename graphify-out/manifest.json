@@ -195,9 +195,9 @@
     "semantic_hash": "bd776142f5413cd2369866633be6f210"
   },
   "internal/server/server.go": {
-    "mtime": 1784498486.9337478,
-    "ast_hash": "80b0a3357a06f02c2223ce8cf2fa0e1f",
-    "semantic_hash": "80b0a3357a06f02c2223ce8cf2fa0e1f"
+    "mtime": 1784507546.4574766,
+    "ast_hash": "67b271ee74e2a870c75282157420279e",
+    "semantic_hash": "67b271ee74e2a870c75282157420279e"
   },
   "internal/staging/staging.go": {
     "mtime": 1784498486.9337478,
@@ -403,5 +403,20 @@
     "mtime": 1784501569.017638,
     "ast_hash": "9ad0275f2219c548ffcde4a0b5d651b3",
     "semantic_hash": "9ad0275f2219c548ffcde4a0b5d651b3"
+  },
+  "compatibility/compatibility_test.go": {
+    "mtime": 1784510634.3076282,
+    "ast_hash": "919abfdc71ff5b0b05ed057e6827c76f",
+    "semantic_hash": "919abfdc71ff5b0b05ed057e6827c76f"
+  },
+  "compatibility/live-probes/2026-07-19.json": {
+    "mtime": 1784510548.5633025,
+    "ast_hash": "3f93e764018cea0c184a37a327914dcc",
+    "semantic_hash": "3f93e764018cea0c184a37a327914dcc"
+  },
+  "compatibility/matrix.json": {
+    "mtime": 1784510548.5623026,
+    "ast_hash": "2cbb55aec869751a93de7a9d3ad22b82",
+    "semantic_hash": "2cbb55aec869751a93de7a9d3ad22b82"
   }
 }
