@@ -167,10 +167,48 @@ func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
     <title>GEX Faker API</title>
     <link rel="stylesheet" href="/swagger-ui.css">
     <style>
+        :root { color-scheme: dark; }
+        body, .swagger-ui { background: #0d1117; color: #e6edf3; }
         .nav-bar { background: #1b1b1b; padding: 10px 20px; display: flex; gap: 20px; align-items: center; }
         .nav-bar a { color: #61affe; text-decoration: none; font-family: sans-serif; font-size: 14px; }
         .nav-bar a:hover { text-decoration: underline; }
         .nav-bar .current { color: #fff; font-weight: bold; }
+        .swagger-ui .info .title,
+        .swagger-ui .info p,
+        .swagger-ui .info li,
+        .swagger-ui .opblock-tag,
+        .swagger-ui .opblock-description-wrapper p,
+        .swagger-ui .opblock-summary-description,
+        .swagger-ui .parameter__name,
+        .swagger-ui .parameter__type,
+        .swagger-ui .response-col_status,
+        .swagger-ui .response-col_description,
+        .swagger-ui .responses-inner h4,
+        .swagger-ui .responses-inner h5,
+        .swagger-ui .model,
+        .swagger-ui .model-title,
+        .swagger-ui label,
+        .swagger-ui table thead tr td,
+        .swagger-ui table thead tr th { color: #e6edf3; }
+        .swagger-ui .opblock-summary-path,
+        .swagger-ui .opblock-summary-description,
+        .swagger-ui .opblock-tag small { color: #c9d1d9 !important; }
+        .swagger-ui .info .base-url,
+        .swagger-ui .scheme-container,
+        .swagger-ui .model-container,
+        .swagger-ui section.models,
+        .swagger-ui .opblock .opblock-section-header { background: #161b22; }
+        .swagger-ui .scheme-container { box-shadow: none; }
+        .swagger-ui section.models,
+        .swagger-ui section.models .model-container,
+        .swagger-ui .opblock .opblock-section-header { border-color: #30363d; }
+        .swagger-ui input,
+        .swagger-ui select,
+        .swagger-ui textarea {
+            background: #0d1117;
+            color: #e6edf3;
+            border-color: #30363d;
+        }
     </style>
 </head>
 <body>
@@ -211,10 +249,33 @@ func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
     <title>GEX Faker WebSocket API</title>
     <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
     <style>
+        :root { color-scheme: dark; }
+        body, #asyncapi { background: #0d1117; color: #e6edf3; min-height: 100vh; }
         .nav-bar { background: #263238; padding: 10px 20px; display: flex; gap: 20px; align-items: center; }
         .nav-bar a { color: #87ceeb; text-decoration: none; font-family: sans-serif; font-size: 14px; }
         .nav-bar a:hover { text-decoration: underline; }
         .nav-bar .current { color: #fff; font-weight: bold; }
+        #asyncapi .bg-white,
+        #asyncapi .bg-gray-50,
+        #asyncapi .bg-gray-100 { background-color: #161b22 !important; }
+        #asyncapi .text-gray-500,
+        #asyncapi .text-gray-600 { color: #8b949e !important; }
+        #asyncapi .text-gray-700,
+        #asyncapi .text-gray-800,
+        #asyncapi .text-gray-900 { color: #e6edf3 !important; }
+        #asyncapi h1,
+        #asyncapi h2,
+        #asyncapi h3,
+        #asyncapi h4,
+        #asyncapi h5,
+        #asyncapi h6,
+        #asyncapi p,
+        #asyncapi li { color: #c9d1d9 !important; }
+        #asyncapi .bg-gray-200 { background-color: #21262d !important; }
+        #asyncapi .border-gray-200,
+        #asyncapi .border-gray-300 { border-color: #30363d !important; }
+        #asyncapi code,
+        #asyncapi pre { background-color: #161b22 !important; color: #e6edf3 !important; }
     </style>
 </head>
 <body>
