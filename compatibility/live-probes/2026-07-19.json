@@ -78,7 +78,29 @@
       "content_type": "application/zip",
       "content_disposition": "attachment; filename=eod_report_SPY_2026-07-17.zip",
       "content_length": 81644081,
-      "body_downloaded": false
+      "body_downloaded": true,
+      "sha256": "e183ceb4f4d5dcbd3bd5126a26dedd062ed2435cb483f89055988bd76004b9ad",
+      "zip_integrity": "passed",
+      "member_count": 15,
+      "member_format": "gzip-compressed JSON arrays",
+      "records_per_member": 22166,
+      "total_records": 332490,
+      "first_timestamp": 1784295002,
+      "last_timestamp": 1784318400,
+      "datasets": {
+        "classic": ["gex_full", "gex_one", "gex_zero"],
+        "state": ["charm_one", "charm_zero", "delta_one", "delta_zero", "gamma_one", "gamma_zero", "gex_full", "gex_one", "gex_zero", "vanna_one", "vanna_zero"],
+        "orderflow": ["orderflow"]
+      },
+      "local_comparison": {
+        "date": "2026-07-17",
+        "ticker": "SPY",
+        "local_format": "JSON Lines",
+        "local_total_bytes": 1736446134,
+        "all_member_record_counts_match": true,
+        "representative_first_and_last_records_match": true,
+        "representative_datasets": ["classic/gex_full", "state/gamma_zero", "orderflow/orderflow"]
+      }
     },
     {
       "operation": "GET /v2/hist/SPX/classic/gex_zero/2026-07-17?noredirect",

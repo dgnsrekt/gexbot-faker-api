@@ -106,7 +106,50 @@ The live EOD endpoint returned:
 - `Content-Disposition: attachment; filename=eod_report_SPY_2026-07-17.zip`
 - `Content-Length: 81644081`
 
-The body was not downloaded. The endpoint returns the newest completed report and may return the prior trading day's report before the current export completes.
+The complete archive was subsequently downloaded and passed ZIP integrity validation:
+
+- SHA-256: `e183ceb4f4d5dcbd3bd5126a26dedd062ed2435cb483f89055988bd76004b9ad`
+- 15 nested `.json.gz` files
+- 22,166 records per file
+- 332,490 records total
+- Timestamp range: 2026-07-17 9:30:02 AM–4:00:00 PM ET
+- Approximately 1.62 GiB after conversion to local JSON Lines
+
+The report is a bulk data archive, not a rendered analytical summary. Its layout is:
+
+```text
+SPY/
+├── classic/
+│   ├── gex_full
+│   ├── gex_one
+│   └── gex_zero
+├── state/
+│   ├── charm_one
+│   ├── charm_zero
+│   ├── delta_one
+│   ├── delta_zero
+│   ├── gamma_one
+│   ├── gamma_zero
+│   ├── gex_full
+│   ├── gex_one
+│   ├── gex_zero
+│   ├── vanna_one
+│   └── vanna_zero
+└── orderflow/
+    └── orderflow
+```
+
+Each member is named like:
+
+```text
+SPY/state/gamma_zero/2026-07-17_SPY_state_gamma_zero.json.gz
+```
+
+Decompressing a member produces a JSON array using the same schemas as the individual historical datasets. The corresponding local faker files are JSON Lines conversions of those arrays.
+
+All 15 local SPY files have the same 22,166-record count. First and last records were compared for `classic/gex_full`, `state/gamma_zero`, and `orderflow/orderflow`; all compared equal. This confirms that the EOD report contains the same Friday replay data already present under `data/2026-07-17/SPY`.
+
+The endpoint returns the newest completed report and may return the prior trading day's report before the current export completes.
 
 ### Futures conversion
 
@@ -198,7 +241,7 @@ They should remain clearly documented as faker control-plane extensions. They sh
 1. Mount the compatibility API at `/v2`, add Bearer/User-Agent handling, and allow PATCH in CORS.
 2. Replace legacy negotiation with POST/PATCH server-side subscriptions and add `state_greeks`.
 3. Add categories, Quant tickers, expiries, and the live historical route.
-4. Add EOD report and a fixture-backed futures conversion endpoint.
+4. Add EOD report by packaging the already-loaded datasets as nested gzip JSON arrays; add a fixture-backed futures conversion endpoint.
 5. Match observed error statuses, media types, redirects, gzip behavior, and response semantics.
 6. Add handler and WebSocket integration tests, then change matrix rows from mismatch/missing to matching.
 
