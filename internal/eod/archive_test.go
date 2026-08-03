@@ -41,6 +41,37 @@ func TestPackVerifyMaterialize(t *testing.T) {
 	}
 }
 
+func TestPruneRemovesEmptyDateDir(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	for _, tk := range []string{"SPY", "SPX"} {
+		src := filepath.Join(root, date, tk, "classic", "gex_full.jsonl")
+		if err := os.MkdirAll(filepath.Dir(src), 0750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(src, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Pack(root, date, tk, "legacy-jsonl"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Pruning one of two tickers must leave the date dir (SPX still present).
+	if err := PruneTicker(root, date, "SPY"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, date)); err != nil {
+		t.Fatalf("date dir should remain while another ticker is present: %v", err)
+	}
+	// Pruning the last ticker must remove the now-empty date dir.
+	if err := PruneTicker(root, date, "SPX"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, date)); !os.IsNotExist(err) {
+		t.Fatalf("empty date dir should be removed after last prune, got err=%v", err)
+	}
+}
+
 func TestConcurrentMaterializeTicker(t *testing.T) {
 	root := t.TempDir()
 	date, ticker := "2026-07-17", "SPY"
