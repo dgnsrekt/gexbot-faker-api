@@ -13,7 +13,7 @@ import (
 
 func eodCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "eod", Short: "Manage EOD archives"}
-	cmd.AddCommand(eodPackCmd(), eodVerifyCmd(), eodMaterializeCmd())
+	cmd.AddCommand(eodPackCmd(), eodVerifyCmd(), eodMaterializeCmd(), eodPruneCmd())
 	return cmd
 }
 
@@ -99,6 +99,44 @@ func eodMaterializeCmd() *cobra.Command {
 				return eod.MaterializeTicker(cfg.Output.Directory, args[0], ticker)
 			}
 			return eod.MaterializeDate(cfg.Output.Directory, args[0])
+		},
+	}
+	cmd.Flags().StringVar(&ticker, "ticker", "", "only process one ticker")
+	return cmd
+}
+
+func eodPruneCmd() *cobra.Command {
+	var ticker string
+	cmd := &cobra.Command{
+		Use:   "prune <YYYY-MM-DD|all>",
+		Short: "Delete source JSONL for archived dates (verify-gated, no re-pack)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Only dates that already have an archive are candidates.
+			dates, err := eodArchiveDates(cfg.Output.Directory, args[0])
+			if err != nil {
+				return err
+			}
+			for _, date := range dates {
+				// Source JSONL may already be gone (pruned earlier) - skip.
+				if _, err := os.Stat(filepath.Join(cfg.Output.Directory, date)); os.IsNotExist(err) {
+					continue
+				}
+				tickers, err := eodTickers(cfg.Output.Directory, date, ticker)
+				if err != nil {
+					return err
+				}
+				for _, symbol := range tickers {
+					// PruneTicker re-verifies the archive (hash + record count)
+					// before deleting the source, so nothing is dropped unless a
+					// good archive exists.
+					if err := eod.PruneTicker(cfg.Output.Directory, date, symbol); err != nil {
+						return fmt.Errorf("%s/%s: %w", date, symbol, err)
+					}
+					fmt.Printf("pruned %s/%s\n", date, symbol)
+				}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&ticker, "ticker", "", "only process one ticker")
