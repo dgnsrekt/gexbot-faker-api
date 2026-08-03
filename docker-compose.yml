@@ -45,3 +45,21 @@ services:
       - NTFY_TAGS=${NTFY_TAGS:-package}
       - NTFY_TOKEN=${NTFY_TOKEN:-}
     restart: unless-stopped
+
+  # One-off downloader CLI. Never starts with `up` (tools profile); run on demand:
+  #   docker compose --profile tools run --rm gex-tools download 2026-07-28
+  #   docker compose --profile tools run --rm gex-tools eod pack all --prune
+  gex-tools:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: tools
+    image: gexbot-faker-api-gex-tools
+    user: "${PUID:-1000}:${PGID:-1000}"
+    working_dir: /app
+    volumes:
+      - ./data:/app/data:rw
+      - ./configs:/app/configs:ro
+    environment:
+      - GEXBOT_API_KEY=${GEXBOT_API_KEY}
+      - GEXBOT_DOWNLOADER_CONFIG=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
