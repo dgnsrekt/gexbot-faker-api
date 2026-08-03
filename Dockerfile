@@ -13,10 +13,11 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Generate API code and build both binaries
+# Generate API code and build all binaries
 RUN go generate ./api && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/gexbot-server ./cmd/server && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/gexbot-daemon ./cmd/daemon
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/gexbot-daemon ./cmd/daemon && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/gexbot-downloader ./cmd/downloader
 
 # Runtime stage - Server
 FROM alpine:3.21 AS server
@@ -61,3 +62,21 @@ RUN mkdir -p /app/data /app/logs && chown -R appuser:appgroup /app
 USER appuser
 
 ENTRYPOINT ["/app/gexbot-daemon"]
+
+# Runtime stage - Tools (one-off downloader CLI: manual backfills + eod pack/verify/materialize migration)
+FROM alpine:3.21 AS tools
+
+WORKDIR /app
+
+RUN apk add --no-cache tzdata && \
+    addgroup -g 1000 appgroup && \
+    adduser -u 1000 -G appgroup -D appuser
+
+COPY --from=builder /app/bin/gexbot-downloader /app/gexbot-downloader
+COPY --from=builder /app/configs/default.yaml /app/configs/default.yaml
+
+RUN mkdir -p /app/data /app/logs && chown -R appuser:appgroup /app
+
+USER appuser
+
+ENTRYPOINT ["/app/gexbot-downloader"]

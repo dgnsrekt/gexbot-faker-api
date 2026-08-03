@@ -333,7 +333,15 @@ func PruneTicker(root, date, ticker string) error {
 	if _, err := Verify(archive, date, ticker, "legacy-jsonl"); err != nil {
 		return err
 	}
-	return os.RemoveAll(filepath.Join(root, date, ticker))
+	if err := os.RemoveAll(filepath.Join(root, date, ticker)); err != nil {
+		return err
+	}
+	// Drop the parent date dir once the last ticker is pruned. os.Remove only
+	// succeeds on an empty dir, so a date still holding other tickers is left
+	// intact. Without this, the empty leftover makes GetAvailableData report the
+	// date as having no data instead of re-materializing it from the archive.
+	_ = os.Remove(filepath.Join(root, date))
+	return nil
 }
 
 func validateDateTicker(date, ticker string) error {
