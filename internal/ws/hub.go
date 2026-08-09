@@ -174,8 +174,21 @@ func (h *Hub) SetKeyGroups(apiKey string, groups []string) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	active := make(map[string]bool)
+	// Consider clients from both the registered set and current group members: a
+	// just-connected client that auto-joined is in h.groups before the async
+	// register lands it in h.clients.
+	candidates := make(map[*Client]bool)
 	for client := range h.clients {
+		candidates[client] = true
+	}
+	for _, clients := range h.groups {
+		for client := range clients {
+			candidates[client] = true
+		}
+	}
+
+	active := make(map[string]bool)
+	for client := range candidates {
 		if client.apiKey != apiKey {
 			continue
 		}
