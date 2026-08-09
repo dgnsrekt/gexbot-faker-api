@@ -94,9 +94,12 @@ func usMarketHolidays(year int) map[string]bool {
 	return set
 }
 
-// isMarketHoliday reports whether d is a NYSE full-day closure.
+// isMarketHoliday reports whether d is a NYSE full-day closure. It also checks the
+// following year because an observed New Year's Day can shift into late December of
+// the prior year (Jan 1 on a Saturday -> closure the preceding Dec 31).
 func isMarketHoliday(d time.Time) bool {
-	return usMarketHolidays(d.Year())[d.Format("2006-01-02")]
+	key := d.Format("2006-01-02")
+	return usMarketHolidays(d.Year())[key] || usMarketHolidays(d.Year()+1)[key]
 }
 
 // isMarketDay reports whether d is a trading day (weekday, not a holiday).

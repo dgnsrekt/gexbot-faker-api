@@ -275,3 +275,29 @@ func TestGenerateExpiriesVIXThirtyDayHoliday(t *testing.T) {
 		t.Error("VIX expiration should move to the preceding business day 2026-03-03")
 	}
 }
+
+func TestMarketHolidayYearBoundary(t *testing.T) {
+	// Jan 1, 2028 is a Saturday -> the market closes the preceding Fri 2027-12-31,
+	// a date produced by usMarketHolidays(2028), not (2027).
+	if !isMarketHoliday(mustDate(t, "2027-12-31")) {
+		t.Error("2027-12-31 (observed New Year 2028) should be a market holiday")
+	}
+	if isMarketDay(mustDate(t, "2027-12-31")) {
+		t.Error("2027-12-31 should not be a trading day")
+	}
+	// Control: 2026-12-31 is a normal Thursday (Jan 1 2027 is a Friday, no shift).
+	if !isMarketDay(mustDate(t, "2026-12-31")) {
+		t.Error("2026-12-31 should be a trading day")
+	}
+
+	// Expiry generation: the weekly Friday 2027-12-31 must roll back to Thursday.
+	anchor := mustDate(t, "2027-12-01")
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := dateSet(generateExpiries(anchor, end, false, time.Friday))
+	if got["2027-12-31"] {
+		t.Error("weekly expiry 2027-12-31 must shift (observed New Year holiday)")
+	}
+	if !got["2027-12-30"] {
+		t.Error("weekly expiry should roll back to Thursday 2027-12-30")
+	}
+}
