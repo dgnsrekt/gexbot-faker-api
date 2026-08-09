@@ -282,7 +282,14 @@ func (sb *SyncBroadcaster) parseCacheKey(cacheKey string) (ticker, pkg, category
 	return "", "", ""
 }
 
-// pkgDefaultCategory returns the default category for a package in shared mode.
+// pkgDefaultCategory returns the representative category used for a package in
+// shared endpoint-cache mode, where the cache key drops the category.
+//
+// gex_full is a safe stand-in for the reported DataLength/DataTimestamp: every
+// category in a package is captured from the same session at the same snapshot
+// timestamps, so they share an identical record count AND per-index timestamp
+// (verified across classic and state). The shared position's length/timestamp
+// are therefore the same regardless of which category is picked.
 func (sb *SyncBroadcaster) pkgDefaultCategory(pkg string) string {
 	switch pkg {
 	case "classic":
