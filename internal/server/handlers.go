@@ -370,11 +370,10 @@ func (s *Server) GetTickers(ctx context.Context, request generated.GetTickersReq
 	stocks := []string{}
 	indexes := []string{}
 	futures := []string{}
-	knownIndexes := map[string]bool{"SPX": true, "VIX": true, "NDX": true, "RUT": true}
 
 	for ticker := range tickerSet {
 		switch {
-		case knownIndexes[ticker]:
+		case config.IndexTickers[ticker]:
 			indexes = append(indexes, ticker)
 		case strings.Contains(ticker, "_"):
 			futures = append(futures, ticker)
@@ -1098,7 +1097,7 @@ func (s *Server) GetAvailableDates(ctx context.Context, request generated.GetAva
 
 // GetCurrentDate implements generated.StrictServerInterface
 func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurrentDateRequestObject) (generated.GetCurrentDateResponseObject, error) {
-	filesLoaded := 12 // 6 tickers × 2 packages (classic + state)
+	filesLoaded := len(s.loader.GetLoadedKeys())
 
 	s.logger.Debug("current date request",
 		zap.String("currentDate", s.config.DataDate),

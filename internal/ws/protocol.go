@@ -96,7 +96,7 @@ func buildDataMessage(group string, compressedData []byte, typeUrl string) []byt
 	msg := &pb.DownstreamMessage{
 		Message: &pb.DownstreamMessage_DataMessage_{
 			DataMessage: &pb.DownstreamMessage_DataMessage{
-				From:  "server",
+				From:  "group",
 				Group: &group,
 				Data: &pb.MessageData{
 					Data: &pb.MessageData_ProtobufData{
