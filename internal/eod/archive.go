@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 const markerName = ".eod-materialized"
@@ -173,7 +175,10 @@ func Verify(path, date, ticker, source string) (*Manifest, error) {
 	return manifest, nil
 }
 
-func MaterializeTicker(root, date, ticker string) error {
+func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if err := validateDateTicker(date, ticker); err != nil {
 		return err
 	}
@@ -181,6 +186,7 @@ func MaterializeTicker(root, date, ticker string) error {
 	if info, err := os.Stat(dest); err == nil && info.IsDir() {
 		return nil
 	}
+	start := time.Now()
 	archive := ArchivePath(root, date, ticker)
 	zr, err := zip.OpenReader(archive)
 	if err != nil {
@@ -246,10 +252,18 @@ func MaterializeTicker(root, date, ticker string) error {
 		}
 		return err
 	}
+	logger.Info("materialized ticker from EOD archive",
+		zap.String("date", date),
+		zap.String("ticker", ticker),
+		zap.Duration("duration", time.Since(start)),
+	)
 	return nil
 }
 
-func MaterializeDate(root, date string) error {
+func MaterializeDate(root, date string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	if !regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`).MatchString(date) {
 		return fmt.Errorf("invalid date %q", date)
 	}
@@ -257,13 +271,26 @@ func MaterializeDate(root, date string) error {
 	if err != nil {
 		return err
 	}
+	count := 0
 	for _, ticker := range tickers {
 		if ticker.IsDir() {
-			if err := MaterializeTicker(root, date, ticker.Name()); err != nil {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	logger.Info("materializing date from EOD archive", zap.String("date", date), zap.Int("tickers", count))
+	start := time.Now()
+	for _, ticker := range tickers {
+		if ticker.IsDir() {
+			if err := MaterializeTicker(root, date, ticker.Name(), logger); err != nil {
 				return err
 			}
 		}
 	}
+	logger.Info("materialized date from EOD archive",
+		zap.String("date", date), zap.Int("tickers", count), zap.Duration("duration", time.Since(start)))
 	return nil
 }
 

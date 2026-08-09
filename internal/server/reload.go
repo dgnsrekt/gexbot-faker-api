@@ -104,7 +104,7 @@ func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadRes
 	// Check if date directory exists
 	datePath := filepath.Join(rm.config.DataDir, newDate)
 	if _, err := os.Stat(datePath); os.IsNotExist(err) {
-		if err := eod.MaterializeDate(rm.config.DataDir, newDate); err != nil {
+		if err := eod.MaterializeDate(rm.config.DataDir, newDate, rm.logger); err != nil {
 			return nil, fmt.Errorf("date not found: %s", newDate)
 		}
 	}

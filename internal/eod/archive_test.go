@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestPackVerifyMaterialize(t *testing.T) {
@@ -29,7 +32,7 @@ func TestPackVerifyMaterialize(t *testing.T) {
 	if err := PruneTicker(root, date, ticker); err != nil {
 		t.Fatal(err)
 	}
-	if err := MaterializeTicker(root, date, ticker); err != nil {
+	if err := MaterializeTicker(root, date, ticker, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(source)
@@ -95,7 +98,7 @@ func TestConcurrentMaterializeTicker(t *testing.T) {
 	for range 2 {
 		go func() {
 			start.Wait()
-			errs <- MaterializeTicker(root, date, ticker)
+			errs <- MaterializeTicker(root, date, ticker, nil)
 		}()
 	}
 	start.Done()
@@ -106,5 +109,38 @@ func TestConcurrentMaterializeTicker(t *testing.T) {
 	}
 	if _, err := os.Stat(source); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMaterializeDateLogsProgress(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-07-17", "SPY"
+	source := filepath.Join(root, date, ticker, "classic", "gex_full.jsonl")
+	if err := os.MkdirAll(filepath.Dir(source), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Pack(root, date, ticker, "legacy-jsonl"); err != nil {
+		t.Fatal(err)
+	}
+	// Remove the JSONL so materialize actually does work (and logs it).
+	if err := PruneTicker(root, date, ticker); err != nil {
+		t.Fatal(err)
+	}
+
+	core, logs := observer.New(zap.InfoLevel)
+	if err := MaterializeDate(root, date, zap.New(core)); err != nil {
+		t.Fatal(err)
+	}
+	if logs.FilterMessage("materializing date from EOD archive").Len() == 0 {
+		t.Error("expected a start log for the date materialize")
+	}
+	if logs.FilterMessage("materialized ticker from EOD archive").Len() == 0 {
+		t.Error("expected a per-ticker materialize log")
+	}
+	if logs.FilterMessage("materialized date from EOD archive").Len() == 0 {
+		t.Error("expected a date-summary materialize log")
 	}
 }
