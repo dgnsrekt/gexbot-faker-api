@@ -85,17 +85,22 @@ func run() int {
 	// Create scheduler and tracker
 	scheduler := NewScheduler(daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)
 	tracker := NewDownloadTracker(daemonCfg.StateFile)
+	runTimeout := time.Duration(daemonCfg.RunTimeoutMinutes) * time.Minute
 
 	logger.Info("daemon started",
 		zap.String("schedule", fmt.Sprintf("%02d:%02d %s", daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)),
+		zap.Duration("runTimeout", runTimeout),
 	)
 
 	// Check on startup if enabled
 	var nextAttempt time.Time
 	if daemonCfg.RunOnStartup {
-		logger.Info("checking for missed download on startup")
+		logger.Info("checking for missed downloads on startup")
+		// Backfill any full market days missed while the daemon was down/wedged
+		// before handling today's scheduled run.
+		backfillMissedDays(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout)
 		if shouldDownload(scheduler, tracker, logger) {
-			if !runDownload(ctx, cfg, scheduler, tracker, notifier, logger) {
+			if !runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
 				nextAttempt = time.Now().Add(5 * time.Minute)
 			}
 		}
@@ -114,7 +119,7 @@ func run() int {
 
 		case <-ticker.C:
 			if shouldDownload(scheduler, tracker, logger) && (nextAttempt.IsZero() || !time.Now().Before(nextAttempt)) {
-				if runDownload(ctx, cfg, scheduler, tracker, notifier, logger) {
+				if runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
 					nextAttempt = time.Time{}
 				} else {
 					nextAttempt = time.Now().Add(5 * time.Minute)
@@ -157,18 +162,23 @@ func shouldDownload(scheduler *Scheduler, tracker *DownloadTracker, logger *zap.
 }
 
 // runDownload executes the download and updates the tracker
-func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger) bool {
+func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger, runTimeout time.Duration) bool {
 	today := scheduler.TodayDate()
 
 	logger.Info("starting scheduled EOD download", zap.String("date", today))
 	start := time.Now()
 
-	result, err := executeEODDownload(ctx, cfg, today, logger)
+	// Bound the run: a stalled request must fail into the 5-minute retry loop,
+	// not wedge the daemon's single-goroutine ticker indefinitely.
+	runCtx, cancel := context.WithTimeout(ctx, runTimeout)
+	defer cancel()
+
+	result, err := executeEODDownload(runCtx, cfg, today, logger)
 	duration := time.Since(start)
 
 	if (err != nil || result == nil || result.Failed > 0) && scheduler.IsFallbackTime() {
 		logger.Warn("EOD unavailable at fallback deadline; using individual downloads", zap.String("date", today))
-		result, err = executeDownload(ctx, cfg, today, logger)
+		result, err = executeDownload(runCtx, cfg, today, logger)
 		if err == nil && result.Failed == 0 {
 			err = packMissingArchives(cfg, today)
 		}
@@ -197,4 +207,64 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 		return false
 	}
 	return true
+}
+
+// maxBackfillDays caps how far back startup backfill reaches — the individual
+// /hist endpoint only serves a ~90-day look-back window.
+const maxBackfillDays = 90
+
+// backfillMissedDays downloads any full market days missed between the last
+// recorded download and today (today is left to the normal scheduled run).
+//
+// Past days must use the individual /hist/{date} endpoint (executeDownload):
+// the EOD report endpoint only serves the single latest report, so it cannot
+// fetch a specific past date. Each day is bounded by runTimeout so a stall in
+// backfill can't wedge startup.
+func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Scheduler, tracker *DownloadTracker, notifier notify.Notifier, logger *zap.Logger, runTimeout time.Duration) {
+	last := tracker.GetLastDownloadDate()
+	if last == "" {
+		// No baseline — a fresh daemon must not backfill unbounded history.
+		return
+	}
+	missed, capped := scheduler.MissedMarketDays(last, maxBackfillDays)
+	if len(missed) == 0 {
+		return
+	}
+	if capped {
+		logger.Warn("backfill gap exceeds look-back window; older days skipped",
+			zap.String("since", last), zap.Int("backfilling", len(missed)), zap.Int("maxDays", maxBackfillDays))
+	}
+	logger.Info("backfilling missed market days", zap.Strings("dates", missed))
+
+	for _, date := range missed {
+		runCtx, cancel := context.WithTimeout(ctx, runTimeout)
+		result, err := executeDownload(runCtx, cfg, date, logger)
+		if err == nil && result != nil && result.Failed == 0 {
+			err = packMissingArchives(cfg, date)
+		}
+		cancel()
+
+		if err != nil || result == nil || result.Failed > 0 {
+			if err == nil {
+				if result == nil {
+					err = fmt.Errorf("no download tasks generated (check package config)")
+				} else {
+					err = fmt.Errorf("%d downloads failed", result.Failed)
+				}
+			}
+			// Stop at the first gap so the tracker's high-water-mark stays
+			// contiguous; the next startup retries from here.
+			logger.Warn("backfill incomplete; stopping (retries next startup)", zap.String("date", date), zap.Error(err))
+			if notifyErr := notifier.SendFailure(ctx, result, date, 0, fmt.Errorf("backfill: %w", err)); notifyErr != nil {
+				logger.Warn("failed to send backfill failure notification", zap.Error(notifyErr))
+			}
+			return
+		}
+
+		logger.Info("backfilled missed date", zap.String("date", date))
+		if err := tracker.SetLastDownloadDate(date); err != nil {
+			logger.Error("failed to update tracker after backfill", zap.Error(err))
+			return
+		}
+	}
 }

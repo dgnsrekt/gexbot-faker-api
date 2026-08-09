@@ -65,3 +65,33 @@ func (s *Scheduler) IsMarketDay(dateStr string) bool {
 func (s *Scheduler) Location() *time.Location {
 	return s.location
 }
+
+// MissedMarketDays returns trading days strictly after lastDate and strictly
+// before today (oldest first). Today is excluded because the normal scheduled
+// run handles it. Results are capped to the maxDays most recent days (the
+// individual /hist endpoint only serves a ~90-day look-back), and the returned
+// bool reports whether older days were dropped by that cap.
+func (s *Scheduler) MissedMarketDays(lastDate string, maxDays int) ([]string, bool) {
+	last, err := time.ParseInLocation("2006-01-02", lastDate, s.location)
+	if err != nil {
+		return nil, false
+	}
+	todayStr := s.now().In(s.location).Format("2006-01-02")
+
+	var days []string
+	// Bound the scan so a corrupt/ancient lastDate can never spin forever.
+	d := last.AddDate(0, 0, 1)
+	for i := 0; i < 366 && d.Format("2006-01-02") < todayStr; i, d = i+1, d.AddDate(0, 0, 1) {
+		ds := d.Format("2006-01-02")
+		if s.IsMarketDay(ds) {
+			days = append(days, ds)
+		}
+	}
+
+	capped := false
+	if maxDays > 0 && len(days) > maxDays {
+		days = days[len(days)-maxDays:]
+		capped = true
+	}
+	return days, capped
+}

@@ -37,6 +37,7 @@ services:
       - DAEMON_STATE_FILE=/app/data/.daemon-state
       - DAEMON_CONFIG_PATH=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
       - DAEMON_RUN_ON_STARTUP=${DAEMON_RUN_ON_STARTUP:-true}
+      - DAEMON_RUN_TIMEOUT_MINUTES=${DAEMON_RUN_TIMEOUT_MINUTES:-45}
       - GEXBOT_API_KEY=${GEXBOT_API_KEY}
       - NTFY_ENABLED=${NTFY_ENABLED:-false}
       - NTFY_SERVER=${NTFY_SERVER:-https://ntfy.sh}
