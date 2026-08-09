@@ -57,7 +57,7 @@ func run() int {
 	logger.Info("loading data...", zap.String("mode", cfg.DataMode))
 	start := time.Now()
 	if _, statErr := os.Stat(filepath.Join(cfg.DataDir, cfg.DataDate)); os.IsNotExist(statErr) {
-		if err := eod.MaterializeDate(cfg.DataDir, cfg.DataDate); err != nil {
+		if err := eod.MaterializeDate(cfg.DataDir, cfg.DataDate, logger); err != nil {
 			logger.Error("failed to materialize EOD archive", zap.Error(err))
 			return 1
 		}

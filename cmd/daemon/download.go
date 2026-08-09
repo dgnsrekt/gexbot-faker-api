@@ -177,7 +177,7 @@ func executeEODDownload(ctx context.Context, cfg *config.Config, date string, lo
 		result.Success++
 	}
 	if result.Failed == 0 {
-		if err := eod.MaterializeDate(cfg.Output.Directory, date); err != nil {
+		if err := eod.MaterializeDate(cfg.Output.Directory, date, logger); err != nil {
 			return result, err
 		}
 	}

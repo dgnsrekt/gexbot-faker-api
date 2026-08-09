@@ -96,9 +96,9 @@ func eodMaterializeCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if ticker != "" {
-				return eod.MaterializeTicker(cfg.Output.Directory, args[0], ticker)
+				return eod.MaterializeTicker(cfg.Output.Directory, args[0], ticker, logger)
 			}
-			return eod.MaterializeDate(cfg.Output.Directory, args[0])
+			return eod.MaterializeDate(cfg.Output.Directory, args[0], logger)
 		},
 	}
 	cmd.Flags().StringVar(&ticker, "ticker", "", "only process one ticker")

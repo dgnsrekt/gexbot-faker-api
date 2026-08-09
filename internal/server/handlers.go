@@ -1125,7 +1125,7 @@ func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvai
 		}, nil
 	}
 	if _, err := os.Stat(filepath.Join(s.config.DataDir, date)); os.IsNotExist(err) {
-		_ = eod.MaterializeDate(s.config.DataDir, date)
+		_ = eod.MaterializeDate(s.config.DataDir, date, s.logger)
 	}
 	tickerFilter := ""
 	if request.Params.Ticker != nil {
@@ -1308,7 +1308,7 @@ func (s *Server) DownloadClassicGex(ctx context.Context, request generated.Downl
 	date := request.Date
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/classic/gex_{aggregation}.jsonl
 	category := "gex_" + aggregation
@@ -1354,7 +1354,7 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 	date := request.Date
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	// Determine category based on type (same logic as GetStateProfile)
 	var category string
@@ -1410,7 +1410,7 @@ func (r *orderflowDownloadResponse) VisitDownloadOrderflowResponse(w http.Respon
 func (s *Server) DownloadOrderflow(ctx context.Context, request generated.DownloadOrderflowRequestObject) (generated.DownloadOrderflowResponseObject, error) {
 	date := request.Date
 	ticker := request.Ticker
-	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/orderflow/orderflow.jsonl
 	filePath := filepath.Join(s.config.DataDir, date, ticker, "orderflow", "orderflow.jsonl")
@@ -1466,7 +1466,7 @@ func buildDownloadPath(date, ticker, pkg, category string) string {
 func (s *Server) GetDownloadLinks(ctx context.Context, request generated.GetDownloadLinksRequestObject) (generated.GetDownloadLinksResponseObject, error) {
 	date := request.Date
 	ticker := request.Ticker
-	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker)
+	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	s.logger.Debug("download links request",
 		zap.String("date", date),
