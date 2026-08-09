@@ -73,8 +73,8 @@
     "id": "option-expiries",
     "method": "GET",
     "path": "/options/{ticker}/expiries",
-    "status": "missing",
-    "summary": "No faker route or explicit-expiry discovery implementation."
+    "status": "compatible",
+    "summary": "Implemented: expiries over the loaded date + 90-day horizon; near-term dates grounded in the data min_dte/sec_min_dte, the rest from the options calendar."
   },
   {
     "id": "historical-download",
@@ -94,7 +94,7 @@
     "id": "futures-conversion",
     "method": "GET",
     "path": "/futures/conversion",
-    "status": "missing",
-    "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
+    "status": "compatible",
+    "summary": "Implemented: per-root front-month contract (equity quarterly 8-day roll, CL monthly, GC liquid-month) + fixed per-pair basis in additive/multiplicative/affine. ticker/future required (spec-validated); unsupported pairs return the live 400 body."
   }
 ]

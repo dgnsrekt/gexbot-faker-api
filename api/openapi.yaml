@@ -542,6 +542,97 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /options/{ticker}/expiries:
+    get:
+      operationId: getOptionsExpiries
+      summary: List valid option expiries
+      description: |
+        Returns valid option expiration dates for a ticker over the published
+        horizon: the loaded data date through +90 calendar days. Near-term
+        expiries are grounded in the loaded data's min_dte/sec_min_dte; the rest
+        follow the options calendar (daily near-term for index/major-ETF tickers,
+        then weekly). Remove dashes to form explicit-expiry WebSocket group
+        suffixes (2026-07-17 -> 20260717).
+      tags: [options]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Canonical option-owning ticker (e.g., SPX, SPY, QQQ)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+      responses:
+        '200':
+          description: Valid option expiries within the horizon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpiriesResponse'
+        '400':
+          description: Unsupported or invalid option ticker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No expiries available (current date is not a calendar date)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /futures/conversion:
+    get:
+      operationId: getFuturesConversion
+      summary: Get spot-to-futures conversion parameters
+      description: |
+        Returns the active front-month futures contract and affine conversion
+        parameters (spot ~= multiplier * future + additive) for an index/future
+        pair. The faker derives the contract code from the loaded date and uses a
+        fixed per-pair basis; multiplier/additive are synthesized (no futures feed).
+      tags: [futures]
+      parameters:
+        - name: ticker
+          in: query
+          required: true
+          description: Index/ETF ticker
+          schema:
+            type: string
+            enum: [SPX, SPY, NDX, QQQ, RUT, IWM, DIA, GLD, USO]
+          example: SPX
+        - name: future
+          in: query
+          required: true
+          description: Futures root
+          schema:
+            type: string
+            enum: [ES, NQ, RTY, YM, GC, CL]
+          example: ES
+        - name: model
+          in: query
+          required: false
+          description: Conversion model
+          schema:
+            type: string
+            enum: [additive, multiplicative, affine]
+            default: additive
+          example: additive
+      responses:
+        '200':
+          description: Futures conversion parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FuturesConversionResponse'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /health:
     get:
       operationId: getHealth
@@ -959,6 +1050,50 @@ components:
             type: string
           description: Array of futures ticker symbols
           example: ["ES_SPX", "NQ_NDX"]
+
+    FuturesConversionResponse:
+      type: object
+      required: [future_contract, multiplier, additive]
+      properties:
+        future_contract:
+          type: string
+          description: Active front-month futures contract code (e.g. ESU6)
+          example: ESU6
+        multiplier:
+          type: number
+          format: double
+          description: Multiplicative term of the affine conversion
+          example: 1
+        additive:
+          type: number
+          format: double
+          description: Additive term of the affine conversion
+          example: 23.6657268366
+
+    ExpiriesResponse:
+      type: object
+      required: [ticker, start_date, end_date, expiries]
+      properties:
+        ticker:
+          type: string
+          description: Canonical ticker used for the expiry lookup
+          example: SPX
+        start_date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Start of the published horizon (the loaded data date)
+          example: 2026-08-07
+        end_date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: End of the horizon (start date + 90 calendar days)
+          example: 2026-11-05
+        expiries:
+          type: array
+          items:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Valid option expiries in YYYY-MM-DD within the horizon
 
     HistSnapshotResponse:
       type: object

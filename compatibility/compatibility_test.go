@@ -159,6 +159,12 @@ func schemaForOperation(operation string) string {
 	if len(seg) == 2 && seg[0] == "tickers" && seg[1] == "quant" {
 		return "QuantTickersResponse"
 	}
+	if len(seg) == 3 && seg[0] == "options" && seg[2] == "expiries" {
+		return "ExpiriesResponse"
+	}
+	if len(seg) == 2 && seg[0] == "futures" && seg[1] == "conversion" {
+		return "FuturesConversionResponse"
+	}
 	// market-data: {ticker}/{package}/{category}[/{sub}]
 	if len(seg) < 3 {
 		return ""
