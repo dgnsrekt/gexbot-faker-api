@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
 )
 
@@ -86,6 +87,8 @@ func run() int {
 	scheduler := NewScheduler(daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)
 	tracker := NewDownloadTracker(daemonCfg.StateFile)
 	runTimeout := time.Duration(daemonCfg.RunTimeoutMinutes) * time.Minute
+	cleanupTTL := time.Duration(cfg.Output.CleanupAfterDays) * 24 * time.Hour
+	var lastCleanup time.Time
 
 	logger.Info("daemon started",
 		zap.String("schedule", fmt.Sprintf("%02d:%02d %s", daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)),
@@ -109,6 +112,12 @@ func run() int {
 		}
 	}
 
+	// Reclaim stale materialized JSONL on startup (then hourly in the loop below).
+	if cfg.Output.AutoCleanup {
+		runCleanup(cfg, cleanupTTL, logger)
+		lastCleanup = time.Now()
+	}
+
 	// Main loop - check every minute
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -121,6 +130,10 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
+			if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
+				runCleanup(cfg, cleanupTTL, logger)
+				lastCleanup = time.Now()
+			}
 			if ready := nextAttempt.IsZero() || !time.Now().Before(nextAttempt); !ready {
 				break // still backing off from a prior failure
 			}
@@ -144,6 +157,20 @@ func run() int {
 			logger.Info("context cancelled, shutting down")
 			return 0
 		}
+	}
+}
+
+// cleanupInterval is how often the daemon runs the materialized-JSONL TTL sweep
+// (the retention window itself is output.cleanup_after_days).
+const cleanupInterval = time.Hour
+
+// runCleanup evicts materialized JSONL not loaded within the TTL, keeping the
+// newest archive; the actively-served date is protected by the server's heartbeat
+// keeping its .last-loaded fresh. The EOD archives are never touched.
+func runCleanup(cfg *config.Config, ttl time.Duration, logger *zap.Logger) {
+	latest, _ := eod.LatestDate(cfg.Output.Directory)
+	if _, err := eod.CleanupStale(cfg.Output.Directory, ttl, logger, latest); err != nil {
+		logger.Warn("materialize cleanup failed", zap.Error(err))
 	}
 }
 

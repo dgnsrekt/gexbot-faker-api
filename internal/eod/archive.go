@@ -22,6 +22,12 @@ import (
 
 const markerName = ".eod-materialized"
 
+// loadedMarker records when the server last loaded a date; its mtime drives the
+// daemon's TTL cleanup (CleanupStale).
+const loadedMarker = ".last-loaded"
+
+var dateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
 type Manifest struct {
 	Version       int      `json:"version"`
 	Date          string   `json:"date"`
@@ -312,41 +318,91 @@ func LatestDate(root string) (string, error) {
 	return dates[len(dates)-1], nil
 }
 
-func CleanupMaterialized(root string, keep ...string) error {
+// TouchLoaded records that the server just loaded date, refreshing the mtime of
+// <root>/<date>/.last-loaded (read by CleanupStale). No-op if the materialized
+// date dir doesn't exist.
+func TouchLoaded(root, date string) error {
+	if !dateRe.MatchString(date) {
+		return nil
+	}
+	dir := filepath.Join(root, date)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return nil
+	}
+	return os.WriteFile(filepath.Join(dir, loadedMarker), []byte(time.Now().UTC().Format(time.RFC3339)+"\n"), 0600)
+}
+
+// CleanupStale removes materialized date dirs that haven't been loaded within ttl
+// (their .last-loaded mtime is older than ttl), reclaiming the JSONL while the
+// archive under <root>/eod/<date> stays put so the date re-materializes on demand.
+//
+// It only touches fully-materialized dates (every ticker carries the
+// .eod-materialized marker), so raw/downloaded data is never deleted. Dates in
+// keep (e.g. the newest archive) are always retained; the actively-served date is
+// retained because the server keeps its .last-loaded mtime fresh. Returns the
+// dates removed.
+func CleanupStale(root string, ttl time.Duration, logger *zap.Logger, keep ...string) ([]string, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	protected := make(map[string]bool, len(keep))
 	for _, date := range keep {
 		protected[date] = true
 	}
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	cutoff := time.Now().Add(-ttl)
+	var removed []string
 	for _, entry := range entries {
 		date := entry.Name()
 		if !entry.IsDir() || protected[date] || len(date) != len("2006-01-02") {
 			continue
 		}
-		tickers, err := os.ReadDir(filepath.Join(root, date))
+		dateDir := filepath.Join(root, date)
+		tickers, err := os.ReadDir(dateDir)
 		if err != nil || len(tickers) == 0 {
 			continue
 		}
+		// Marker gate: only evict dates that were fully materialized from archives.
 		generated := true
 		for _, ticker := range tickers {
 			if !ticker.IsDir() {
 				continue
 			}
-			if _, err := os.Stat(filepath.Join(root, date, ticker.Name(), markerName)); err != nil {
+			if _, err := os.Stat(filepath.Join(dateDir, ticker.Name(), markerName)); err != nil {
 				generated = false
 				break
 			}
 		}
-		if generated {
-			if err := os.RemoveAll(filepath.Join(root, date)); err != nil {
-				return err
-			}
+		if !generated {
+			continue
 		}
+		// TTL gate: keep if loaded within ttl. Prefer the .last-loaded mtime;
+		// fall back to the date dir's own mtime when the marker is absent.
+		var mtime time.Time
+		if info, err := os.Stat(filepath.Join(dateDir, loadedMarker)); err == nil {
+			mtime = info.ModTime()
+		} else if info, err := os.Stat(dateDir); err == nil {
+			mtime = info.ModTime()
+		} else {
+			continue
+		}
+		if mtime.After(cutoff) {
+			continue // loaded recently — keep
+		}
+		if err := os.RemoveAll(dateDir); err != nil {
+			return removed, err
+		}
+		logger.Info("evicted stale materialized date",
+			zap.String("date", date), zap.Duration("idle", time.Since(mtime).Round(time.Hour)))
+		removed = append(removed, date)
 	}
-	return nil
+	if len(removed) > 0 {
+		logger.Info("materialize cleanup complete", zap.Int("evicted", len(removed)), zap.Strings("dates", removed))
+	}
+	return removed, nil
 }
 
 func PruneTicker(root, date, ticker string) error {

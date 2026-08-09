@@ -161,9 +161,10 @@ func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadRes
 	if err := oldLoader.Close(); err != nil {
 		rm.logger.Warn("failed to close old loader", zap.Error(err))
 	}
-	latest, _ := eod.LatestDate(rm.config.DataDir)
-	if err := eod.CleanupMaterialized(rm.config.DataDir, newDate, latest); err != nil {
-		rm.logger.Warn("failed to clean materialized EOD cache", zap.Error(err))
+	// Record the load so the daemon's TTL cleanup keeps this date warm. Proactive
+	// cleanup is now owned by the daemon (see internal/eod.CleanupStale).
+	if err := eod.TouchLoaded(rm.config.DataDir, newDate); err != nil {
+		rm.logger.Warn("failed to mark loaded date", zap.Error(err))
 	}
 
 	rm.logger.Info("hot reload complete",
