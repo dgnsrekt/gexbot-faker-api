@@ -25,22 +25,22 @@
     "semantic_hash": "6c23777357d2beae9650f9aa035d93fb"
   },
   "cmd/daemon/config.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "102e0325a93935d1cc3855053c3383aa",
     "semantic_hash": "102e0325a93935d1cc3855053c3383aa"
   },
   "cmd/daemon/download.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "0e77e6e9fd8e1bd2348eb1c5105e6f8b",
     "semantic_hash": "0e77e6e9fd8e1bd2348eb1c5105e6f8b"
   },
   "cmd/daemon/main.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "742225d32044b14263d178fd6ef2ee07",
     "semantic_hash": "742225d32044b14263d178fd6ef2ee07"
   },
   "cmd/daemon/scheduler.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "0dcb3cd086552757da29a4de6cd5d95d",
     "semantic_hash": "0dcb3cd086552757da29a4de6cd5d95d"
   },
@@ -60,12 +60,12 @@
     "semantic_hash": "5cb06728919580cf5e3f8d549e1df8fa"
   },
   "cmd/downloader/main.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.053435,
     "ast_hash": "8686c74db809c67ff781c3600b664dd1",
     "semantic_hash": "8686c74db809c67ff781c3600b664dd1"
   },
   "cmd/server/main.go": {
-    "mtime": 1784522441.508024,
+    "mtime": 1784523281.053435,
     "ast_hash": "fe2e9114d7682905931352854414a6ce",
     "semantic_hash": "fe2e9114d7682905931352854414a6ce"
   },
@@ -75,12 +75,12 @@
     "semantic_hash": "7596928ccb3924e7a47c71f9e284f828"
   },
   "internal/api/client.go": {
-    "mtime": 1784522441.508024,
+    "mtime": 1784523281.0684352,
     "ast_hash": "07dfc9e1c1836af576a0a20a0e90cd29",
     "semantic_hash": "07dfc9e1c1836af576a0a20a0e90cd29"
   },
   "internal/api/client_test.go": {
-    "mtime": 1784522441.508024,
+    "mtime": 1784523281.0694351,
     "ast_hash": "1e3d7a6f14b7c4e7c52154f676024480",
     "semantic_hash": "1e3d7a6f14b7c4e7c52154f676024480"
   },
@@ -105,7 +105,7 @@
     "semantic_hash": "b0411d26539e83baf84fa3d3c6223e6c"
   },
   "internal/config/server.go": {
-    "mtime": 1784522441.509024,
+    "mtime": 1784523281.0694351,
     "ast_hash": "c77ed7dc31175389c7df832100c10bc0",
     "semantic_hash": "c77ed7dc31175389c7df832100c10bc0"
   },
@@ -185,17 +185,17 @@
     "semantic_hash": "3ffd51aaa290477ec51b2dde7a698302"
   },
   "internal/server/handlers.go": {
-    "mtime": 1784522442.1460187,
+    "mtime": 1784523281.0706851,
     "ast_hash": "bc06f31f54d17dcb1a6ed1d1f8bb130d",
     "semantic_hash": "bc06f31f54d17dcb1a6ed1d1f8bb130d"
   },
   "internal/server/reload.go": {
-    "mtime": 1784522441.5095093,
+    "mtime": 1784523281.0706851,
     "ast_hash": "b0caf4875135f18fd26ca57cdf1bd03a",
     "semantic_hash": "b0caf4875135f18fd26ca57cdf1bd03a"
   },
   "internal/server/server.go": {
-    "mtime": 1784507546.4574766,
+    "mtime": 1784523281.0706851,
     "ast_hash": "67b271ee74e2a870c75282157420279e",
     "semantic_hash": "67b271ee74e2a870c75282157420279e"
   },
@@ -320,9 +320,9 @@
     "semantic_hash": "70ff4b96e06d6f1bcf06c921f7a6eb22"
   },
   "README.md": {
-    "mtime": 1784498486.9209487,
-    "ast_hash": "5918f2900851b5e5a7b2c216aa2b863a",
-    "semantic_hash": "5918f2900851b5e5a7b2c216aa2b863a"
+    "mtime": 1784523281.0524352,
+    "ast_hash": "d401b4731bf46106ef42fb7729b96292",
+    "semantic_hash": "d401b4731bf46106ef42fb7729b96292"
   },
   "WEBSOCKET.md": {
     "mtime": 1784498486.9209487,
@@ -350,9 +350,9 @@
     "semantic_hash": "d9b33e34a6478184d5181c1d8d99451a"
   },
   "docker-compose.yml": {
-    "mtime": 1784498486.930714,
-    "ast_hash": "76eb3db6f14bf23f78734290c8857761",
-    "semantic_hash": "76eb3db6f14bf23f78734290c8857761"
+    "mtime": 1785800728.9065006,
+    "ast_hash": "baa18a56931225831570dfb0f8061248",
+    "semantic_hash": "baa18a56931225831570dfb0f8061248"
   },
   "docs/archived/AGENTS.md": {
     "mtime": 1784501569.0172799,
@@ -405,43 +405,58 @@
     "semantic_hash": "9ad0275f2219c548ffcde4a0b5d651b3"
   },
   "compatibility/compatibility_test.go": {
-    "mtime": 1784522440.4725308,
+    "mtime": 1784523281.055097,
     "ast_hash": "919abfdc71ff5b0b05ed057e6827c76f",
     "semantic_hash": "919abfdc71ff5b0b05ed057e6827c76f"
   },
   "compatibility/live-probes/2026-07-19.json": {
-    "mtime": 1784522441.1470268,
+    "mtime": 1784523281.0552096,
     "ast_hash": "c7d50583b79f414733c5da71d4b1f0e3",
     "semantic_hash": "c7d50583b79f414733c5da71d4b1f0e3"
   },
   "compatibility/matrix.json": {
-    "mtime": 1784522440.4725308,
+    "mtime": 1784523281.0552096,
     "ast_hash": "2cbb55aec869751a93de7a9d3ad22b82",
     "semantic_hash": "2cbb55aec869751a93de7a9d3ad22b82"
   },
   "cmd/daemon/config_test.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "d45c724c766709b575b89afba13e7eef",
     "semantic_hash": "d45c724c766709b575b89afba13e7eef"
   },
   "cmd/daemon/scheduler_test.go": {
-    "mtime": 1784522441.5070238,
+    "mtime": 1784523281.0524352,
     "ast_hash": "e9f737aba63a5ea0bb9f624a2f690526",
     "semantic_hash": "e9f737aba63a5ea0bb9f624a2f690526"
   },
   "cmd/downloader/eod.go": {
-    "mtime": 1784522441.5070238,
-    "ast_hash": "89c801af1e99db3250fe7b881ac86ea0",
-    "semantic_hash": "89c801af1e99db3250fe7b881ac86ea0"
+    "mtime": 1785800728.9065006,
+    "ast_hash": "3f4a903d167dd06917fcc986d74d72af",
+    "semantic_hash": "3f4a903d167dd06917fcc986d74d72af"
   },
   "internal/eod/archive.go": {
-    "mtime": 1784522442.1460187,
-    "ast_hash": "45ff85f98a29053e512328d0c2dbae08",
-    "semantic_hash": "45ff85f98a29053e512328d0c2dbae08"
+    "mtime": 1785800728.9065006,
+    "ast_hash": "0ea5ee176e9f57a73b8e0633fa0b18d6",
+    "semantic_hash": "0ea5ee176e9f57a73b8e0633fa0b18d6"
   },
   "internal/eod/archive_test.go": {
-    "mtime": 1784522442.1460187,
-    "ast_hash": "187eb4cd3b685ef2dc7d1b9b14223a62",
-    "semantic_hash": "187eb4cd3b685ef2dc7d1b9b14223a62"
+    "mtime": 1785800728.9065006,
+    "ast_hash": "a8b6ccb5ded0614d1882987562c3c337",
+    "semantic_hash": "a8b6ccb5ded0614d1882987562c3c337"
+  },
+  "compatibility/README.md": {
+    "mtime": 1784523281.0549698,
+    "ast_hash": "f7d95f6bb139a8d1b85be656b6e10b27",
+    "semantic_hash": "f7d95f6bb139a8d1b85be656b6e10b27"
+  },
+  "compatibility/upstream-openapi.yaml": {
+    "mtime": 1784523281.0552096,
+    "ast_hash": "c39b358228ded67791679cc6d5c83004",
+    "semantic_hash": "c39b358228ded67791679cc6d5c83004"
+  },
+  "docs/GEXBOT_LIVE_COMPATIBILITY_AUDIT.md": {
+    "mtime": 1784523281.0552096,
+    "ast_hash": "44045562a9362f49113d9e720c0ba2ba",
+    "semantic_hash": "44045562a9362f49113d9e720c0ba2ba"
   }
 }

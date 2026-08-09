@@ -1,345 +1,311 @@
-# Graph Report - .  (2026-07-19)
+# Graph Report - .  (2026-08-08)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 92 files · ~103,585 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3764 nodes · 7656 edges · 327 communities (151 shown, 176 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 248 edges (avg confidence: 0.73)
-- Token cost: 0 input · 0 output
-
-## Graph Freshness
-- Built from commit: `4ef5ac4c`
-- Run `git rev-parse HEAD` and compare to check if the graph is stale.
-- Run `graphify update .` after code changes (no API cost).
+- 3721 nodes · 7741 edges · 297 communities (137 shown, 160 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 305 edges (avg confidence: 0.74)
+- Token cost: 0 input · 48,081 output
 
 ## Community Hubs (Navigation)
-- swagger-ui-bundle.js
-- forEach
-- indexOf
-- .get
-- call
-- server.gen.go
-- .push
-- NewEncoder
-- Hub
-- .concat
-- ResponseWriter
-- copyMetaAndAttributes
-- OptionProfile
-- Orderflow
-- JSONSchema
-- Context
-- GEX Faker REST API
-- .includes
-- add
-- hd
-- p
-- StreamLoader
-- SyncBroadcaster
-- ArrayElement
-- ReloadManager
-- OrderedMap
-- SpecMap
-- dk
-- Store
-- getIn
-- OpenApi3_1
-- maskAPIKey
-- toArray
-- .first
-- DRange
-- MessageData
-- composeNode
-- isIterable
-- archive.go
-- R
-- find
-- .contains
-- handlers.go
-- Manager
-- HTTPClient
-- clear
-- .unshift
-- from
-- OperationContainer
-- ResponseWriter
-- ArraySlice
-- Namespace
-- Upstream GexBot OpenAPI contract
-- applyOperation
-- sanitizeUrl
-- Handler
-- Gex
-- MessageState
-- DownstreamMessage_AckMessage_
-- read
-- fi
-- toValue
-- ek
-- makeSequence
-- JsonSchema_array
-- ValidateDownloadConfig
-- UnknownFields
-- execute_buildRequest
-- onunpipe
-- .render
-- PathItem
-- Scheduler
-- DataLoader
-- Task
-- .getValue
-- List
-- Operation
-- Parameter
-- runDownload
-- compatibility_test.go
-- Config
-- MaxPriors
-- UpstreamMessage
-- writeScalar
-- .render
-- IndexCache
-- BatchResult
-- G
-- xclass
-- serialise
-- .render
-- maybeIndexedSeqFromValue
-- Header
-- executeEODDownload
-- ReloadChecker
-- Og
-- walk
-- oj
-- Execute
-- Components
-- is
-- hj
-- ExamplesSelectValueRetainer
-- ValidatorImage
-- downloadCmd
-- wrap
-- serialize
-- ParamBody
-- LinkDescription
-- OpenApi3_0
-- SecurityScheme
-- Manager
-- ClassicStreamer
-- GexStreamer
-- GreekOneStreamer
-- GreekStreamer
-- DownstreamMessage_SystemMessage_ConnectedMessage_
-- UpstreamMessage_EventMessage_
-- UpstreamMessage_JoinGroupMessage_
-- UpstreamMessage_LeaveGroupMessage_
-- UpstreamMessage_SendToGroupMessage_
-- hash
-- isObject
-- captureMatchIfValidAndReset
-- li
-- Link
-- OperationLink
-- LoadDaemonConfig
-- eod.go
-- maskAPIKey
-- Server
-- UpstreamMessage_SequenceAckMessage_
-- bi
-- clone
-- tag
-- stringify
-- FilterContainer
-- Info
-- .GetClassicGexChain
-- .GetStateProfile
-- Strike
-- finishMaybe
-- _isPlaceholder
-- slowToString
-- groupByFactory
-- dg
-- Encoding
-- Example
-- ObjectSlice
-- operation_servers_OperationServers
-- Schemes
-- Reader
-- .GetClassicGexMajors
-- .GetClassicGexMaxChange
-- .GetStateGexMajors
-- .GetStateGexMaxChange
-- Priors
-- New
-- Message
-- context_tree_createNode
-- HTMLRenderer
-- MediaType
-- OAuthFlow
-- OAuthFlows
-- .GetAvailableData
-- .GetOrderflowLatest
-- .ResetCache
-- file_gex_proto_rawDescGZIP
-- Message
-- LoadConfig
-- Encoder
-- file_webpubsub_messages_proto_rawDescGZIP
-- ObjectElement
-- checkIntBI
-- createStoreWithMiddleware
-- Contact
-- debounced
-- JsonSchema_object
-- RequestBody
-- ServerVariable
-- convertJSONToJSONL
-- setupLogger
-- models.go
-- orderflow.pb.go
-- Discriminator
-- .then
-- ExternalDocumentation
-- JsonSchema_string
-- License
-- Media
-- ParameterIncludeEmpty
-- WithMappedContainer
-- GEX Faker API Repository Guidance
-- Annotation
-- App
-- AuthorizeOperationBtn
-- Collapse
-- InitializedInput
-- JSONReference
-- JsonSchema_boolean
-- JsonSchemaForm
-- KeyValuePair
-- LockAuthIcon
-- ModelWrapper
-- NonError
-- Reference
-- Responses
-- UnlockAuthIcon
-- RequiredHeaderError
-- UnmarshalingParamError
-- webpubsub_messages.pb.go
-- gex.pb.go
-- auth_item_Auths
-- AuthError
-- AuthorizeBtn
-- Callback
-- Comment
-- ComponentsCallbacks
-- ComponentsExamples
-- ComponentsHeaders
-- ComponentsLinks
-- ComponentsParameters
-- ComponentsPathItems
-- ComponentsRequestBodies
-- ComponentsResponses
-- ComponentsSchemas
-- ComponentsSecuritySchemes
-- ComponentsVisitor
-- ContactVisitor
-- CopyToClipboardBtn
-- Curl
-- DiscriminatorMapping
-- DiscriminatorVisitor
-- EncodingHeaders
-- EncodingVisitor
-- Errors
-- ExternalDocumentationVisitor
-- Footer
-- HeaderContent
-- HeaderExamples
-- HeaderVisitor
-- InfoBasePath
-- InfoVisitor
-- State
-- JsonSchemaDialect
-- JSONSchemaVisitor
-- JumpToPath
-- LicenseVisitor
-- LinkDescriptionVisitor
-- LinkParameters
-- MappingVisitor
-- maxFactory
-- MediaTypeEncoding
-- MediaTypeExamples
-- MediaTypeVisitor
-- MediaVisitor
-- OAuthFlowScopes
-- OAuthFlowsVisitor
-- OAuthFlowVisitor
-- Openapi
-- operation_link_OperationLink
-- OperationCallbacks
-- OperationParameters
-- OperationSecurity
-- OperationServers
-- OperationSummaryMethod
-- OperationSummaryPath
-- OperationTags
-- OperationVisitor
-- ParameterContent
-- ParameterExamples
-- ParametersVisitor
-- PathItemParameters
-- PathItemServers
-- Paths
-- RequestBodyContent
-- ResponseContent
-- ResponseHeaders
-- ResponseLinks
-- schema_SchemaVisitor
-- SchemasVisitor_SchemasVisitor
-- SchemesContainer
-- ScopesVisitor
-- Security
-- SecurityRequirement
-- SecurityRequirementVisitor
-- SecuritySchemeVisitor
-- Servers
-- ServerVariables
-- ServerVariableVisitor
-- ServerVisitor
-- Tags
-- TagVisitor
-- TryItOutButton
-- VariablesVisitor
-- VersionPragmaFilter
-- Webhooks
-- WithErrorBoundary
-- WithRoot
-- WithSystem
-- XmlVisitor
-- golangci-lint Configuration
-- .ProtoReflect
-- Writer
-- Context
-- DataLoader
-- IndexCache
-- Logger
-- ResponseWriter
-- Time
-- Bool
-- RWMutex
-- Hub
-- Logger
-- Request
-- ResponseWriter
-- github.com/dgnsrekt/gexbot-downloader
-- mockClient
-- .GetAvailableDates
-- .GetTickers
+- Swagger UI Bundle (JS)
+- Swagger UI Core (JS)
+- ApiDOM Visitors (JS)
+- Generated API Response Types
+- Swagger UI Utilities (JS)
+- Download Response Visitors
+- ApiDOM Error/Core (JS)
+- Classic GEX Response Visitors
+- Server & WebSocket Core (Go)
+- ApiDOM Content Visitors (JS)
+- Swagger UI Path Resolution (JS)
+- JSON Schema Visitors (JS)
+- Minified JS I (Swagger)
+- Contract Greeks (Protobuf)
+- Orderflow Protobuf Messages
+- Strict Server Interface Objects
+- Swagger UI Syntax Highlighting (JS)
+- JSON Schema Element (JS)
+- Minified JS II (Swagger)
+- ApiDOM Array Element (JS)
+- Swagger UI Parameters (JS)
+- Immutable Helpers (JS)
+- Memory Data Loader (Go)
+- WebSocket API Concepts (Docs)
+- DRange / Regex (JS)
+- Community 25
+- Community 26
+- Community 27
+- Community 28
+- Community 29
+- Community 30
+- Community 31
+- Community 32
+- Community 33
+- Community 34
+- Community 35
+- Community 36
+- Community 37
+- Community 38
+- Community 39
+- Community 40
+- Community 41
+- Community 42
+- Community 43
+- Community 44
+- Community 45
+- Community 46
+- Community 47
+- Community 48
+- Community 49
+- Community 50
+- Community 51
+- Community 52
+- Community 53
+- Community 54
+- Community 55
+- Community 56
+- Community 57
+- Community 58
+- Community 59
+- Community 60
+- Community 61
+- Community 62
+- Community 63
+- Community 64
+- Community 65
+- Community 66
+- Community 67
+- Community 68
+- Community 69
+- Community 70
+- Community 71
+- Community 72
+- Community 73
+- Community 74
+- Community 75
+- Community 76
+- Community 77
+- Community 78
+- Community 79
+- Community 80
+- Community 81
+- Community 82
+- Community 83
+- Community 84
+- Community 85
+- Community 86
+- Community 87
+- Community 88
+- Community 89
+- Community 90
+- Community 91
+- Community 92
+- Community 93
+- Community 94
+- Community 95
+- Community 96
+- Community 97
+- Community 98
+- Community 99
+- Community 100
+- Community 101
+- Community 102
+- Community 103
+- Community 104
+- Community 105
+- Community 106
+- Community 107
+- Community 108
+- Community 109
+- Community 110
+- Community 111
+- Community 112
+- Community 113
+- Community 114
+- Community 115
+- Community 116
+- Community 117
+- Community 118
+- Community 119
+- Community 120
+- Community 121
+- Community 122
+- Community 123
+- Community 124
+- Community 125
+- Community 126
+- Community 127
+- Community 128
+- Community 129
+- Community 130
+- Community 131
+- Community 132
+- Community 133
+- Community 134
+- Community 135
+- Community 136
+- Community 137
+- Community 138
+- Community 139
+- Community 140
+- Community 141
+- Community 142
+- Community 143
+- Community 144
+- Community 145
+- Community 146
+- Community 147
+- Community 148
+- Community 149
+- Community 150
+- Community 151
+- Community 152
+- Community 153
+- Community 154
+- Community 155
+- Community 156
+- Community 157
+- Community 158
+- Community 159
+- Community 160
+- Community 161
+- Community 162
+- Community 163
+- Community 164
+- Community 165
+- Community 166
+- Community 167
+- Community 168
+- Community 169
+- Community 170
+- Community 171
+- Community 172
+- Community 173
+- Community 174
+- Community 175
+- Community 176
+- Community 177
+- Community 178
+- Community 179
+- Community 180
+- Community 181
+- Community 182
+- Community 183
+- Community 184
+- Community 185
+- Community 186
+- Community 187
+- Community 188
+- Community 189
+- Community 190
+- Community 191
+- Community 192
+- Community 193
+- Community 194
+- Community 195
+- Community 196
+- Community 197
+- Community 198
+- Community 199
+- Community 200
+- Community 201
+- Community 202
+- Community 203
+- Community 204
+- Community 205
+- Community 206
+- Community 207
+- Community 208
+- Community 209
+- Community 210
+- Community 211
+- Community 212
+- Community 213
+- Community 214
+- Community 215
+- Community 216
+- Community 217
+- Community 218
+- Community 219
+- Community 220
+- Community 221
+- Community 222
+- Community 223
+- Community 224
+- Community 225
+- Community 226
+- Community 227
+- Community 228
+- Community 229
+- Community 230
+- Community 231
+- Community 232
+- Community 233
+- Community 234
+- Community 235
+- Community 236
+- Community 237
+- Community 238
+- Community 239
+- Community 240
+- Community 241
+- Community 242
+- Community 243
+- Community 244
+- Community 245
+- Community 246
+- Community 247
+- Community 248
+- Community 249
+- Community 250
+- Community 251
+- Community 252
+- Community 253
+- Community 254
+- Community 255
+- Community 256
+- Community 257
+- Community 258
+- Community 259
+- Community 260
+- Community 261
+- Community 262
+- Community 263
+- Community 264
+- Community 265
+- Community 266
+- Community 267
+- Community 268
+- Community 269
+- Community 270
+- Community 271
+- Community 272
+- Community 273
+- Community 274
+- Community 275
+- Community 276
+- Community 277
+- Community 278
+- Community 279
+- Community 280
+- Community 281
+- Community 282
+- Community 283
+- Community 284
+- Community 285
+- Community 286
+- Community 287
+- Community 288
+- Community 294
 
 ## God Nodes (most connected - your core abstractions)
 1. `call()` - 139 edges
 2. `forEach()` - 109 edges
 3. `elements_Schema_Schema` - 63 edges
-4. `NewEncoder()` - 52 edges
+4. `NewEncoder()` - 55 edges
 5. `Orderflow` - 46 edges
 6. `indexOf()` - 45 edges
 7. `ArrayElement` - 43 edges
@@ -350,622 +316,568 @@
 ## Surprising Connections (you probably didn't know these)
 - `OpenAPI-Driven Playback Architecture` --semantically_similar_to--> `GEX Faker REST API`  [INFERRED] [semantically similar]
   docs/archived/PLAN_0002_29-11-2025_sat_gex-faker-api-v2.md → api/openapi.yaml
-- `Archived Claude Repository Guidance` --semantically_similar_to--> `GEX Faker API Repository Guidance`  [INFERRED] [semantically similar]
-  docs/archived/CLAUDE.md → CLAUDE.md
 - `Five-Hub WebSocket Architecture` --semantically_similar_to--> `Five WebSocket Channels`  [INFERRED] [semantically similar]
   CLAUDE.md → api/asyncapi.yaml
-- `GEX Faker API v2 Implementation Summary` --semantically_similar_to--> `Per-API-Key Sequential Playback`  [INFERRED] [semantically similar]
-  docs/archived/SUMMARY_PLAN_0002_29-11-2025_sat_gex-faker-api-v2.md → README.md
-- `Historical Downloader Implementation Summary` --semantically_similar_to--> `Historical Data Downloader`  [INFERRED] [semantically similar]
-  docs/archived/SUMMARY_PLAN_0001_29-11-2025_sat_gexbot-historical-downloader.md → README.md
+- `WebSocket Streaming Protocol` --semantically_similar_to--> `GEX Faker WebSocket API`  [INFERRED] [semantically similar]
+  WEBSOCKET.md → api/asyncapi.yaml
+- `Wire-Compatible Orderflow Streaming` --semantically_similar_to--> `JSON-Protobuf-Zstd Encoding Pipeline`  [INFERRED] [semantically similar]
+  docs/archived/PLAN_0003_30-11-2025_sun_websocket-orderflow-hub.md → WEBSOCKET.md
+- `WebSocket Orderflow Hub Implementation Summary` --semantically_similar_to--> `GEX Faker WebSocket API`  [INFERRED] [semantically similar]
+  docs/archived/SUMMARY_PLAN_0003_30-11-2025_sun_websocket-orderflow-hub.md → api/asyncapi.yaml
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **GexBot public market-data operation surface** — compatibility_upstream_openapi_classic, compatibility_upstream_openapi_state, compatibility_upstream_openapi_orderflow, compatibility_upstream_openapi_maxchange, compatibility_upstream_openapi_majors, compatibility_upstream_openapi_hist, compatibility_upstream_openapi_hist_eod, compatibility_upstream_openapi_futures_conversion [EXTRACTED 0.80]
-- **Compatibility audit evidence chain** — compatibility_readme, compatibility_upstream_openapi, docs_gexbot_live_compatibility_audit [EXTRACTED 0.85]
-- **OpenAPI-Driven REST Playback** — api_openapi_rest_api, api_oapi_codegen_openapi_generation, docs_archived_plan_0002_29_11_2025_sat_gex_faker_api_v2_openapi_playback_architecture, readme_sequential_playback [INFERRED 0.95]
 - **WebSocket Wire Protocol Flow** — websocket_azure_web_pubsub_protocol, websocket_encoding_pipeline, api_asyncapi_message_schemas, docs_archived_plan_0003_30_11_2025_sun_websocket_orderflow_hub_wire_compatible_streaming [INFERRED 0.95]
+- **OpenAPI-Driven REST Playback** — api_openapi_rest_api, api_oapi_codegen_openapi_generation, docs_archived_plan_0002_29_11_2025_sat_gex_faker_api_v2_openapi_playback_architecture, readme_sequential_playback [INFERRED 0.95]
+- **Compatibility audit evidence chain** — compatibility_readme, compatibility_upstream_openapi, docs_gexbot_live_compatibility_audit [EXTRACTED 0.85]
 - **Historical Data Download and Replay Lifecycle** — docs_archived_research_0001_29_11_2025_sat_quant_historical_analysis_historical_api_contract, docs_archived_plan_0001_29_11_2025_sat_gexbot_historical_downloader_atomic_download_pipeline, readme_historical_downloader, claude_data_loading [INFERRED 0.85]
+- **EOD Report Canonical Archive Pipeline** — readme_eod_archive, readme_jsonl_data, readme_daemon_service, docs_gexbot_live_compatibility_audit_eod_report [INFERRED 0.85]
+- **Docker Compose Deployment Stack** — docker_compose_gex_faker_api, docker_compose_gex_daemon, docker_compose_gex_tools [EXTRACTED 0.75]
+- **GexBot Live Parity Remediation** — docs_gexbot_live_compatibility_audit_bearer_auth, docs_gexbot_live_compatibility_audit_negotiate_lifecycle, docs_gexbot_live_compatibility_audit_eod_report, docs_gexbot_live_compatibility_audit_futures_conversion [INFERRED 0.75]
 
-## Communities (327 total, 176 thin omitted)
+## Communities (297 total, 160 thin omitted)
 
-### Community 0 - "swagger-ui-bundle.js"
+### Community 0 - "Swagger UI Bundle (JS)"
 Cohesion: 0.01
-Nodes (63): actions_show(), arrayClone(), arrCopy(), assertIsFunction(), base(), beginEmailMatch(), captureMatchIfValid(), changeMode() (+55 more)
+Nodes (79): actions_show(), _addListener(), arrayClone(), _arrayFromIterator(), _arrayLikeToArray(), arrCopy(), assertIsFunction(), base() (+71 more)
 
-### Community 1 - "forEach"
-Cohesion: 0.03
-Nodes (38): beginKeywords(), CallbacksVisitor, CallbacksVisitor_CallbacksVisitor, CallbackVisitor, compileKeywords(), compileLanguage(), compileList(), compileMatch() (+30 more)
-
-### Community 2 - "indexOf"
-Cohesion: 0.03
-Nodes (82): absolutifyPointer(), addToSet(), appendClass(), b64toB64UrlEncoded(), base64Text(), canParse(), classNames(), constructor() (+74 more)
-
-### Community 3 - ".get"
+### Community 1 - "Swagger UI Core (JS)"
 Cohesion: 0.04
-Nodes (21): additionalItems(), additionalProperties(), DELETE(), deprecated(), elements_Schema_Schema, externalDocs(), getContext(), HEAD() (+13 more)
+Nodes (27): additionalItems(), additionalProperties(), AuthError, DELETE(), deprecated(), elements_Schema_Schema, err(), externalDocs() (+19 more)
 
-### Community 4 - "call"
+### Community 2 - "ApiDOM Visitors (JS)"
 Cohesion: 0.03
-Nodes (61): ApiDOMError, _arrayLikeToArray(), cacheResultThrough(), call(), _checkForMethod(), cleanUpNextTick(), _createSuper(), DefaultVisitor (+53 more)
+Nodes (31): CallbacksVisitor, CallbacksVisitor_CallbacksVisitor, CallbackVisitor, compileKeywords(), compileList(), components_ExamplesVisitor_ExamplesVisitor, deepFreeze(), deeplyStripKey() (+23 more)
 
-### Community 5 - "server.gen.go"
+### Community 3 - "Generated API Response Types"
 Cohesion: 0.03
-Nodes (70): AvailableDataResponse, AvailableDatesResponse, CurrentDateResponse, DataSummary, DownloadClassicGex404JSONResponse, DownloadClassicGexParamsAggregation, DownloadClassicGexRequestObject, DownloadClassicGexResponseObject (+62 more)
+Nodes (70): AvailableDataResponse, AvailableDatesResponse, CurrentDateResponse, DataSummary, DownloadClassicGexParamsAggregation, DownloadClassicGexRequestObject, DownloadClassicGexResponseObject, DownloadLinksResponse (+62 more)
 
-### Community 6 - ".push"
-Cohesion: 0.04
-Nodes (28): afterTransform(), compactMap(), ContentVisitor, DefinitionsVisitor, $defsVisitor, DependenciesVisitor, DependentSchemasVisitor, encodeChunk() (+20 more)
-
-### Community 7 - "NewEncoder"
+### Community 4 - "Swagger UI Utilities (JS)"
 Cohesion: 0.03
-Nodes (30): GetAvailableDates200JSONResponse, GetClassicGexChain200JSONResponse, GetClassicGexChain400JSONResponse, GetClassicGexChain401JSONResponse, GetClassicGexMajors200JSONResponse, GetClassicGexMajors400JSONResponse, GetClassicGexMajors401JSONResponse, GetClassicGexMaxChange200JSONResponse (+22 more)
+Nodes (75): absolutifyPointer(), addToSet(), appendClass(), Autolinker(), b64toB64UrlEncoded(), base64Text(), canParse(), classNames() (+67 more)
 
-### Community 8 - "Hub"
+### Community 5 - "Download Response Visitors"
+Cohesion: 0.03
+Nodes (36): DownloadOrderflow404JSONResponse, DownloadStateData404JSONResponse, GetAvailableDates200JSONResponse, GetClassicGexChain200JSONResponse, GetClassicGexChain400JSONResponse, GetClassicGexChain401JSONResponse, GetClassicGexMajors200JSONResponse, GetClassicGexMajors400JSONResponse (+28 more)
+
+### Community 6 - "ApiDOM Error/Core (JS)"
+Cohesion: 0.03
+Nodes (44): ApiDOMError, cacheResultThrough(), call(), _checkForMethod(), cleanUpNextTick(), DefaultVisitor, _dispatchable(), drainQueue() (+36 more)
+
+### Community 7 - "Classic GEX Response Visitors"
+Cohesion: 0.11
+Nodes (9): DownloadClassicGex404JSONResponse, GetOrderflowLatest404JSONResponse, ServerInterfaceWrapper, strictHandler, StrictHTTPServerOptions, Unimplemented, Request, ResponseWriter (+1 more)
+
+### Community 8 - "Server & WebSocket Core (Go)"
 Cohesion: 0.05
 Nodes (29): Conn, Bool, Hub, Logger, Request, ResponseWriter, Hub, Client (+21 more)
 
-### Community 9 - ".concat"
-Cohesion: 0.05
-Nodes (52): AllLineNumbers(), _arrayFromIterator(), arrayLikeToArray_arrayLikeToArray(), assembleLineNumberStyles(), _assertThisInitialized(), Autolinker(), captureWrapperProps(), check() (+44 more)
+### Community 9 - "ApiDOM Content Visitors (JS)"
+Cohesion: 0.04
+Nodes (25): afterTransform(), al(), compactMap(), ContentVisitor, DefinitionsVisitor, $defsVisitor, DependenciesVisitor, DependentSchemasVisitor (+17 more)
 
-### Community 10 - "ResponseWriter"
-Cohesion: 0.10
-Nodes (9): DownloadOrderflow404JSONResponse, GetCurrentDate200JSONResponse, GetTickers200JSONResponse, MiddlewareFunc, SeekToTimestamp400JSONResponse, ServerInterfaceWrapper, Unimplemented, Request (+1 more)
+### Community 10 - "Swagger UI Path Resolution (JS)"
+Cohesion: 0.11
+Nodes (27): absoluteify(), add(), ak(), AncestorLineage, canRead(), clean(), D(), dereference() (+19 more)
 
-### Community 11 - "copyMetaAndAttributes"
+### Community 11 - "JSON Schema Visitors (JS)"
 Cohesion: 0.05
 Nodes (19): AllOfVisitor, AnyOfVisitor, copyMetaAndAttributes(), enter(), ItemsVisitor, JsonSchemaDialectVisitor, LinksVisitor, OneOfVisitor (+11 more)
 
-### Community 12 - "OptionProfile"
+### Community 12 - "Minified JS I (Swagger)"
+Cohesion: 0.05
+Nodes (42): Ae(), ai(), bb(), Be(), bj(), cb(), Ce(), ci() (+34 more)
+
+### Community 13 - "Contract Greeks (Protobuf)"
 Cohesion: 0.06
 Nodes (10): MiniContract, MiniContractPriors, OptionProfile, file_option_profile_proto_init(), file_option_profile_proto_rawDescGZIP(), Message, MessageState, SizeCache (+2 more)
 
-### Community 13 - "Orderflow"
+### Community 14 - "Orderflow Protobuf Messages"
 Cohesion: 0.05
 Nodes (4): MessageState, SizeCache, UnknownFields, Orderflow
 
-### Community 15 - "Context"
-Cohesion: 0.10
-Nodes (18): Context, DownloadClassicGexRequestObject, DownloadClassicGexResponseObject, DownloadOrderflowRequestObject, DownloadOrderflowResponseObject, DownloadStateDataRequestObject, DownloadStateDataResponseObject, GetClassicGexMajorsRequestObject (+10 more)
+### Community 15 - "Strict Server Interface Objects"
+Cohesion: 0.14
+Nodes (22): GetAvailableDatesRequestObject, GetAvailableDatesResponseObject, GetTickersRequestObject, GetTickersResponseObject, ReloadDateRequestObject, SeekToTimestampRequestObject, CacheKey(), SharedCacheKey() (+14 more)
 
-### Community 16 - "GEX Faker REST API"
+### Community 16 - "Swagger UI Syntax Highlighting (JS)"
 Cohesion: 0.07
-Nodes (37): Web PubSub Message Schemas, GEX Faker WebSocket API, Five WebSocket Channels, oapi-codegen Strict Server Generation, Historical Download Endpoints, Market Data Playback Endpoints, Playback Control Endpoints, GEX Faker REST API (+29 more)
+Nodes (37): AllLineNumbers(), arrayLikeToArray_arrayLikeToArray(), assembleLineNumberStyles(), _assertThisInitialized(), check(), cloneUnlessOtherwiseSpecified(), CopyToClipboard(), create_element_ownKeys() (+29 more)
 
-### Community 17 - ".includes"
-Cohesion: 0.17
-Nodes (12): absoluteify(), AncestorLineage, canRead(), hasKey(), IdentityManager, leave(), OpenAPI3_1DereferenceVisitor, OpenAPI3_1SwaggerClientDereferenceVisitor (+4 more)
+### Community 18 - "Minified JS II (Swagger)"
+Cohesion: 0.08
+Nodes (35): ab(), ad(), bd(), $c(), ck(), Dc(), dk(), ek() (+27 more)
 
-### Community 18 - "add"
+### Community 19 - "ApiDOM Array Element (JS)"
+Cohesion: 0.06
+Nodes (7): ArrayElement, canDereference(), canResolve(), find(), key(), refract(), value()
+
+### Community 20 - "Swagger UI Parameters (JS)"
 Cohesion: 0.09
-Nodes (19): add(), ak(), clean(), D(), dereference(), flipFactory(), hasOrAdd(), memoize() (+11 more)
+Nodes (21): consumesOptionsFor(), contentTypeValues(), currentProducesFor(), getIn(), getParameter(), getParameterSchema(), headers_Headers, isList() (+13 more)
 
-### Community 19 - "hd"
+### Community 21 - "Immutable Helpers (JS)"
 Cohesion: 0.07
-Nodes (35): Ae(), bb(), Be(), cb(), Ce(), De(), Eb(), ed() (+27 more)
+Nodes (35): _array_like_to_array(), countByFactory(), createNodes(), editableVNode(), emptyMap(), emptyOrderedMap(), emptyOrderedSet(), ensureSize() (+27 more)
 
-### Community 20 - "p"
-Cohesion: 0.11
-Nodes (33): Af(), ah(), $b(), db(), di(), E(), Ej(), $f() (+25 more)
-
-### Community 21 - "StreamLoader"
-Cohesion: 0.11
+### Community 22 - "Memory Data Loader (Go)"
+Cohesion: 0.10
 Nodes (15): MemoryLoader, StreamLoader, File, DataKey(), extractTimestamp(), Context, GexData, Logger (+7 more)
 
-### Community 22 - "SyncBroadcaster"
+### Community 23 - "WebSocket API Concepts (Docs)"
+Cohesion: 0.07
+Nodes (32): Web PubSub Message Schemas, GEX Faker WebSocket API, Five WebSocket Channels, oapi-codegen Strict Server Generation, Historical Download Endpoints, Market Data Playback Endpoints, Playback Control Endpoints, GEX Faker REST API (+24 more)
+
+### Community 24 - "DRange / Regex (JS)"
+Cohesion: 0.09
+Nodes (13): constructor(), DRange, _expand(), gen(), OpenAPIMediaTypes, padStart(), _randBool(), randexp() (+5 more)
+
+### Community 25 - "Community 25"
 Cohesion: 0.13
 Nodes (16): Flusher, Context, Duration, Logger, Request, ResponseWriter, RWMutex, maskAPIKey() (+8 more)
 
-### Community 23 - "ArrayElement"
-Cohesion: 0.08
-Nodes (4): ArrayElement, key(), refract(), value()
+### Community 26 - "Community 26"
+Cohesion: 0.12
+Nodes (12): bindActionCreator(), encodeChunk(), isFn(), isNothing(), objMap(), objReduce(), State(), StateBlock() (+4 more)
 
-### Community 24 - "ReloadManager"
-Cohesion: 0.11
-Nodes (23): Bool, main(), run(), ServerConfig, detectLatestDate(), getEnvOrDefault(), Duration, LoadServerConfig() (+15 more)
-
-### Community 25 - "OrderedMap"
-Cohesion: 0.10
-Nodes (28): assertNotInfinite(), emptyMap(), emptyOrderedMap(), emptyOrderedSet(), emptySet(), get(), getKey(), getMember() (+20 more)
-
-### Community 27 - "dk"
+### Community 27 - "Community 27"
 Cohesion: 0.13
-Nodes (25): ab(), ad(), bd(), $c(), ck(), Dc(), dk(), fb() (+17 more)
+Nodes (30): Af(), ah(), $b(), db(), di(), E(), Ej(), $f() (+22 more)
 
-### Community 28 - "Store"
-Cohesion: 0.18
-Nodes (7): bindActionCreator(), isFn(), objMap(), objReduce(), StateBlock(), Store, wrapWithTryCatch()
+### Community 29 - "Community 29"
+Cohesion: 0.12
+Nodes (27): gex-daemon service, gex-faker-api service, gex-tools service, GexBot Live Compatibility Audit, Bearer Auth and Required Headers, go test ./compatibility check, Drop-in Replacement Goal, Endpoint Compatibility Matrix (+19 more)
 
-### Community 29 - "getIn"
-Cohesion: 0.10
-Nodes (20): ArrayModel, consumesOptionsFor(), contentTypeValues(), currentProducesFor(), getIn(), getParameter(), headers_Headers, isList() (+12 more)
-
-### Community 30 - "OpenApi3_1"
-Cohesion: 0.08
-Nodes (6): BaseLayout, InfoContainer, OpenApi3_1, opId(), Server, ServersContainer
-
-### Community 31 - "maskAPIKey"
-Cohesion: 0.11
-Nodes (17): GetClassicGexChainRequestObject, GetClassicGexChainResponseObject, GetClassicGexMaxChangeRequestObject, GetClassicGexMaxChangeResponseObject, GetOrderflowLatestRequestObject, GetOrderflowLatestResponseObject, GetStateGexMajorsRequestObject, GetStateGexMajorsResponseObject (+9 more)
-
-### Community 32 - "toArray"
+### Community 30 - "Community 30"
 Cohesion: 0.09
-Nodes (8): AuthorizationPopup, AuthorizeBtnContainer, Auths, auths_Auths, Operations, primitive(), showDefinitions(), toArray()
+Nodes (10): AuthorizationPopup, AuthorizeBtnContainer, Auths, auths_Auths, emptyList(), List(), makeList(), Operations (+2 more)
 
-### Community 33 - ".first"
-Cohesion: 0.15
-Nodes (4): ContentType, ExamplesSelect, getParameterSchema(), ParameterRow
+### Community 31 - "Community 31"
+Cohesion: 0.13
+Nodes (19): main(), run(), ServerConfig, detectLatestDate(), getEnvOrDefault(), Duration, LoadServerConfig(), CleanupMaterialized() (+11 more)
 
-### Community 34 - "DRange"
+### Community 32 - "Community 32"
 Cohesion: 0.12
-Nodes (8): DRange, _expand(), gen(), _randBool(), randInt(), _randSelect(), SubRange, _toOtherCase()
+Nodes (22): append(), build_request_buildRequest(), buildRequest(), done(), encodeFormOrQuery(), execute_buildRequest(), execute_execute(), formatKeyValue() (+14 more)
 
-### Community 35 - "MessageData"
-Cohesion: 0.12
-Nodes (3): DownstreamMessage_DataMessage_, isMessageData_Data, MessageData
+### Community 33 - "Community 33"
+Cohesion: 0.08
+Nodes (5): BaseLayout, InfoContainer, OpenApi3_1, Server, ServersContainer
 
-### Community 36 - "composeNode"
+### Community 34 - "Community 34"
+Cohesion: 0.17
+Nodes (20): convertFile(), convertJSONToJSONL(), executeDownload(), executeEODDownload(), generateTasksForDate(), Config, Context, Logger (+12 more)
+
+### Community 35 - "Community 35"
+Cohesion: 0.20
+Nodes (22): Manifest, Member, ArchivePath(), fileSHA256(), Reader, Writer, jsonlFiles(), jsonlToArray() (+14 more)
+
+### Community 36 - "Community 36"
 Cohesion: 0.19
 Nodes (23): captureSegment(), charFromCodepoint(), _class(), composeNode(), fromHexCode(), generateError(), is_EOL(), is_FLOW_INDICATOR() (+15 more)
 
-### Community 37 - "isIterable"
-Cohesion: 0.21
-Nodes (22): concatFactory(), deepEqual(), emptySequence(), fromJS(), fromJSDefault(), fromJSWith(), IndexedIterable(), IndexedSeq() (+14 more)
+### Community 37 - "Community 37"
+Cohesion: 0.11
+Nodes (5): example_Example(), JsonSchema_object, ParamBody, RequestBodyEditor, stringify()
 
-### Community 38 - "archive.go"
-Cohesion: 0.22
-Nodes (20): packMissingArchives(), Manifest, Member, ArchivePath(), fileSHA256(), jsonlFiles(), jsonlToArray(), ManifestPath() (+12 more)
+### Community 38 - "Community 38"
+Cohesion: 0.18
+Nodes (16): Client, HistoryResponse, HTTPClient, Context, Duration, Logger, Writer, NewClient() (+8 more)
 
-### Community 39 - "R"
+### Community 39 - "Community 39"
 Cohesion: 0.14
-Nodes (21): Ac(), bk(), bl(), dl(), el(), fl(), gl(), ih() (+13 more)
+Nodes (22): Ac(), bg(), bk(), bl(), dl(), el(), fl(), gl() (+14 more)
 
-### Community 40 - "find"
-Cohesion: 0.15
-Nodes (9): al(), Cache, canDereference(), canResolve(), find(), keys(), OpenAPIMediaTypes, transclude() (+1 more)
-
-### Community 41 - ".contains"
-Cohesion: 0.12
-Nodes (4): OperationSummary, ParserBlock(), ParseResult, SourceMap
-
-### Community 42 - "handlers.go"
-Cohesion: 0.14
-Nodes (12): buildDownloadPath(), categoryToPathParam(), mapDataKeyToWSHubs(), parseDataKey(), SeekToTimestampRequestObject, SeekToTimestampResponseObject, classicDownloadResponse, downloadFileResponse (+4 more)
-
-### Community 43 - "Manager"
+### Community 40 - "Community 40"
 Cohesion: 0.12
 Nodes (10): Client, Context, NewManager(), Context, T, Writer, TestStagingManager(), Downloader (+2 more)
 
-### Community 44 - "HTTPClient"
-Cohesion: 0.27
-Nodes (9): Client, HistoryResponse, HTTPClient, Context, Duration, Logger, Writer, NewClient() (+1 more)
+### Community 41 - "Community 41"
+Cohesion: 0.13
+Nodes (19): assertNotInfinite(), emptySet(), groupByFactory(), hashIterable(), hashMerge(), isOrdered(), isOrderedMap(), isOrderedSet() (+11 more)
 
-### Community 45 - "clear"
-Cohesion: 0.11
-Nodes (5): clear(), ListCache(), MapCache(), Oauth2, xml()
+### Community 42 - "Community 42"
+Cohesion: 0.22
+Nodes (13): BatchResult, FormatFailureMessage(), FormatSuccessMessage(), Duration, Config, Context, Duration, Logger (+5 more)
 
-### Community 46 - ".unshift"
-Cohesion: 0.14
-Nodes (18): _addListener(), autoDetection(), checkListener(), Emitter(), fire(), getLanguage(), _getMaxListeners(), highlight() (+10 more)
+### Community 43 - "Community 43"
+Cohesion: 0.18
+Nodes (11): Manager, Task, TaskResult, Client, Context, Logger, NewManager(), T (+3 more)
 
-### Community 47 - "from"
+### Community 44 - "Community 44"
 Cohesion: 0.14
 Nodes (19): allocUnsafe(), asciiWrite(), assertSize(), base64ToBytes(), base64Write(), blitBuffer(), Buffer(), byteLength() (+11 more)
 
-### Community 48 - "OperationContainer"
+### Community 45 - "Community 45"
+Cohesion: 0.16
+Nodes (4): ContentType, ExamplesSelect, Schemes, setScheme()
+
+### Community 46 - "Community 46"
 Cohesion: 0.18
 Nodes (3): definitions(), Models, OperationContainer
 
-### Community 49 - "ResponseWriter"
-Cohesion: 0.18
-Nodes (19): Handler, Hub, asyncapiHandler(), asyncapiUIHandler(), corsMiddleware(), maskQueryKey(), NewRouter(), openapiHandler() (+11 more)
+### Community 48 - "Community 48"
+Cohesion: 0.12
+Nodes (3): DownstreamMessage_DataMessage_, isMessageData_Data, MessageData
 
-### Community 51 - "Namespace"
-Cohesion: 0.13
-Nodes (4): Namespace, register(), SwaggerUI(), updateSpec()
-
-### Community 52 - "Upstream GexBot OpenAPI contract"
+### Community 49 - "Community 49"
 Cohesion: 0.14
-Nodes (18): GexBot compatibility evidence README, Upstream GexBot OpenAPI contract, GET /{package}/categories, GET /{ticker}/classic/{category}, GET /options/{ticker}/expiries, GET /futures/conversion, GET /hist/{ticker}/{package}/{category}/{date}, GET /hist/eod/{ticker} (+10 more)
+Nodes (11): ArrayModel, buildBaseUrl(), contact_Contact, info_Info, InfoUrl, isAbsoluteUrl(), license_License, operation_Operation (+3 more)
 
-### Community 53 - "applyOperation"
-Cohesion: 0.17
-Nodes (17): applyOperation(), applyPatch(), applyReducer(), _areEquals(), _deepClone(), escapePathComponent(), generate(), getInByJsonPath() (+9 more)
-
-### Community 54 - "sanitizeUrl"
+### Community 50 - "Community 50"
 Cohesion: 0.15
-Nodes (11): buildBaseUrl(), contact_Contact, info_Info, InfoUrl, isAbsoluteUrl(), isFunc(), license_License, operation_Operation (+3 more)
+Nodes (14): convertCmd(), convertFile(), convertJSONToJSONL(), Command, downloadCmd(), Command, filterMarketDays(), generateTasks() (+6 more)
 
-### Community 55 - "Handler"
-Cohesion: 0.21
-Nodes (14): ChiServerOptions, DownloadStateData404JSONResponse, ServerInterface, strictHandler, StrictHTTPServerOptions, StrictServerInterface, Handler(), HandlerFromMux() (+6 more)
-
-### Community 57 - "MessageState"
+### Community 51 - "Community 51"
 Cohesion: 0.12
 Nodes (4): MessageState, DownstreamMessage_SystemMessage_, DownstreamMessage_SystemMessage_DisconnectedMessage_, isDownstreamMessage_SystemMessage_Message
 
-### Community 59 - "read"
+### Community 52 - "Community 52"
+Cohesion: 0.17
+Nodes (17): applyOperation(), applyPatch(), applyReducer(), _areEquals(), _deepClone(), escapePathComponent(), generate(), getInByJsonPath() (+9 more)
+
+### Community 53 - "Community 53"
+Cohesion: 0.15
+Nodes (7): items(), merge(), refSerialiseContent(), sourceMapSerialiseContent(), toValue(), values(), Visitor
+
+### Community 55 - "Community 55"
+Cohesion: 0.16
+Nodes (17): blockHeader(), chooseScalarStyle(), codePointAt(), detectType(), dropEndingNewline(), encodeHex(), foldLine(), generateNextLine() (+9 more)
+
+### Community 56 - "Community 56"
+Cohesion: 0.21
+Nodes (3): ExamplesSelectValueRetainer, Overview, toObject()
+
+### Community 58 - "Community 58"
+Cohesion: 0.22
+Nodes (12): InvalidCategory, Package, ValidationErrors, T, TestValidateDownloadConfig_DisabledPackageSkipped(), TestValidateDownloadConfig_InvalidCategoryForClassic(), TestValidateDownloadConfig_InvalidTicker(), TestValidateDownloadConfig_MultipleErrors() (+4 more)
+
+### Community 60 - "Community 60"
+Cohesion: 0.22
+Nodes (16): asyncapiHandler(), asyncapiUIHandler(), corsMiddleware(), Hub, Logger, Request, ResponseWriter, maskQueryKey() (+8 more)
+
+### Community 61 - "Community 61"
 Cohesion: 0.16
 Nodes (16): addChunk(), arrayIndexOf(), bidirectionalIndexOf(), createIterResult(), emitReadable(), flow(), getHttpClient(), hexWrite() (+8 more)
 
-### Community 60 - "fi"
+### Community 62 - "Community 62"
 Cohesion: 0.14
-Nodes (14): ai(), bj(), ch(), ci(), cj(), ei(), fi(), Ie() (+6 more)
+Nodes (15): ag(), bh(), dg(), dj(), G(), gj(), $h(), J() (+7 more)
 
-### Community 61 - "toValue"
+### Community 63 - "Community 63"
 Cohesion: 0.16
-Nodes (5): items(), refSerialiseContent(), sourceMapSerialiseContent(), toValue(), Visitor
+Nodes (16): concatFactory(), flatMapFactory(), flatten(), forceIterator(), fromJSOrdered(), getIterator(), getIteratorFn(), hasIterator() (+8 more)
 
-### Community 62 - "ek"
-Cohesion: 0.15
-Nodes (15): ek(), Fj(), fromList(), gk(), Lk(), Nk(), ob(), Sk() (+7 more)
-
-### Community 63 - "makeSequence"
+### Community 64 - "Community 64"
 Cohesion: 0.21
 Nodes (16): filterFactory(), flattenFactory(), interposeFactory(), iteratorDone(), iteratorValue(), makeSequence(), mapFactory(), mapIteratorValue() (+8 more)
 
-### Community 64 - "JsonSchema_array"
+### Community 65 - "Community 65"
 Cohesion: 0.16
 Nodes (4): JsonSchema_array, JsonSchemaArrayItemFile, JsonSchemaArrayItemText, valueOrEmptyList()
 
-### Community 65 - "ValidateDownloadConfig"
-Cohesion: 0.24
-Nodes (12): InvalidCategory, Package, ValidationErrors, T, TestValidateDownloadConfig_DisabledPackageSkipped(), TestValidateDownloadConfig_InvalidCategoryForClassic(), TestValidateDownloadConfig_InvalidTicker(), TestValidateDownloadConfig_MultipleErrors() (+4 more)
+### Community 66 - "Community 66"
+Cohesion: 0.19
+Nodes (8): extractClassicTickerAndCategory(), Context, Duration, Hub, Logger, NewClassicStreamer(), ClassicStreamer, Encoder
 
-### Community 66 - "UnknownFields"
+### Community 67 - "Community 67"
 Cohesion: 0.14
 Nodes (4): UnknownFields, DownstreamMessage, DownstreamMessage_PongMessage_, isDownstreamMessage_Message
 
-### Community 67 - "execute_buildRequest"
-Cohesion: 0.21
-Nodes (15): append(), build_request_buildRequest(), buildRequest(), encodeFormOrQuery(), execute_buildRequest(), execute_execute(), formatKeyValue(), http_http() (+7 more)
+### Community 69 - "Community 69"
+Cohesion: 0.13
+Nodes (7): Button, Col, Container, layout_utils_Link, OperationLink, Row, xclass()
 
-### Community 68 - "onunpipe"
+### Community 70 - "Community 70"
+Cohesion: 0.15
+Nodes (13): cachedHashString(), clear(), downloadUrlPlugin(), getIENodeHash(), hash(), hashJSObj(), hashString(), ListCache() (+5 more)
+
+### Community 71 - "Community 71"
+Cohesion: 0.20
+Nodes (15): ch(), cj(), eh(), gh(), Gi(), hh(), hj(), ii() (+7 more)
+
+### Community 72 - "Community 72"
 Cohesion: 0.21
 Nodes (15): cleanup(), delay(), Duplex(), end(), listenerCount(), onclose(), ondata(), ondrain() (+7 more)
 
-### Community 69 - ".render"
+### Community 73 - "Community 73"
 Cohesion: 0.16
 Nodes (7): clearRequest(), clearResponse(), clearValidateParams(), Parameters, setActiveExamplesMember(), setRequestBodyValue(), setRequestContentType()
 
-### Community 71 - "Scheduler"
+### Community 76 - "Community 76"
 Cohesion: 0.15
 Nodes (7): Calendar, Time, NewScheduler(), T, TestSchedulerCatchUpAndFallback(), Scheduler, Location
 
-### Community 72 - "DataLoader"
+### Community 77 - "Community 77"
+Cohesion: 0.15
+Nodes (15): GexBot compatibility evidence README, Upstream GexBot OpenAPI contract, GET /{package}/categories, GET /{ticker}/classic/{category}, GET /options/{ticker}/expiries, GET /futures/conversion, GET /hist/{ticker}/{package}/{category}/{date}, GET /hist/eod/{ticker} (+7 more)
+
+### Community 78 - "Community 78"
 Cohesion: 0.18
 Nodes (6): DataLoader, ReloadableLoader, Context, GexData, RWMutex, NewReloadableLoader()
 
-### Community 73 - "Task"
-Cohesion: 0.36
-Nodes (3): Task, TaskResult, Context
-
-### Community 74 - ".getValue"
+### Community 79 - "Community 79"
 Cohesion: 0.19
 Nodes (3): ApiKeyAuth, BasicAuth, HttpAuth
 
-### Community 75 - "List"
+### Community 80 - "Community 80"
+Cohesion: 0.21
+Nodes (13): autoDetection(), Emitter(), fire(), getLanguage(), highlight(), highlightAll(), highlightAuto(), highlightElement() (+5 more)
+
+### Community 81 - "Community 81"
 Cohesion: 0.20
-Nodes (14): editableVNode(), emptyList(), ensureSize(), getTailOffset(), iterateList(), List(), listNodeFor(), makeList() (+6 more)
+Nodes (4): changeProducesValue(), Execute, responses_Responses, setResponseContentType()
 
-### Community 78 - "runDownload"
-Cohesion: 0.22
-Nodes (10): NewDownloadTracker(), Config, Context, Logger, main(), run(), runDownload(), shouldDownload() (+2 more)
-
-### Community 79 - "compatibility_test.go"
+### Community 84 - "Community 84"
 Cohesion: 0.33
-Nodes (13): contains(), operationKey(), operationKeys(), readJSON(), readYAML(), TestCompatibilityClassificationsMatchFakerSpec(), TestCompatibilityMatrixCoversCurrentContract(), TestLiveProbeFixturesAreSanitized() (+5 more)
+Nodes (13): contains(), T, operationKey(), operationKeys(), readJSON(), readYAML(), TestCompatibilityClassificationsMatchFakerSpec(), TestCompatibilityMatrixCoversCurrentContract() (+5 more)
 
-### Community 80 - "Config"
+### Community 85 - "Community 85"
 Cohesion: 0.25
 Nodes (11): APIConfig, Config, DownloadConfig, LoggingConfig, OutputConfig, PackageConfig, PackagesConfig, Load() (+3 more)
 
-### Community 81 - "MaxPriors"
+### Community 86 - "Community 86"
 Cohesion: 0.18
 Nodes (4): MaxPriors, MaxPriorsTuple, SizeCache, UnknownFields
 
-### Community 82 - "UpstreamMessage"
+### Community 87 - "Community 87"
+Cohesion: 0.21
+Nodes (9): callAfterLoad(), combinePlugins(), isArray(), isFunc(), isObject(), objectify(), OperationTag, pointToAncestor() (+1 more)
+
+### Community 89 - "Community 89"
+Cohesion: 0.23
+Nodes (7): ResponseWriter, classicDownloadResponse, downloadFileResponse, orderflowDownloadResponse, stateDownloadResponse, stateProfileGexDataResponse, stateProfileGreekDataResponse
+
+### Community 90 - "Community 90"
 Cohesion: 0.18
 Nodes (4): SizeCache, isUpstreamMessage_Message, UpstreamMessage, UpstreamMessage_PingMessage_
 
-### Community 83 - "writeScalar"
-Cohesion: 0.22
-Nodes (13): blockHeader(), chooseScalarStyle(), codePointAt(), dropEndingNewline(), encodeHex(), foldLine(), indentString(), isNsCharOrWhitespace() (+5 more)
-
-### Community 84 - ".render"
-Cohesion: 0.17
-Nodes (5): err(), merge(), Response_Response, transformErrors(), values()
-
-### Community 85 - "IndexCache"
-Cohesion: 0.21
-Nodes (4): CacheMode, IndexCache, RWMutex, NewIndexCache()
-
-### Community 86 - "BatchResult"
-Cohesion: 0.32
-Nodes (7): BatchResult, FormatFailureMessage(), FormatSuccessMessage(), Duration, Context, Duration, NoopNotifier
-
-### Community 87 - "G"
-Cohesion: 0.20
-Nodes (12): ag(), bh(), dj(), G(), $h(), J(), kj(), M() (+4 more)
-
-### Community 88 - "xclass"
-Cohesion: 0.17
-Nodes (6): Button, Col, Container, layout_utils_Link, Row, xclass()
-
-### Community 89 - "serialise"
+### Community 91 - "Community 91"
 Cohesion: 0.24
-Nodes (10): convertKeyToRefract(), dataStructureSerialiseContent(), enumSerialiseAttributes(), enumSerialiseContent(), serialise(), serialiseContent(), serialiseEnum(), serialiseObject() (+2 more)
+Nodes (12): deepEqual(), deepMerger(), deepMergerWith(), IndexedIterable(), is(), isAssociative(), isIndexed(), isIterable() (+4 more)
 
-### Community 90 - ".render"
-Cohesion: 0.20
-Nodes (5): createHtmlReadyId(), getKnownSyntaxHighlighterLanguage(), ResponseBody, responses_Responses, setResponseContentType()
+### Community 94 - "Community 94"
+Cohesion: 0.23
+Nodes (5): CacheMode, IndexCache, RWMutex, NewIndexCache(), WSCacheKey()
 
-### Community 91 - "maybeIndexedSeqFromValue"
-Cohesion: 0.21
-Nodes (12): forceIterator(), fromJSOrdered(), getIterator(), getIteratorFn(), hasIterator(), isArrayLike(), isIterator(), Iterable() (+4 more)
-
-### Community 93 - "executeEODDownload"
-Cohesion: 0.35
-Nodes (11): BatchResult, convertFile(), convertJSONToJSONL(), executeDownload(), executeEODDownload(), generateTasksForDate(), Config, Context (+3 more)
-
-### Community 94 - "ReloadChecker"
-Cohesion: 0.32
-Nodes (9): WSCacheKey(), extractTicker(), Context, Duration, Hub, Logger, NewStreamer(), ReloadChecker (+1 more)
-
-### Community 95 - "Og"
-Cohesion: 0.20
-Nodes (11): aj(), $i(), Ka(), Lg(), Mg(), Ng(), Og(), Pg() (+3 more)
-
-### Community 96 - "walk"
-Cohesion: 0.20
-Nodes (11): _array_like_to_array(), countByFactory(), createNodes(), is_writable(), legacy_copy(), SetRef(), _sliced_to_array(), _type_of() (+3 more)
-
-### Community 97 - "oj"
-Cohesion: 0.22
-Nodes (11): cg(), Ef(), Eg(), Fg(), Gg(), hg(), Lf(), nj() (+3 more)
-
-### Community 100 - "is"
-Cohesion: 0.20
-Nodes (5): deepMerger(), deepMergerWith(), is(), ModelCollapse, shallowEqual()
-
-### Community 101 - "hj"
-Cohesion: 0.29
-Nodes (11): eh(), gh(), Gi(), hh(), hj(), ii(), lh(), qh() (+3 more)
-
-### Community 103 - "ValidatorImage"
-Cohesion: 0.22
-Nodes (3): OnlineValidatorBadge, requiresValidationURL(), ValidatorImage
-
-### Community 104 - "downloadCmd"
-Cohesion: 0.24
-Nodes (8): downloadCmd(), Command, filterMarketDays(), generateTasks(), Config, Logger, parseDates(), DefaultTickers()
-
-### Community 105 - "wrap"
-Cohesion: 0.20
-Nodes (10): baseAry(), castCap(), castFixed(), castRearg(), cloneArray(), cloneByPath(), createConverter(), overArg() (+2 more)
-
-### Community 106 - "serialize"
-Cohesion: 0.27
-Nodes (10): encode(), encodeCharacters(), formatKeyValueBySerializationOption(), parameter_builders_cookie(), parameter_builders_header(), parameter_builders_path(), parameter_builders_query(), serialize() (+2 more)
-
-### Community 111 - "Manager"
-Cohesion: 0.33
-Nodes (8): Manager, Client, Logger, NewManager(), T, TestDownloadManager(), TestDownloadManager_Resume(), TestTask()
-
-### Community 112 - "ClassicStreamer"
-Cohesion: 0.38
-Nodes (7): extractClassicTickerAndCategory(), Context, Duration, Hub, Logger, NewClassicStreamer(), ClassicStreamer
-
-### Community 113 - "GexStreamer"
-Cohesion: 0.38
-Nodes (7): extractGexTickerAndCategory(), Context, Duration, Hub, Logger, NewGexStreamer(), GexStreamer
-
-### Community 114 - "GreekOneStreamer"
-Cohesion: 0.38
-Nodes (7): extractGreekOneTickerAndCategory(), Context, Duration, Hub, Logger, NewGreekOneStreamer(), GreekOneStreamer
-
-### Community 115 - "GreekStreamer"
-Cohesion: 0.38
-Nodes (7): extractGreekTickerAndCategory(), Context, Duration, Hub, Logger, NewGreekStreamer(), GreekStreamer
-
-### Community 121 - "hash"
-Cohesion: 0.28
-Nodes (9): cachedHashString(), getIENodeHash(), hash(), hashIterable(), hashJSObj(), hashMerge(), hashString(), murmurHashOfSize() (+1 more)
-
-### Community 122 - "isObject"
-Cohesion: 0.31
-Nodes (7): callAfterLoad(), combinePlugins(), isArray(), isObject(), objectify(), pointToAncestor(), systemExtend()
-
-### Community 123 - "captureMatchIfValidAndReset"
-Cohesion: 0.22
-Nodes (9): captureMatchIfValidAndReset(), resetToNonEmailMatchState(), stateAtSign(), stateDomainChar(), stateDomainDot(), stateDomainHyphen(), stateLocalPart(), stateLocalPartDot() (+1 more)
-
-### Community 124 - "li"
-Cohesion: 0.22
-Nodes (5): ErrorBoundary, li(), ni(), oi(), qi()
-
-### Community 126 - "OperationLink"
-Cohesion: 0.22
-Nodes (3): OperationLink, Overview, toObject()
-
-### Community 127 - "LoadDaemonConfig"
-Cohesion: 0.33
-Nodes (7): getEnvBoolOrDefault(), getEnvIntOrDefault(), getEnvOrDefault(), LoadDaemonConfig(), T, TestDefaultSchedule(), DaemonConfig
-
-### Community 128 - "eod.go"
-Cohesion: 0.50
-Nodes (8): eodArchiveDates(), eodCmd(), eodDates(), eodMaterializeCmd(), eodPackCmd(), eodTickers(), eodVerifyCmd(), Command
-
-### Community 129 - "maskAPIKey"
-Cohesion: 0.31
-Nodes (7): Logger, Request, ResponseWriter, maskAPIKey(), NewNegotiateHandler(), NegotiateHandler, NegotiateResponse
-
-### Community 130 - "Server"
-Cohesion: 0.18
-Nodes (15): DataLoader, GetAvailableDataRequestObject, GetAvailableDataResponseObject, GetHealthRequestObject, GetHealthResponseObject, IndexCache, T, TestDownloadEODReport() (+7 more)
-
-### Community 132 - "bi"
-Cohesion: 0.25
-Nodes (8): bi(), Cc(), hi(), ki(), mi(), oh(), Th(), Vh()
-
-### Community 133 - "clone"
-Cohesion: 0.29
-Nodes (8): cleanArray(), clone(), _cloneRegExp(), forEachNewPatch(), isAdditiveMutation(), isJsonPatch(), isMutation(), isPatch()
-
-### Community 134 - "tag"
-Cohesion: 0.25
-Nodes (4): close(), nodeStream(), open(), tag()
-
-### Community 135 - "stringify"
-Cohesion: 0.36
-Nodes (3): example_Example(), RequestBodyEditor, stringify()
-
-### Community 136 - "FilterContainer"
-Cohesion: 0.21
-Nodes (4): FilterContainer, Response, skipIfhasPrecedingDot(), updateFilter()
-
-### Community 138 - ".GetClassicGexChain"
-Cohesion: 0.32
-Nodes (4): GetClassicGexChain404JSONResponse, GetClassicGexChainParams, GetClassicGexChainParamsAggregation, GetClassicGexChainRequestObject
-
-### Community 139 - ".GetStateProfile"
-Cohesion: 0.32
-Nodes (4): GetStateProfile404JSONResponse, GetStateProfileParams, GetStateProfileParamsType, GetStateProfileRequestObject
-
-### Community 141 - "finishMaybe"
-Cohesion: 0.38
-Nodes (7): afterWrite(), callFinal(), clearBuffer(), doWrite(), finishMaybe(), needFinish(), WritableState()
-
-### Community 142 - "_isPlaceholder"
-Cohesion: 0.43
-Nodes (7): _arity(), _curry1(), _curry2(), _curry3(), _curryN(), _isPlaceholder(), pipe()
-
-### Community 143 - "slowToString"
-Cohesion: 0.29
-Nodes (7): asciiSlice(), base64Slice(), hexSlice(), latin1Slice(), slowToString(), utf16leSlice(), utf8Slice()
-
-### Community 144 - "groupByFactory"
-Cohesion: 0.29
-Nodes (6): flatMapFactory(), flatten(), groupByFactory(), isSeq(), iterableClass(), reify()
-
-### Community 145 - "dg"
-Cohesion: 0.29
-Nodes (6): bg(), dg(), gj(), jj(), Qa(), Ra()
-
-### Community 151 - "Reader"
-Cohesion: 0.29
-Nodes (4): DownloadClassicGex200ApplicationxNdjsonResponse, DownloadOrderflow200ApplicationxNdjsonResponse, DownloadStateData200ApplicationxNdjsonResponse, Reader
-
-### Community 152 - ".GetClassicGexMajors"
-Cohesion: 0.33
-Nodes (4): GetClassicGexMajors404JSONResponse, GetClassicGexMajorsParams, GetClassicGexMajorsParamsAggregation, GetClassicGexMajorsRequestObject
-
-### Community 153 - ".GetClassicGexMaxChange"
-Cohesion: 0.33
-Nodes (4): GetClassicGexMaxChange404JSONResponse, GetClassicGexMaxChangeParams, GetClassicGexMaxChangeParamsAggregation, GetClassicGexMaxChangeRequestObject
-
-### Community 154 - ".GetStateGexMajors"
-Cohesion: 0.33
-Nodes (4): GetStateGexMajors404JSONResponse, GetStateGexMajorsParams, GetStateGexMajorsParamsType, GetStateGexMajorsRequestObject
-
-### Community 155 - ".GetStateGexMaxChange"
-Cohesion: 0.33
-Nodes (4): GetStateGexMaxChange404JSONResponse, GetStateGexMaxChangeParams, GetStateGexMaxChangeParamsType, GetStateGexMaxChangeRequestObject
-
-### Community 157 - "New"
-Cohesion: 0.62
-Nodes (6): Config, Logger, New(), NewClient(), Client, Notifier
-
-### Community 159 - "context_tree_createNode"
-Cohesion: 0.60
-Nodes (3): context_tree_createNode(), context_tree_updateNode(), ContextTree
-
-### Community 164 - ".GetAvailableData"
-Cohesion: 0.33
-Nodes (3): GetAvailableData200JSONResponse, GetAvailableDataParams, GetAvailableDataRequestObject
-
-### Community 165 - ".GetOrderflowLatest"
-Cohesion: 0.33
-Nodes (3): GetOrderflowLatest404JSONResponse, GetOrderflowLatestParams, GetOrderflowLatestRequestObject
-
-### Community 166 - ".ResetCache"
-Cohesion: 0.33
-Nodes (3): ResetCache200JSONResponse, ResetCacheParams, ResetCacheRequestObject
-
-### Community 169 - "LoadConfig"
-Cohesion: 0.53
-Nodes (4): getEnvBoolOrDefault(), getEnvOrDefault(), LoadConfig(), Config
-
-### Community 172 - "ObjectElement"
-Cohesion: 0.15
-Nodes (6): MixedFieldsVisitor, ObjectElement(), open_api_3_1_schema_SchemaVisitor, PredicateVisitor, retrieveFixedFields(), StringElement()
-
-### Community 173 - "checkIntBI"
-Cohesion: 0.50
-Nodes (5): boundsError(), checkIntBI(), validateNumber(), wrtBigUInt64BE(), wrtBigUInt64LE()
-
-### Community 174 - "createStoreWithMiddleware"
-Cohesion: 0.50
-Nodes (5): compose(), createStore(), createStoreWithMiddleware(), formatProdErrorMessage(), systemThunkMiddleware()
-
-### Community 176 - "debounced"
-Cohesion: 0.60
-Nodes (5): debounced(), invokeFunc(), shouldInvoke(), timerExpired(), trailingEdge()
-
-### Community 180 - "convertJSONToJSONL"
-Cohesion: 0.60
-Nodes (4): convertCmd(), convertFile(), convertJSONToJSONL(), Command
-
-### Community 181 - "setupLogger"
-Cohesion: 0.50
-Nodes (4): Logger, main(), setupLogger(), LoggingConfig
-
-### Community 182 - "models.go"
-Cohesion: 0.50
-Nodes (4): GexData, GreekData, OrderflowData, RawMessage
-
-### Community 183 - "orderflow.pb.go"
-Cohesion: 0.50
-Nodes (3): file_orderflow_proto_init(), file_orderflow_proto_rawDescGZIP(), init()
-
-### Community 185 - ".then"
-Cohesion: 0.67
-Nodes (3): extractFromDoc(), getDoc(), T()
-
-### Community 192 - "GEX Faker API Repository Guidance"
-Cohesion: 0.50
-Nodes (4): GEX Faker API, GEX Faker API Repository Guidance, Archived Repository Agent Guidance, Archived Claude Repository Guidance
-
-### Community 210 - "webpubsub_messages.pb.go"
+### Community 95 - "Community 95"
 Cohesion: 0.20
 Nodes (6): Any, file_webpubsub_messages_proto_init(), init(), MessageData_BinaryData, MessageData_ProtobufData, MessageData_TextData
 
-### Community 324 - "mockClient"
+### Community 96 - "Community 96"
+Cohesion: 0.22
+Nodes (11): cg(), Ef(), Eg(), Fg(), Gg(), hg(), Lf(), nj() (+3 more)
+
+### Community 98 - "Community 98"
+Cohesion: 0.36
+Nodes (11): emptySequence(), fromJS(), fromJSDefault(), fromJSWith(), IndexedSeq(), indexedSeqFromValue(), isKeyed(), isPlainObj() (+3 more)
+
+### Community 99 - "Community 99"
+Cohesion: 0.20
+Nodes (7): ErrorBoundary, li(), mh(), ni(), oi(), qi(), vi()
+
+### Community 100 - "Community 100"
+Cohesion: 0.22
+Nodes (3): OnlineValidatorBadge, requiresValidationURL(), ValidatorImage
+
+### Community 101 - "Community 101"
+Cohesion: 0.29
+Nodes (11): ChiServerOptions, MiddlewareFunc, ServerInterface, StrictServerInterface, HandlerFromMux(), HandlerFromMuxWithBaseURL(), HandlerWithOptions(), NewStrictHandler() (+3 more)
+
+### Community 102 - "Community 102"
+Cohesion: 0.36
+Nodes (8): extractTicker(), Context, Duration, Hub, Logger, NewStreamer(), ReloadChecker, Streamer
+
+### Community 103 - "Community 103"
+Cohesion: 0.22
+Nodes (10): aj(), $i(), Ka(), Lg(), Mg(), Ng(), Og(), Qg() (+2 more)
+
+### Community 104 - "Community 104"
+Cohesion: 0.20
+Nodes (10): baseAry(), castCap(), castFixed(), castRearg(), cloneArray(), cloneByPath(), createConverter(), overArg() (+2 more)
+
+### Community 105 - "Community 105"
+Cohesion: 0.22
+Nodes (10): beginKeywords(), compileIllegal(), compileLanguage(), compileMatch(), compileRelevance(), concat(), dependencyOnParent(), either() (+2 more)
+
+### Community 106 - "Community 106"
+Cohesion: 0.20
+Nodes (6): Cache, keys(), MixedFieldsVisitor, ObjectElement(), retrieveFixedFields(), shouldRefract()
+
+### Community 107 - "Community 107"
+Cohesion: 0.31
+Nodes (9): convertKeyToRefract(), dataStructureSerialiseContent(), enumSerialiseAttributes(), enumSerialiseContent(), serialise(), serialiseContent(), serialiseEnum(), serialiseObject() (+1 more)
+
+### Community 108 - "Community 108"
+Cohesion: 0.27
+Nodes (10): encode(), encodeCharacters(), formatKeyValueBySerializationOption(), parameter_builders_cookie(), parameter_builders_header(), parameter_builders_path(), parameter_builders_query(), serialize() (+2 more)
+
+### Community 112 - "Community 112"
+Cohesion: 0.51
+Nodes (9): eodArchiveDates(), eodCmd(), eodDates(), eodMaterializeCmd(), eodPackCmd(), eodPruneCmd(), eodTickers(), eodVerifyCmd() (+1 more)
+
+### Community 113 - "Community 113"
+Cohesion: 0.38
+Nodes (7): extractGexTickerAndCategory(), Context, Duration, Hub, Logger, NewGexStreamer(), GexStreamer
+
+### Community 114 - "Community 114"
+Cohesion: 0.38
+Nodes (7): extractGreekOneTickerAndCategory(), Context, Duration, Hub, Logger, NewGreekOneStreamer(), GreekOneStreamer
+
+### Community 115 - "Community 115"
+Cohesion: 0.38
+Nodes (7): extractGreekTickerAndCategory(), Context, Duration, Hub, Logger, NewGreekStreamer(), GreekStreamer
+
+### Community 121 - "Community 121"
+Cohesion: 0.22
+Nodes (9): captureMatchIfValidAndReset(), resetToNonEmailMatchState(), stateAtSign(), stateDomainChar(), stateDomainDot(), stateDomainHyphen(), stateLocalPart(), stateLocalPartDot() (+1 more)
+
+### Community 123 - "Community 123"
+Cohesion: 0.33
+Nodes (7): getEnvBoolOrDefault(), getEnvIntOrDefault(), getEnvOrDefault(), LoadDaemonConfig(), T, TestDefaultSchedule(), DaemonConfig
+
+### Community 124 - "Community 124"
+Cohesion: 0.31
+Nodes (7): Logger, Request, ResponseWriter, maskAPIKey(), NewNegotiateHandler(), NegotiateHandler, NegotiateResponse
+
+### Community 126 - "Community 126"
+Cohesion: 0.25
+Nodes (8): bi(), Cc(), hi(), ki(), mi(), oh(), Th(), Vh()
+
+### Community 127 - "Community 127"
+Cohesion: 0.29
+Nodes (8): cleanArray(), clone(), _cloneRegExp(), forEachNewPatch(), isAdditiveMutation(), isJsonPatch(), isMutation(), isPatch()
+
+### Community 128 - "Community 128"
+Cohesion: 0.25
+Nodes (4): close(), nodeStream(), open(), tag()
+
+### Community 129 - "Community 129"
+Cohesion: 0.32
+Nodes (3): createHtmlReadyId(), getKnownSyntaxHighlighterLanguage(), ResponseBody
+
+### Community 130 - "Community 130"
+Cohesion: 0.25
+Nodes (7): ik(), jk(), Lk(), Rj(), Sk(), Tk(), Uk()
+
+### Community 133 - "Community 133"
+Cohesion: 0.38
+Nodes (7): afterWrite(), callFinal(), clearBuffer(), doWrite(), finishMaybe(), needFinish(), WritableState()
+
+### Community 134 - "Community 134"
+Cohesion: 0.43
+Nodes (7): _arity(), _curry1(), _curry2(), _curry3(), _curryN(), _isPlaceholder(), pipe()
+
+### Community 135 - "Community 135"
+Cohesion: 0.29
+Nodes (7): asciiSlice(), base64Slice(), hexSlice(), latin1Slice(), slowToString(), utf16leSlice(), utf8Slice()
+
+### Community 138 - "Community 138"
+Cohesion: 0.29
+Nodes (7): jd(), pf(), qf(), tg(), ug(), vg(), Yi()
+
+### Community 142 - "Community 142"
+Cohesion: 0.29
+Nodes (4): DownloadClassicGex200ApplicationxNdjsonResponse, DownloadOrderflow200ApplicationxNdjsonResponse, DownloadStateData200ApplicationxNdjsonResponse, Reader
+
+### Community 143 - "Community 143"
+Cohesion: 0.38
+Nodes (4): GetClassicGexChain404JSONResponse, GetClassicGexChainParams, GetClassicGexChainParamsAggregation, GetClassicGexChainRequestObject
+
+### Community 144 - "Community 144"
+Cohesion: 0.38
+Nodes (4): GetClassicGexMajors404JSONResponse, GetClassicGexMajorsParams, GetClassicGexMajorsParamsAggregation, GetClassicGexMajorsRequestObject
+
+### Community 145 - "Community 145"
+Cohesion: 0.38
+Nodes (4): GetClassicGexMaxChange404JSONResponse, GetClassicGexMaxChangeParams, GetClassicGexMaxChangeParamsAggregation, GetClassicGexMaxChangeRequestObject
+
+### Community 146 - "Community 146"
+Cohesion: 0.38
+Nodes (4): GetStateGexMajors404JSONResponse, GetStateGexMajorsParams, GetStateGexMajorsParamsType, GetStateGexMajorsRequestObject
+
+### Community 147 - "Community 147"
+Cohesion: 0.38
+Nodes (4): GetStateGexMaxChange404JSONResponse, GetStateGexMaxChangeParams, GetStateGexMaxChangeParamsType, GetStateGexMaxChangeRequestObject
+
+### Community 148 - "Community 148"
+Cohesion: 0.38
+Nodes (4): GetStateProfile404JSONResponse, GetStateProfileParams, GetStateProfileParamsType, GetStateProfileRequestObject
+
+### Community 151 - "Community 151"
+Cohesion: 0.40
+Nodes (5): compose(), createStore(), createStoreWithMiddleware(), formatProdErrorMessage(), systemThunkMiddleware()
+
+### Community 152 - "Community 152"
+Cohesion: 0.60
+Nodes (3): context_tree_createNode(), context_tree_updateNode(), ContextTree
+
+### Community 153 - "Community 153"
+Cohesion: 0.33
+Nodes (6): _createSuper(), _getPrototypeOf(), ImmutablePureComponent(), _possibleConstructorReturn(), react_immutable_pure_component_es_get(), _typeof()
+
+### Community 159 - "Community 159"
+Cohesion: 0.53
+Nodes (4): getEnvBoolOrDefault(), getEnvOrDefault(), LoadConfig(), Config
+
+### Community 161 - "Community 161"
+Cohesion: 0.50
+Nodes (5): boundsError(), checkIntBI(), validateNumber(), wrtBigUInt64BE(), wrtBigUInt64LE()
+
+### Community 163 - "Community 163"
+Cohesion: 0.60
+Nodes (5): debounced(), invokeFunc(), shouldInvoke(), timerExpired(), trailingEdge()
+
+### Community 164 - "Community 164"
+Cohesion: 0.50
+Nodes (4): extractFromDoc(), getDoc(), makeFetchJSON(), T()
+
+### Community 168 - "Community 168"
+Cohesion: 0.50
+Nodes (4): GexData, GreekData, OrderflowData, RawMessage
+
+### Community 169 - "Community 169"
 Cohesion: 0.50
 Nodes (3): mockClient, Context, Writer
 
+### Community 170 - "Community 170"
+Cohesion: 0.50
+Nodes (3): file_orderflow_proto_init(), file_orderflow_proto_rawDescGZIP(), init()
+
+### Community 171 - "Community 171"
+Cohesion: 0.50
+Nodes (4): captureWrapperProps(), ConnectFunction(), createSubscription(), pureFinalPropsSelectorFactory()
+
+### Community 173 - "Community 173"
+Cohesion: 0.50
+Nodes (4): emptyStack(), isStack(), makeStack(), Stack()
+
+### Community 186 - "Community 186"
+Cohesion: 0.67
+Nodes (3): get(), getKey(), getMember()
+
 ## Knowledge Gaps
-- **72 isolated node(s):** `JSONRefError`, `Reference_Reference`, `OperationNotFoundError`, `github.com/dgnsrekt/gexbot-downloader`, `AvailableDatesResponse` (+67 more)
+- **51 isolated node(s):** `JSONRefError`, `Reference_Reference`, `OperationNotFoundError`, `matrixEntry`, `github.com/dgnsrekt/gexbot-downloader` (+46 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **176 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **160 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `NewEncoder()` connect `NewEncoder` to `maskAPIKey`, `.GetAvailableData`, `.GetOrderflowLatest`, `.ResetCache`, `ResponseWriter`, `.GetClassicGexChain`, `.GetStateProfile`, `Encoder`, `ClassicStreamer`, `GexStreamer`, `GreekOneStreamer`, `GreekStreamer`, `Handler`, `.GetClassicGexMajors`, `.GetClassicGexMaxChange`, `.GetStateGexMajors`, `.GetStateGexMaxChange`, `ReloadChecker`?**
-  _High betweenness centrality (0.023) - this node is a cross-community bridge._
-- **Why does `ArrayElement` connect `ArrayElement` to `swagger-ui-bundle.js`, `.first`, `forEach`, `call`, `.push`, `find`, `.concat`, `.contains`, `ObjectElement`, `.unshift`, `Store`, `toValue`, `ek`?**
-  _High betweenness centrality (0.021) - this node is a cross-community bridge._
-- **Why does `New()` connect `New` to `maskAPIKey`, `downloadCmd`, `LoadConfig`, `Hub`, `Config`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
+- **Why does `ArrayElement` connect `ApiDOM Array Element (JS)` to `Swagger UI Bundle (JS)`, `Community 32`, `ApiDOM Visitors (JS)`, `Community 68`, `ApiDOM Error/Core (JS)`, `ApiDOM Content Visitors (JS)`, `Community 45`, `Swagger UI Syntax Highlighting (JS)`, `Community 80`, `Minified JS II (Swagger)`, `Community 53`?**
+  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+- **Why does `call()` connect `ApiDOM Error/Core (JS)` to `Swagger UI Bundle (JS)`, `Community 128`, `ApiDOM Visitors (JS)`, `Swagger UI Utilities (JS)`, `Community 134`, `ApiDOM Content Visitors (JS)`, `Swagger UI Path Resolution (JS)`, `Minified JS I (Swagger)`, `Swagger UI Syntax Highlighting (JS)`, `Minified JS II (Swagger)`, `ApiDOM Array Element (JS)`, `Immutable Helpers (JS)`, `Community 153`, `Community 26`, `Community 27`, `Community 32`, `Community 36`, `Community 166`, `Community 39`, `Community 41`, `Community 52`, `Community 55`, `Community 61`, `Community 62`, `Community 63`, `Community 64`, `Community 69`, `Community 71`, `Community 72`, `Community 87`, `Community 91`, `Community 98`, `Community 103`, `Community 106`, `Community 127`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
+- **Why does `Store` connect `Community 26` to `Swagger UI Bundle (JS)`, `Community 64`, `Swagger UI Core (JS)`, `Swagger UI Utilities (JS)`, `Community 71`, `Swagger UI Path Resolution (JS)`, `JSON Schema Visitors (JS)`, `Swagger UI Syntax Highlighting (JS)`, `Swagger UI Parameters (JS)`, `Immutable Helpers (JS)`, `Community 87`, `Community 151`, `Community 27`, `Community 30`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `JSONRefError`, `Reference_Reference`, `OperationNotFoundError` to the rest of the system?**
-  _72 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `swagger-ui-bundle.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.007250031521876182 - nodes in this community are weakly interconnected._
-- **Should `forEach` be split into smaller, more focused modules?**
-  _Cohesion score 0.027524752475247525 - nodes in this community are weakly interconnected._
-- **Should `indexOf` be split into smaller, more focused modules?**
-  _Cohesion score 0.03146374829001368 - nodes in this community are weakly interconnected._
+  _51 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Swagger UI Bundle (JS)` be split into smaller, more focused modules?**
+  _Cohesion score 0.007008547008547009 - nodes in this community are weakly interconnected._
+- **Should `Swagger UI Core (JS)` be split into smaller, more focused modules?**
+  _Cohesion score 0.03546099290780142 - nodes in this community are weakly interconnected._
+- **Should `ApiDOM Visitors (JS)` be split into smaller, more focused modules?**
+  _Cohesion score 0.030339225991399904 - nodes in this community are weakly interconnected._
