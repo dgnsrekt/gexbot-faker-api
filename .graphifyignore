@@ -1,0 +1,3 @@
+# Vendored Swagger UI bundle — minified third-party JS/CSS, not project code.
+# Its ~1,800 AST nodes drowned out the actual Go codebase in the knowledge graph.
+api/swagger-ui/
