@@ -215,7 +215,7 @@ func (sb *SyncBroadcaster) buildPositions(ctx context.Context, apiKey string) []
 		length, err := sb.loader.GetLength(ticker, pkg, category)
 		if err != nil {
 			sb.logger.Debug("failed to get data length",
-				zap.String("cache_key", cacheKey),
+				zap.String("cache_key", maskCacheKey(cacheKey)),
 				zap.Error(err),
 			)
 			continue

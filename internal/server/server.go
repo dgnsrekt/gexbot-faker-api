@@ -193,28 +193,42 @@ func zapLoggerMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 			observability.HTTPInFlight.Inc()
 			defer observability.HTTPInFlight.Dec()
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			// Record in a defer so a panicking handler is still counted and logged.
+			// The outer Recoverer (registered before this middleware) writes the 500
+			// only after this frame unwinds, so the wrapped writer has no status yet
+			// at defer time: treat an in-flight panic as 500, then re-panic so
+			// Recoverer still produces the response. Without this, panic-generated
+			// 5xx are absent from both request metrics and the access log.
+			defer func() {
+				panicked := recover()
+				route := chi.RouteContext(r.Context()).RoutePattern()
+				if route == "" {
+					route = "unmatched"
+				}
+				status := ww.Status()
+				if panicked != nil {
+					status = http.StatusInternalServerError
+				} else if status == 0 {
+					status = http.StatusOK
+				}
+				statusClass := strconv.Itoa(status/100) + "xx"
+				duration := time.Since(started)
+				observability.HTTPRequests.WithLabelValues(r.Method, route, statusClass).Inc()
+				observability.HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
+				observability.HTTPResponseBytes.WithLabelValues(route).Add(float64(ww.BytesWritten()))
+				logger.Info("request completed",
+					zap.String("request_id", middleware.GetReqID(r.Context())),
+					zap.String("method", r.Method),
+					zap.String("route", route),
+					zap.Int("status", status),
+					zap.Duration("duration", duration),
+					zap.Int("response_bytes", ww.BytesWritten()),
+				)
+				if panicked != nil {
+					panic(panicked) // let the outer Recoverer write the 500
+				}
+			}()
 			next.ServeHTTP(ww, r)
-			route := chi.RouteContext(r.Context()).RoutePattern()
-			if route == "" {
-				route = "unmatched"
-			}
-			status := ww.Status()
-			if status == 0 {
-				status = http.StatusOK
-			}
-			statusClass := strconv.Itoa(status/100) + "xx"
-			duration := time.Since(started)
-			observability.HTTPRequests.WithLabelValues(r.Method, route, statusClass).Inc()
-			observability.HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
-			observability.HTTPResponseBytes.WithLabelValues(route).Add(float64(ww.BytesWritten()))
-			logger.Info("request completed",
-				zap.String("request_id", middleware.GetReqID(r.Context())),
-				zap.String("method", r.Method),
-				zap.String("route", route),
-				zap.Int("status", status),
-				zap.Duration("duration", duration),
-				zap.Int("response_bytes", ww.BytesWritten()),
-			)
 		})
 	}
 }

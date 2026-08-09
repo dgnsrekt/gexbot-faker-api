@@ -14,7 +14,11 @@ groups:
         annotations:
           summary: Faker API 5xx ratio exceeds 2%
       - alert: FakerWebSocketStalled
-        expr: sum(faker_ws_connections) by (hub) > 0 and time() - faker_ws_last_broadcast_timestamp_seconds > 15
+        # `and on(hub)`: sum(...) by (hub) has only the hub label, while the
+        # timestamp series carries job/instance too, so a bare `and` matches no
+        # elements. The last-broadcast series is seeded when a hub gets its first
+        # client (see Hub.Run), so a hub that never broadcasts is still detected.
+        expr: max by (hub) ((time() - faker_ws_last_broadcast_timestamp_seconds) and on(hub) (faker_ws_connections > 0)) > 15
         for: 1m
         labels: {severity: warning}
         annotations:
