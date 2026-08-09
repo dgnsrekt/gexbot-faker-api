@@ -35,9 +35,9 @@
     "semantic_hash": "051f10a7fbd0225ebf3db86c79e8d6a3"
   },
   "cmd/daemon/main.go": {
-    "mtime": 1786261229.8586922,
-    "ast_hash": "4d49d6ae33d19e92f07c67145dbf9335",
-    "semantic_hash": "4d49d6ae33d19e92f07c67145dbf9335"
+    "mtime": 1786311361.6880503,
+    "ast_hash": "b1736579b81477869107f9cf6bb13220",
+    "semantic_hash": "b1736579b81477869107f9cf6bb13220"
   },
   "cmd/daemon/scheduler.go": {
     "mtime": 1786251634.591432,
@@ -65,14 +65,14 @@
     "semantic_hash": "8686c74db809c67ff781c3600b664dd1"
   },
   "cmd/server/main.go": {
-    "mtime": 1786292107.1712637,
-    "ast_hash": "b8f0a22fba2218083c11c6d392d2d563",
-    "semantic_hash": "b8f0a22fba2218083c11c6d392d2d563"
+    "mtime": 1786311361.6880503,
+    "ast_hash": "710b44cced43c2eddb7b80f6e82c064f",
+    "semantic_hash": "710b44cced43c2eddb7b80f6e82c064f"
   },
   "go.mod": {
-    "mtime": 1784498486.930714,
-    "ast_hash": "7596928ccb3924e7a47c71f9e284f828",
-    "semantic_hash": "7596928ccb3924e7a47c71f9e284f828"
+    "mtime": 1786311361.68872,
+    "ast_hash": "9c58ac47d57c6deaa222eded68d2655a",
+    "semantic_hash": "9c58ac47d57c6deaa222eded68d2655a"
   },
   "internal/api/client.go": {
     "mtime": 1786252996.696813,
@@ -125,9 +125,9 @@
     "semantic_hash": "92d748b260c0daa2ec194d74ac774a8e"
   },
   "internal/data/cache.go": {
-    "mtime": 1784498486.9323606,
-    "ast_hash": "4ab701f1e6939ad76203c0af1d1f63a6",
-    "semantic_hash": "4ab701f1e6939ad76203c0af1d1f63a6"
+    "mtime": 1786311361.688815,
+    "ast_hash": "d5acc1d27000d221363d52afb18a9bcb",
+    "semantic_hash": "d5acc1d27000d221363d52afb18a9bcb"
   },
   "internal/data/loader.go": {
     "mtime": 1784498486.932712,
@@ -185,19 +185,19 @@
     "semantic_hash": "3ffd51aaa290477ec51b2dde7a698302"
   },
   "internal/server/handlers.go": {
-    "mtime": 1786292107.1732638,
-    "ast_hash": "679c4171fa5dd563450080df8a0af333",
-    "semantic_hash": "679c4171fa5dd563450080df8a0af333"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "527ec848a41c520fae4d984c99016b49",
+    "semantic_hash": "527ec848a41c520fae4d984c99016b49"
   },
   "internal/server/reload.go": {
-    "mtime": 1786261229.8596923,
-    "ast_hash": "21b9e7965ce3af9138348b8be05081f2",
-    "semantic_hash": "21b9e7965ce3af9138348b8be05081f2"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "f225b18aa7437f445a747f91285c042a",
+    "semantic_hash": "f225b18aa7437f445a747f91285c042a"
   },
   "internal/server/server.go": {
-    "mtime": 1786303446.189055,
-    "ast_hash": "d2d7ad73f06d86d2a28f01e9a2fc6ee3",
-    "semantic_hash": "d2d7ad73f06d86d2a28f01e9a2fc6ee3"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "e0cb75f2663def642de41ef352a5c91f",
+    "semantic_hash": "e0cb75f2663def642de41ef352a5c91f"
   },
   "internal/staging/staging.go": {
     "mtime": 1784498486.9337478,
@@ -210,9 +210,9 @@
     "semantic_hash": "a532168bb95452a4d1981e2515dc4625"
   },
   "internal/sync/broadcaster.go": {
-    "mtime": 1786253970.9877126,
-    "ast_hash": "ac345a1b7a73e1896be013acff7b3901",
-    "semantic_hash": "ac345a1b7a73e1896be013acff7b3901"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "ce915d771413988202a1dc01f9b8681f",
+    "semantic_hash": "ce915d771413988202a1dc01f9b8681f"
   },
   "internal/sync/types.go": {
     "mtime": 1784498486.9342365,
@@ -270,14 +270,14 @@
     "semantic_hash": "0ac1ca99eb0d1f1a4ef0d040640d85e6"
   },
   "internal/ws/hub.go": {
-    "mtime": 1786292107.1742637,
-    "ast_hash": "1fd1762b4d09a1facfcaead7e7638b6f",
-    "semantic_hash": "1fd1762b4d09a1facfcaead7e7638b6f"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "c9ff3a7992d85c3d6209ea069cfdd513",
+    "semantic_hash": "c9ff3a7992d85c3d6209ea069cfdd513"
   },
   "internal/ws/negotiate.go": {
-    "mtime": 1786292107.1742637,
-    "ast_hash": "9751b37e7f026772710479e1d175b76b",
-    "semantic_hash": "9751b37e7f026772710479e1d175b76b"
+    "mtime": 1786311361.6890976,
+    "ast_hash": "42acabc765d42812250ad6355237f9cf",
+    "semantic_hash": "42acabc765d42812250ad6355237f9cf"
   },
   "internal/ws/protocol.go": {
     "mtime": 1786251895.4995944,
@@ -320,9 +320,9 @@
     "semantic_hash": "70ff4b96e06d6f1bcf06c921f7a6eb22"
   },
   "README.md": {
-    "mtime": 1784523281.0524352,
-    "ast_hash": "d401b4731bf46106ef42fb7729b96292",
-    "semantic_hash": "d401b4731bf46106ef42fb7729b96292"
+    "mtime": 1786311361.6880503,
+    "ast_hash": "89eaf4bde1752b7e0046cb1b2693e038",
+    "semantic_hash": "89eaf4bde1752b7e0046cb1b2693e038"
   },
   "WEBSOCKET.md": {
     "mtime": 1784498486.9209487,
@@ -350,9 +350,9 @@
     "semantic_hash": "d9b33e34a6478184d5181c1d8d99451a"
   },
   "docker-compose.yml": {
-    "mtime": 1786261229.8586922,
-    "ast_hash": "343eba9a77c60a51eb1bd294c3c78226",
-    "semantic_hash": "343eba9a77c60a51eb1bd294c3c78226"
+    "mtime": 1786311361.688498,
+    "ast_hash": "d4a40cf12acef560b42784af81e42877",
+    "semantic_hash": "d4a40cf12acef560b42784af81e42877"
   },
   "docs/archived/AGENTS.md": {
     "mtime": 1784501569.0172799,
@@ -528,5 +528,95 @@
     "mtime": 1786292107.1712637,
     "ast_hash": "92b57dde7af69138c30f947b2b593160",
     "semantic_hash": "92b57dde7af69138c30f947b2b593160"
+  },
+  "internal/observability/metrics.go": {
+    "mtime": 1786311361.6890497,
+    "ast_hash": "4b0149568d208757130aa1ff64ba95c4",
+    "semantic_hash": "4b0149568d208757130aa1ff64ba95c4"
+  },
+  "internal/observability/server.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "40d604961e94354e42cfe0b19dc467be",
+    "semantic_hash": "40d604961e94354e42cfe0b19dc467be"
+  },
+  "internal/observability/server_test.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "2970e0c1d4452d517407ed869af88615",
+    "semantic_hash": "2970e0c1d4452d517407ed869af88615"
+  },
+  "internal/server/observability_test.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "2213d5ffcfd66aab39a7a1ca5031bfcc",
+    "semantic_hash": "2213d5ffcfd66aab39a7a1ca5031bfcc"
+  },
+  "internal/server/panic_metrics_test.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "9f4416933e35728e171a2083f1568389",
+    "semantic_hash": "9f4416933e35728e171a2083f1568389"
+  },
+  "internal/sync/broadcaster_redaction_test.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "39855c12212beae2839319ab9f21106d",
+    "semantic_hash": "39855c12212beae2839319ab9f21106d"
+  },
+  "internal/ws/hub_metrics_test.go": {
+    "mtime": 1786311361.6890976,
+    "ast_hash": "1bae51700a154571086c3064b71a7717",
+    "semantic_hash": "1bae51700a154571086c3064b71a7717"
+  },
+  "observability/caddy/entrypoint.sh": {
+    "mtime": 1786311361.6907487,
+    "ast_hash": "39c31a6d18a6b53dee4023c05d85ae19",
+    "semantic_hash": "39c31a6d18a6b53dee4023c05d85ae19"
+  },
+  "observability/grafana/dashboards/faker.json": {
+    "mtime": 1786311361.6907878,
+    "ast_hash": "ec94af1335e0381e8e06503fef152928",
+    "semantic_hash": "ec94af1335e0381e8e06503fef152928"
+  },
+  "observability/grafana/dashboards/logs.json": {
+    "mtime": 1786311361.6908348,
+    "ast_hash": "ffca5f73834c33307c67acca143309cc",
+    "semantic_hash": "ffca5f73834c33307c67acca143309cc"
+  },
+  "OBSERVABILITY.md": {
+    "mtime": 1786311361.6868703,
+    "ast_hash": "57eae6f53ef6d3ddc366a92bf3a30ef0",
+    "semantic_hash": "57eae6f53ef6d3ddc366a92bf3a30ef0"
+  },
+  "observability/grafana/provisioning/alerting/contact-points.yml": {
+    "mtime": 1786311361.6908746,
+    "ast_hash": "8d80a735475dd1cb34801345fb98c5bb",
+    "semantic_hash": "8d80a735475dd1cb34801345fb98c5bb"
+  },
+  "observability/grafana/provisioning/alerting/rules.yml": {
+    "mtime": 1786311361.6909175,
+    "ast_hash": "b6d0a564bc7a69bd59706fb01b080bb0",
+    "semantic_hash": "b6d0a564bc7a69bd59706fb01b080bb0"
+  },
+  "observability/grafana/provisioning/dashboards/dashboards.yml": {
+    "mtime": 1786311361.6909544,
+    "ast_hash": "9cbbcad1fb210e0bb0ccd01fd9dc3272",
+    "semantic_hash": "9cbbcad1fb210e0bb0ccd01fd9dc3272"
+  },
+  "observability/grafana/provisioning/datasources/datasources.yml": {
+    "mtime": 1786311361.6909826,
+    "ast_hash": "6c25da17bb020006c2c1320dddfd94d8",
+    "semantic_hash": "6c25da17bb020006c2c1320dddfd94d8"
+  },
+  "observability/loki/config.yml": {
+    "mtime": 1786311361.691015,
+    "ast_hash": "9c86785d48d5d8b88e827269c6082f8b",
+    "semantic_hash": "9c86785d48d5d8b88e827269c6082f8b"
+  },
+  "observability/prometheus/prometheus.yml": {
+    "mtime": 1786311361.6910446,
+    "ast_hash": "d35664805408cdd8111cc059ea63859b",
+    "semantic_hash": "d35664805408cdd8111cc059ea63859b"
+  },
+  "observability/prometheus/rules.yml": {
+    "mtime": 1786311361.6910646,
+    "ast_hash": "9f28249bc07f379a69417a8b1f2d3054",
+    "semantic_hash": "9f28249bc07f379a69417a8b1f2d3054"
   }
 }
