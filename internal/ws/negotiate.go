@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -40,10 +41,16 @@ func apiKeyFromAuthHeader(r *http.Request) string {
 }
 
 // buildWebsocketURLs returns the per-hub WebSocket URLs for a connection, each
-// carrying a simplified access token (real API uses JWT).
-func (h *NegotiateHandler) buildWebsocketURLs(r *http.Request, apiKey string) map[string]string {
+// carrying a simplified access token (real API uses JWT). Any groups are
+// prefixed to internal form and embedded in the token so the hubs auto-join them
+// on connect (POST /negotiate contract); pass nil for the plain GET flow.
+func (h *NegotiateHandler) buildWebsocketURLs(r *http.Request, apiKey string, groups []string) map[string]string {
 	connID := uuid.New().String()
 	token := fmt.Sprintf("%s:%s", apiKey, connID)
+	if prefixed := h.prefixGroups(groups); len(prefixed) > 0 {
+		token += ":" + strings.Join(prefixed, ",")
+	}
+	token = url.QueryEscape(token)
 	scheme := "ws"
 	if r.TLS != nil {
 		scheme = "wss"
@@ -58,6 +65,18 @@ func (h *NegotiateHandler) buildWebsocketURLs(r *http.Request, apiKey string) ma
 	}
 }
 
+// prefixGroups converts unprefixed upstream group names (e.g. "SPX_state_gamma_zero")
+// to the faker's internal form ("{prefix}_SPX_state_gamma_zero"), dropping empties.
+func (h *NegotiateHandler) prefixGroups(groups []string) []string {
+	out := make([]string, 0, len(groups))
+	for _, g := range groups {
+		if g != "" {
+			out = append(out, h.prefix+"_"+g)
+		}
+	}
+	return out
+}
+
 // HandleNegotiate handles GET /negotiate. Accepts the API key via the
 // Authorization header (Basic or Bearer). Returns WebSocket URLs for the hubs.
 func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +88,7 @@ func (h *NegotiateHandler) HandleNegotiate(w http.ResponseWriter, r *http.Reques
 	}
 
 	response := NegotiateResponse{
-		WebsocketURLs: h.buildWebsocketURLs(r, apiKey),
+		WebsocketURLs: h.buildWebsocketURLs(r, apiKey, nil),
 		Prefix:        h.prefix,
 	}
 
@@ -92,15 +111,16 @@ func (h *NegotiateHandler) HandleNegotiatePost(w http.ResponseWriter, r *http.Re
 		http.Error(w, `{"error":"missing authorization"}`, http.StatusUnauthorized)
 		return
 	}
-	// Body carries {"groups": [...]}; the faker's URLs are per-hub, so we accept
-	// and ignore the specific groups (drain the body for a clean request).
-	_ = json.NewDecoder(r.Body).Decode(&struct {
+	// Body carries {"groups": [...]} to auto-join; embedded in the token so the
+	// hubs join them on connect.
+	var body struct {
 		Groups []string `json:"groups"`
-	}{})
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(NegotiatePostResponse{
-		WebsocketURLs: h.buildWebsocketURLs(r, apiKey),
+		WebsocketURLs: h.buildWebsocketURLs(r, apiKey, body.Groups),
 	}); err != nil {
 		h.logger.Error("failed to encode negotiate post response", zap.Error(err))
 	}

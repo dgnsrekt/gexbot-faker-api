@@ -83,10 +83,17 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse token (format: apiKey:originalConnID)
-	parts := strings.SplitN(token, ":", 2)
+	// Parse token (format: apiKey:originalConnID[:group1,group2,...]).
+	// The optional 3rd field carries prefixed groups to auto-join, set by
+	// POST /negotiate so a client following that contract receives data without
+	// sending joinGroup itself.
+	parts := strings.SplitN(token, ":", 3)
 	apiKey := parts[0]
 	connID := uuid.New().String() // Generate new connID for this connection
+	var autoJoinGroups []string
+	if len(parts) == 3 && parts[2] != "" {
+		autoJoinGroups = strings.Split(parts[2], ",")
+	}
 
 	// Negotiate subprotocol - check what client requested
 	protocol := "protobuf" // default
@@ -123,6 +130,15 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.register <- client
+
+	// Auto-join groups requested at negotiate time (POST /negotiate contract).
+	// Each hub joins only the groups its validator accepts, so the same token can
+	// carry groups for every hub and land on the right ones.
+	for _, group := range autoJoinGroups {
+		if group != "" && h.ValidateGroup(group) {
+			h.JoinGroup(client, group)
+		}
+	}
 
 	// Send ConnectedMessage per negotiated protocol
 	var connectedMsg []byte
