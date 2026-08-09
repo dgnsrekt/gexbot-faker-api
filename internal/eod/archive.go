@@ -396,7 +396,7 @@ func CleanupStale(root string, ttl time.Duration, logger *zap.Logger, keep ...st
 			return removed, err
 		}
 		logger.Info("evicted stale materialized date",
-			zap.String("date", date), zap.Duration("idle", time.Since(mtime).Round(time.Hour)))
+			zap.String("date", date), zap.String("idle", time.Since(mtime).Round(time.Hour).String()))
 		removed = append(removed, date)
 	}
 	if len(removed) > 0 {
