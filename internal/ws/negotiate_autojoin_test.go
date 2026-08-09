@@ -105,6 +105,115 @@ func TestPatchReplacesMemberships(t *testing.T) {
 	}
 }
 
+func activeSet(h *Hub) map[string]bool {
+	m := map[string]bool{}
+	for _, g := range h.GetActiveGroups() {
+		m[g] = true
+	}
+	return m
+}
+
+func dialAutoJoin(t *testing.T, srv *httptest.Server, path, group string) *websocket.Conn {
+	t.Helper()
+	token := url.QueryEscape("testkey:conn-1:" + group)
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + path + "?access_token=" + token
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial %s: %v", path, err)
+	}
+	return conn
+}
+
+func waitActive(t *testing.T, h *Hub, group string) {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		if activeSet(h)[group] {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("group %q never became active on hub %q", group, h.name)
+}
+
+// TestNegotiateBodyValidation covers PR #26 review: POST requires groups
+// (minItems:1); both methods reject malformed JSON; PATCH accepts an explicit
+// empty array (clear-all) but rejects an absent groups field.
+func TestNegotiateBodyValidation(t *testing.T) {
+	h := NewNegotiateHandler(zap.NewNop(), "blue")
+	cases := []struct {
+		name, method, body string
+		want               int
+	}{
+		{"post empty groups", "POST", `{"groups":[]}`, http.StatusBadRequest},
+		{"post missing groups", "POST", `{}`, http.StatusBadRequest},
+		{"post malformed", "POST", `{`, http.StatusBadRequest},
+		{"post valid", "POST", `{"groups":["SPX_classic_gex_zero"]}`, http.StatusOK},
+		{"patch missing groups", "PATCH", `{}`, http.StatusBadRequest},
+		{"patch malformed", "PATCH", `{`, http.StatusBadRequest},
+		{"patch empty array clears", "PATCH", `{"groups":[]}`, http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/negotiate", strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Basic testkey")
+			rec := httptest.NewRecorder()
+			if tc.method == "POST" {
+				h.HandleNegotiatePost(rec, req)
+			} else {
+				h.HandleNegotiatePatch(rec, req)
+			}
+			if rec.Code != tc.want {
+				t.Errorf("got %d, want %d (body: %s)", rec.Code, tc.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+// TestPatchClearsOmittedHub covers PR #26 review: the PATCH payload is the
+// complete desired set, so a hub absent from the request must be cleared.
+func TestPatchClearsOmittedHub(t *testing.T) {
+	classic := NewHub("classic", zap.NewNop(), IsValidClassicGroup)
+	orderflow := NewHub("orderflow", zap.NewNop(), IsValidOrderflowGroup)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go classic.Run(ctx)
+	go orderflow.Run(ctx)
+
+	neg := NewNegotiateHandler(zap.NewNop(), "blue")
+	neg.SetHubs(map[string]*Hub{"classic": classic, "orderflow": orderflow})
+
+	csrv := httptest.NewServer(http.HandlerFunc(classic.HandleOrderflowWS))
+	defer csrv.Close()
+	osrv := httptest.NewServer(http.HandlerFunc(orderflow.HandleOrderflowWS))
+	defer osrv.Close()
+
+	cconn := dialAutoJoin(t, csrv, "/ws/classic", "blue_SPX_classic_gex_zero")
+	defer func() { _ = cconn.Close() }()
+	oconn := dialAutoJoin(t, osrv, "/ws/orderflow", "blue_SPX_orderflow_orderflow")
+	defer func() { _ = oconn.Close() }()
+
+	waitActive(t, classic, "blue_SPX_classic_gex_zero")
+	waitActive(t, orderflow, "blue_SPX_orderflow_orderflow")
+
+	// PATCH lists only classic; orderflow is omitted and must be cleared.
+	body := `{"groups":[{"hub":"classic","group":"SPX_classic_gex_one"}]}`
+	req := httptest.NewRequest("PATCH", "/negotiate", strings.NewReader(body))
+	req.Header.Set("Authorization", "Basic testkey")
+	rec := httptest.NewRecorder()
+	neg.HandleNegotiatePatch(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	c := activeSet(classic)
+	if c["blue_SPX_classic_gex_zero"] || !c["blue_SPX_classic_gex_one"] {
+		t.Errorf("classic memberships not replaced: %v", c)
+	}
+	if o := activeSet(orderflow); len(o) != 0 {
+		t.Errorf("omitted hub orderflow should be cleared, got %v", o)
+	}
+}
+
 // TestPlainNegotiateNoAutoJoin confirms a token without a group field (the GET
 // /negotiate flow) joins nothing on connect.
 func TestPlainNegotiateNoAutoJoin(t *testing.T) {

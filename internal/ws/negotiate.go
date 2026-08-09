@@ -119,11 +119,18 @@ func (h *NegotiateHandler) HandleNegotiatePost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	// Body carries {"groups": [...]} to auto-join; embedded in the token so the
-	// hubs join them on connect.
+	// hubs join them on connect. Upstream requires groups (minItems: 1).
 	var body struct {
 		Groups []string `json:"groups"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(body.Groups) == 0 {
+		http.Error(w, `{"error":"groups is required"}`, http.StatusBadRequest)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(NegotiatePostResponse{
@@ -133,9 +140,11 @@ func (h *NegotiateHandler) HandleNegotiatePost(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// NegotiatePatchRequest is the body of PATCH /negotiate.
+// NegotiatePatchRequest is the body of PATCH /negotiate. Groups is a pointer so
+// an absent field (nil -> 400) is distinguishable from an explicit empty array
+// ([] -> clear all memberships).
 type NegotiatePatchRequest struct {
-	Groups []struct {
+	Groups *[]struct {
 		Hub   string `json:"hub"`
 		Group string `json:"group"`
 	} `json:"groups"`
@@ -159,23 +168,31 @@ func (h *NegotiateHandler) HandleNegotiatePatch(w http.ResponseWriter, r *http.R
 		return
 	}
 	var req NegotiatePatchRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	if req.Groups == nil {
+		http.Error(w, `{"error":"groups is required"}`, http.StatusBadRequest)
+		return
+	}
+	// An explicit empty array is allowed and clears all memberships.
 
 	// Group the requested memberships by hub, prefixing to internal form.
 	byHub := map[string][]string{}
-	for _, g := range req.Groups {
+	for _, g := range *req.Groups {
 		if g.Hub != "" && g.Group != "" {
 			byHub[g.Hub] = append(byHub[g.Hub], h.prefix+"_"+g.Group)
 		}
 	}
 
+	// The payload is the complete desired set: iterate every configured hub so a
+	// hub absent from the request is cleared (SetKeyGroups with an empty slice),
+	// not left with stale memberships.
 	hubs := map[string]int{}
 	updated := 0
-	for hubName, groups := range byHub {
-		hub := h.hubs[hubName]
-		if hub == nil {
-			continue // unknown/unwired hub — skip
-		}
+	for hubName, hub := range h.hubs {
+		groups := byHub[hubName]
 		hubs[hubName] = hub.SetKeyGroups(apiKey, groups)
 		updated += len(groups)
 	}
