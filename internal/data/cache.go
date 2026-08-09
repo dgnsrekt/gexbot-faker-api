@@ -1,6 +1,10 @@
 package data
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
+)
 
 // CacheMode defines how playback handles end-of-data
 type CacheMode string
@@ -52,6 +56,7 @@ func (c *IndexCache) GetAndAdvance(key string, dataLength int) (int, bool) {
 
 	// Check exhaustion in exhaust mode
 	if c.mode == CacheModeExhaust && idx >= dataLength {
+		observability.CacheReads.WithLabelValues("exhausted").Inc()
 		return idx, true
 	}
 
@@ -68,11 +73,13 @@ func (c *IndexCache) GetAndAdvance(key string, dataLength int) (int, bool) {
 		c.indexes[key] = idx + 1
 	}
 
+	observability.CacheReads.WithLabelValues("hit").Inc()
 	return currentIdx, false
 }
 
 // Reset resets indexes, optionally for a specific API key pattern
 func (c *IndexCache) Reset(apiKey string) int {
+	observability.CacheResets.Inc()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -13,6 +13,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 func main() {
@@ -94,6 +95,15 @@ func run() int {
 		zap.String("schedule", fmt.Sprintf("%02d:%02d %s", daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)),
 		zap.Duration("runTimeout", runTimeout),
 	)
+	diagnostics := observability.NewDiagnostics(":9091", func() bool { return true }, logger)
+	diagnostics.Start(logger)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := diagnostics.Stop(shutdownCtx); err != nil {
+			logger.Warn("diagnostics shutdown error", zap.Error(err))
+		}
+	}()
 
 	// Check on startup if enabled
 	var nextAttempt time.Time
@@ -120,6 +130,7 @@ func run() int {
 
 	// Main loop - check every minute
 	ticker := time.NewTicker(1 * time.Minute)
+	observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
 	defer ticker.Stop()
 
 	for {
@@ -130,6 +141,7 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
+			observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
 			if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
 				runCleanup(cfg, cleanupTTL, logger)
 				lastCleanup = time.Now()
@@ -208,6 +220,11 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 
 	logger.Info("starting scheduled EOD download", zap.String("date", today))
 	start := time.Now()
+	observability.DaemonInProgress.Set(1)
+	defer func() {
+		observability.DaemonInProgress.Set(0)
+		observability.DaemonDuration.Observe(time.Since(start).Seconds())
+	}()
 
 	// Bound the EOD attempt: a stalled request must fail into the 5-minute retry
 	// loop, not wedge the daemon's single-goroutine ticker indefinitely.
@@ -230,6 +247,10 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 
 	duration = time.Since(start)
 	if err != nil || result == nil || result.Failed > 0 {
+		observability.DaemonRuns.WithLabelValues("failed").Inc()
+		if result != nil {
+			observability.DaemonFiles.WithLabelValues("failed").Add(float64(result.Failed))
+		}
 		if err == nil {
 			err = fmt.Errorf("%d EOD reports unavailable", result.Failed)
 		}
@@ -242,6 +263,11 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	}
 
 	logger.Info("download succeeded", zap.String("date", today), zap.Duration("duration", duration))
+	observability.DaemonRuns.WithLabelValues("success").Inc()
+	observability.DaemonLastSuccess.SetToCurrentTime()
+	observability.DaemonFiles.WithLabelValues("success").Add(float64(result.Success))
+	observability.DaemonFiles.WithLabelValues("skipped").Add(float64(result.Skipped))
+	observability.DaemonFiles.WithLabelValues("not_found").Add(float64(result.NotFound))
 	if notifyErr := notifier.SendSuccess(ctx, result, today, duration); notifyErr != nil {
 		logger.Warn("failed to send success notification", zap.Error(notifyErr))
 	}

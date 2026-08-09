@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 	"go.uber.org/zap"
 )
 
@@ -65,6 +66,8 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
+			observability.WSConnections.WithLabelValues(h.name).Inc()
+			observability.WSConnectionsTotal.WithLabelValues(h.name).Inc()
 			h.logger.Debug("client registered",
 				zap.String("hub", h.name),
 				zap.String("connID", client.connID),
@@ -86,6 +89,8 @@ func (h *Hub) Run(ctx context.Context) {
 				client.Close()
 			}
 			h.mu.Unlock()
+			observability.WSConnections.WithLabelValues(h.name).Dec()
+			observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.GetActiveGroups())))
 			h.logger.Debug("client unregistered",
 				zap.String("hub", h.name),
 				zap.String("connID", client.connID),
@@ -130,6 +135,7 @@ func (h *Hub) JoinGroup(client *Client, group string) {
 	}
 	h.groups[group][client] = true
 	client.groups[group] = true
+	observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.groups)))
 
 	h.logger.Debug("client joined group",
 		zap.String("hub", h.name),
@@ -150,6 +156,7 @@ func (h *Hub) LeaveGroup(client *Client, group string) {
 		}
 	}
 	delete(client.groups, group)
+	observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.groups)))
 
 	h.logger.Debug("client left group",
 		zap.String("hub", h.name),
@@ -337,10 +344,15 @@ func (h *Hub) BroadcastToClients(clients []*Client, group string, encodedData []
 			msg = buildDataMessage(group, encodedData, typeUrl)
 		}
 		if !client.SafeSend(msg) {
+			observability.WSSendErrors.WithLabelValues(h.name).Inc()
 			// Buffer full or closed, schedule disconnect
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
+			continue
 		}
+		observability.WSMessagesSent.WithLabelValues(h.name, client.protocol).Inc()
+		observability.WSMessageBytes.WithLabelValues(h.name, client.protocol).Add(float64(len(msg)))
+		observability.WSLastBroadcast.WithLabelValues(h.name).SetToCurrentTime()
 	}
 }

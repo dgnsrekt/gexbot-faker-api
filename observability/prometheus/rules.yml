@@ -1,0 +1,42 @@
+groups:
+  - name: faker
+    rules:
+      - alert: FakerTargetDown
+        expr: up{job=~"faker-api|faker-daemon"} == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "{{ $labels.job }} is unavailable"
+      - alert: FakerHTTPErrorRateHigh
+        expr: sum(rate(faker_http_requests_total{status_class="5xx"}[5m])) / sum(rate(faker_http_requests_total[5m])) > 0.02 and sum(increase(faker_http_requests_total[5m])) >= 20
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Faker API 5xx ratio exceeds 2%
+      - alert: FakerWebSocketStalled
+        expr: sum(faker_ws_connections) by (hub) > 0 and time() - faker_ws_last_broadcast_timestamp_seconds > 15
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "WebSocket hub {{ $labels.hub }} has stopped broadcasting"
+      - alert: FakerWebSocketSendErrors
+        expr: increase(faker_ws_send_errors_total[5m]) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: "WebSocket hub {{ $labels.hub }} is dropping clients"
+      - alert: FakerReloadFailed
+        expr: increase(faker_reloads_total{result="failed"}[15m]) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: Faker dataset reload failed
+      - alert: FakerDaemonDownloadFailed
+        expr: increase(faker_daemon_download_runs_total{result="failed"}[15m]) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: Faker daemon download failed
+      - alert: FakerDataStale
+        expr: time() - faker_data_date_timestamp_seconds > 432000
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: Faker dataset is more than five days old

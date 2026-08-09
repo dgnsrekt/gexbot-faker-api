@@ -15,6 +15,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 	"github.com/dgnsrekt/gexbot-downloader/internal/server"
 	"github.com/dgnsrekt/gexbot-downloader/internal/sync"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
@@ -26,7 +27,7 @@ func main() {
 
 func run() int {
 	// Setup logger
-	logger, err := zap.NewDevelopment()
+	logger, err := zap.NewProduction()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
 		return 1
@@ -88,6 +89,10 @@ func run() int {
 	defer func() { _ = reloadableLoader.Close() }()
 
 	logger.Info("data loaded", zap.Duration("duration", time.Since(start)))
+	observability.DataLoadedTimestamp.SetToCurrentTime()
+	if date, parseErr := time.Parse("2006-01-02", cfg.DataDate); parseErr == nil {
+		observability.DataDateTimestamp.Set(float64(date.Unix()))
+	}
 
 	// Create index cache
 	cacheMode := data.CacheModeExhaust
@@ -225,6 +230,21 @@ func run() int {
 			zap.Duration("interval", cfg.SyncBroadcastSystemInterval),
 		)
 	}
+
+	diagnostics := observability.NewDiagnostics(":9090", func() bool {
+		if reloadManager.IsReloading() || reloadManager.CurrentDate() == "" || len(reloadableLoader.GetLoadedKeys()) == 0 {
+			return false
+		}
+		return !cfg.WSEnabled || wsHubs != nil
+	}, logger)
+	diagnostics.Start(logger)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := diagnostics.Stop(ctx); err != nil {
+			logger.Warn("diagnostics shutdown error", zap.Error(err))
+		}
+	}()
 
 	// Create router
 	router, err := server.NewRouter(srv, wsHubs, negotiateHandler, syncBroadcaster, logger)

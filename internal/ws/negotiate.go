@@ -209,10 +209,7 @@ func (h *NegotiateHandler) HandleNegotiatePatch(w http.ResponseWriter, r *http.R
 	}
 }
 
-// maskAPIKey masks all but the first 4 characters of an API key for logging.
-func maskAPIKey(key string) string {
-	if len(key) <= 4 {
-		return "****"
-	}
-	return key[:4] + "****"
-}
+// maskAPIKey fully redacts an API key for logging. The observability stack ships
+// logs to Loki/Grafana, so no portion of the key is emitted — matching the server
+// and sync packages.
+func maskAPIKey(string) string { return "[REDACTED]" }

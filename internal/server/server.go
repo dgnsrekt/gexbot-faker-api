@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/api"
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 	"github.com/dgnsrekt/gexbot-downloader/internal/sync"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
@@ -186,12 +189,32 @@ func corsMiddleware(next http.Handler) http.Handler {
 func zapLoggerMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger.Debug("request",
+			started := time.Now()
+			observability.HTTPInFlight.Inc()
+			defer observability.HTTPInFlight.Dec()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, r)
+			route := chi.RouteContext(r.Context()).RoutePattern()
+			if route == "" {
+				route = "unmatched"
+			}
+			status := ww.Status()
+			if status == 0 {
+				status = http.StatusOK
+			}
+			statusClass := strconv.Itoa(status/100) + "xx"
+			duration := time.Since(started)
+			observability.HTTPRequests.WithLabelValues(r.Method, route, statusClass).Inc()
+			observability.HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
+			observability.HTTPResponseBytes.WithLabelValues(route).Add(float64(ww.BytesWritten()))
+			logger.Info("request completed",
+				zap.String("request_id", middleware.GetReqID(r.Context())),
 				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.String("query", maskQueryKey(r.URL.RawQuery)),
+				zap.String("route", route),
+				zap.Int("status", status),
+				zap.Duration("duration", duration),
+				zap.Int("response_bytes", ww.BytesWritten()),
 			)
-			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -206,9 +229,7 @@ func maskQueryKey(rawQuery string) string {
 		return rawQuery
 	}
 	if key := values.Get("key"); key != "" {
-		if len(key) > 4 {
-			values.Set("key", key[:4]+"****")
-		}
+		values.Set("key", "[REDACTED]")
 	}
 	// Rebuild query string preserving order as much as possible
 	var parts []string
