@@ -375,7 +375,7 @@ func (s *Server) GetTickers(ctx context.Context, request generated.GetTickersReq
 		switch {
 		case config.IndexTickers[ticker]:
 			indexes = append(indexes, ticker)
-		case strings.Contains(ticker, "_"):
+		case config.FutureTickers[ticker]:
 			futures = append(futures, ticker)
 		default:
 			stocks = append(stocks, ticker)
