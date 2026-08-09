@@ -67,10 +67,10 @@ var _ generated.StrictServerInterface = (*Server)(nil)
 func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetClassicGexMajorsRequestObject) (generated.GetClassicGexMajorsResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex majors request",
@@ -153,10 +153,10 @@ func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetC
 func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.GetClassicGexMaxChangeRequestObject) (generated.GetClassicGexMaxChangeResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex max change request",
@@ -251,10 +251,10 @@ func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.G
 func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetClassicGexChainRequestObject) (generated.GetClassicGexChainResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex chain request",
@@ -391,6 +391,100 @@ func (s *Server) GetTickers(ctx context.Context, request generated.GetTickersReq
 		Stocks:  &stocks,
 		Indexes: &indexes,
 		Futures: &futures,
+	}, nil
+}
+
+// GetTickersQuant implements generated.StrictServerInterface. Mirrors the live
+// /tickers/quant route: stocks and indexes only (no futures).
+func (s *Server) GetTickersQuant(ctx context.Context, request generated.GetTickersQuantRequestObject) (generated.GetTickersQuantResponseObject, error) {
+	tickerSet := make(map[string]bool)
+	for _, key := range s.loader.GetLoadedKeys() {
+		if parts := strings.Split(key, "/"); len(parts) >= 1 {
+			tickerSet[parts[0]] = true
+		}
+	}
+
+	stocks := []string{}
+	indexes := []string{}
+	for ticker := range tickerSet {
+		switch {
+		case config.IndexTickers[ticker]:
+			indexes = append(indexes, ticker)
+		case config.FutureTickers[ticker]:
+			// futures are not exposed on the quant endpoint
+		default:
+			stocks = append(stocks, ticker)
+		}
+	}
+	sort.Strings(stocks)
+	sort.Strings(indexes)
+
+	return generated.GetTickersQuant200JSONResponse{
+		Stocks:  &stocks,
+		Indexes: &indexes,
+	}, nil
+}
+
+// GetPackageCategories implements generated.StrictServerInterface. Returns the
+// category names a data package supports (mirrors the live /{package}/categories).
+func (s *Server) GetPackageCategories(ctx context.Context, request generated.GetPackageCategoriesRequestObject) (generated.GetPackageCategoriesResponseObject, error) {
+	cats, ok := config.ValidCategories[config.Package(request.Package)]
+	if !ok {
+		return generated.GetPackageCategories400JSONResponse{
+			Error: ptr("Invalid package: " + string(request.Package)),
+		}, nil
+	}
+	out := append([]string(nil), cats...)
+	sort.Strings(out)
+	return generated.GetPackageCategories200JSONResponse(out), nil
+}
+
+// GetHistEod implements generated.StrictServerInterface. Serves the most recent
+// EOD report archive (zip) for a ticker — the same archive the daemon downloads.
+func (s *Server) GetHistEod(ctx context.Context, request generated.GetHistEodRequestObject) (generated.GetHistEodResponseObject, error) {
+	// Newest date that actually has THIS ticker's archive (the globally-latest
+	// date may not include every ticker).
+	date := eod.LatestTickerDate(s.config.DataDir, request.Ticker)
+	if date == "" {
+		return generated.GetHistEod404JSONResponse{Error: ptr("No EOD archive available for " + request.Ticker)}, nil
+	}
+	f, err := os.Open(eod.ArchivePath(s.config.DataDir, date, request.Ticker))
+	if err != nil {
+		return generated.GetHistEod404JSONResponse{Error: ptr("No EOD archive available for " + request.Ticker)}, nil
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return generated.GetHistEod404JSONResponse{Error: ptr(err.Error())}, nil
+	}
+	// The generated Visit closes Body (an *os.File is an io.ReadCloser).
+	return generated.GetHistEod200ApplicationzipResponse{Body: f, ContentLength: info.Size()}, nil
+}
+
+// GetHistSnapshot implements generated.StrictServerInterface. Mirrors the live
+// API's URL-indirection: it returns a URL to the snapshot rather than the data.
+// The faker points at its own /download route for that date/ticker/category.
+func (s *Server) GetHistSnapshot(ctx context.Context, request generated.GetHistSnapshotRequestObject) (generated.GetHistSnapshotResponseObject, error) {
+	pkg := string(request.Package)
+	// A snapshot exists only if we archived that date/ticker.
+	if _, err := os.Stat(eod.ManifestPath(eod.ArchivePath(s.config.DataDir, request.Date, request.Ticker))); err != nil {
+		return generated.GetHistSnapshot404JSONResponse{
+			Error: ptr("No snapshot for " + request.Ticker + "/" + pkg + "/" + request.Category + " on " + request.Date),
+		}, nil
+	}
+	var url string
+	if pkg == "orderflow" {
+		url = fmt.Sprintf("/download/%s/%s/orderflow", request.Date, request.Ticker)
+	} else {
+		url = fmt.Sprintf("/download/%s/%s/%s/%s", request.Date, request.Ticker, pkg, request.Category)
+	}
+	// Match the live contract: bare ?noredirect returns the JSON {url}; absence
+	// produces a 302 redirect to that URL.
+	if request.Params.Noredirect != nil {
+		return generated.GetHistSnapshot200JSONResponse{Url: url}, nil
+	}
+	return generated.GetHistSnapshot302Response{
+		Headers: generated.GetHistSnapshot302ResponseHeaders{Location: url},
 	}, nil
 }
 
@@ -563,7 +657,7 @@ func mapDataKeyToWSHubs(pkg, category string) []string {
 }
 
 // Type classification helpers
-var aggregationTypes = map[string]bool{"full": true, "zero": true, "one": true}
+var aggregationTypes = map[string]bool{"gex_full": true, "gex_zero": true, "gex_one": true}
 var greekTypes = map[string]bool{
 	"delta_zero": true, "gamma_zero": true, "delta_one": true, "gamma_one": true,
 	"charm_zero": true, "vanna_zero": true, "charm_one": true, "vanna_one": true,
@@ -574,7 +668,7 @@ var greekTypes = map[string]bool{
 func (s *Server) GetStateProfile(ctx context.Context, request generated.GetStateProfileRequestObject) (generated.GetStateProfileResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 	pkg := "state"
 
 	s.logger.Debug("state profile request",
@@ -587,7 +681,7 @@ func (s *Server) GetStateProfile(ctx context.Context, request generated.GetState
 	var category string
 	isGreek := greekTypes[typeParam]
 	if aggregationTypes[typeParam] {
-		category = "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+		category = typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	} else if isGreek {
 		category = typeParam // delta_zero, gamma_zero, etc.
 	} else {
@@ -731,10 +825,10 @@ func (s *Server) GetStateProfile(ctx context.Context, request generated.GetState
 func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetStateGexMajorsRequestObject) (generated.GetStateGexMajorsResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map type to internal category format
-	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+	category := typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "state"
 
 	s.logger.Debug("state gex majors request",
@@ -819,10 +913,10 @@ func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetSta
 func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.GetStateGexMaxChangeRequestObject) (generated.GetStateGexMaxChangeResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map type to internal category format
-	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+	category := typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "state"
 
 	s.logger.Debug("state gex max change request",
@@ -918,7 +1012,7 @@ func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.Get
 // GetOrderflowLatest implements generated.StrictServerInterface
 func (s *Server) GetOrderflowLatest(ctx context.Context, request generated.GetOrderflowLatestRequestObject) (generated.GetOrderflowLatestResponseObject, error) {
 	ticker := request.Ticker
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 	pkg := "orderflow"
 	category := "orderflow"
 
@@ -1196,11 +1290,11 @@ func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvai
 			var packageName generated.PackageDataName
 			switch pkgName {
 			case "classic":
-				packageName = generated.Classic
+				packageName = generated.PackageDataNameClassic
 			case "state":
-				packageName = generated.State
+				packageName = generated.PackageDataNameState
 			case "orderflow":
-				packageName = generated.Orderflow
+				packageName = generated.PackageDataNameOrderflow
 			default:
 				continue
 			}
@@ -1311,7 +1405,7 @@ func (s *Server) DownloadClassicGex(ctx context.Context, request generated.Downl
 	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/classic/gex_{aggregation}.jsonl
-	category := "gex_" + aggregation
+	category := aggregation
 	filePath := filepath.Join(s.config.DataDir, date, ticker, "classic", category+".jsonl")
 
 	// Check if file exists
@@ -1359,7 +1453,7 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 	// Determine category based on type (same logic as GetStateProfile)
 	var category string
 	if aggregationTypes[typeParam] {
-		category = "gex_" + typeParam
+		category = typeParam
 	} else if greekTypes[typeParam] {
 		category = typeParam
 	} else {

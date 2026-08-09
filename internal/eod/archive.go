@@ -318,6 +318,30 @@ func LatestDate(root string) (string, error) {
 	return dates[len(dates)-1], nil
 }
 
+// LatestTickerDate returns the newest date that has a completed EOD archive for
+// the given ticker (manifest present), searching newest-first. Unlike LatestDate
+// it does not assume the globally-newest date contains every ticker. Returns ""
+// if the ticker has no archive on any date.
+func LatestTickerDate(root, ticker string) string {
+	entries, err := os.ReadDir(filepath.Join(root, "eod"))
+	if err != nil {
+		return ""
+	}
+	var dates []string
+	for _, entry := range entries {
+		if entry.IsDir() && len(entry.Name()) == len("2006-01-02") {
+			dates = append(dates, entry.Name())
+		}
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(dates)))
+	for _, date := range dates {
+		if _, err := os.Stat(ManifestPath(ArchivePath(root, date, ticker))); err == nil {
+			return date
+		}
+	}
+	return ""
+}
+
 // TouchLoaded records that the server just loaded date, refreshing the mtime of
 // <root>/<date>/.last-loaded (read by CleanupStale). No-op if the materialized
 // date dir doesn't exist.

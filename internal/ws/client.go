@@ -3,7 +3,7 @@ package ws
 import (
 	"net/http"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,7 +44,8 @@ type Client struct {
 	hub      *Hub
 	conn     *websocket.Conn
 	send     chan []byte
-	closed   atomic.Bool // prevents send after close
+	sendMu   sync.RWMutex // guards send/close so SafeSend never races Close
+	closed   bool         // guarded by sendMu; prevents send after close
 	apiKey   string
 	connID   string
 	groups   map[string]bool
@@ -55,7 +56,11 @@ type Client struct {
 // SafeSend attempts to send a message to the client.
 // Returns true if sent, false if closed or buffer full.
 func (c *Client) SafeSend(msg []byte) bool {
-	if c.closed.Load() {
+	// RLock lets concurrent senders proceed but blocks Close (exclusive) until no
+	// send is in flight, so the channel is never closed mid-send.
+	c.sendMu.RLock()
+	defer c.sendMu.RUnlock()
+	if c.closed {
 		return false
 	}
 	select {
@@ -69,7 +74,10 @@ func (c *Client) SafeSend(msg []byte) bool {
 // Close marks the client as closed and closes the send channel.
 // Safe to call multiple times.
 func (c *Client) Close() {
-	if c.closed.CompareAndSwap(false, true) {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if !c.closed {
+		c.closed = true
 		close(c.send)
 	}
 }
@@ -83,10 +91,17 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse token (format: apiKey:originalConnID)
-	parts := strings.SplitN(token, ":", 2)
+	// Parse token (format: apiKey:originalConnID[:group1,group2,...]).
+	// The optional 3rd field carries prefixed groups to auto-join, set by
+	// POST /negotiate so a client following that contract receives data without
+	// sending joinGroup itself.
+	parts := strings.SplitN(token, ":", 3)
 	apiKey := parts[0]
 	connID := uuid.New().String() // Generate new connID for this connection
+	var autoJoinGroups []string
+	if len(parts) == 3 && parts[2] != "" {
+		autoJoinGroups = strings.Split(parts[2], ",")
+	}
 
 	// Negotiate subprotocol - check what client requested
 	protocol := "protobuf" // default
@@ -123,6 +138,15 @@ func (h *Hub) HandleOrderflowWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.register <- client
+
+	// Auto-join groups requested at negotiate time (POST /negotiate contract).
+	// Each hub joins only the groups its validator accepts, so the same token can
+	// carry groups for every hub and land on the right ones.
+	for _, group := range autoJoinGroups {
+		if group != "" && h.ValidateGroup(group) {
+			h.JoinGroup(client, group)
+		}
+	}
 
 	// Send ConnectedMessage per negotiated protocol
 	var connectedMsg []byte

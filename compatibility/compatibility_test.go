@@ -52,7 +52,10 @@ func TestCompatibilityMatrixCoversCurrentContract(t *testing.T) {
 	readYAML(t, "upstream-openapi.yaml", &upstream)
 
 	expected := operationKeys(upstream, func(method, path string, tags []string) bool {
-		return contains(tags, "Research") || method == "get" && path == "/negotiate"
+		// /negotiate (all methods) is the Azure Web PubSub handshake — a WebSocket
+		// concern the faker serves outside the REST/OpenAPI surface, so it is not
+		// tracked for REST parity (see README).
+		return contains(tags, "Research") || path == "/negotiate"
 	})
 	actual := make([]string, 0, len(matrix))
 	ids := map[string]bool{}
@@ -120,6 +123,127 @@ func TestLiveProbeFixturesAreSanitized(t *testing.T) {
 			}
 		}
 	}
+}
+
+// schemaDoc extracts component schema property names from an OpenAPI spec.
+type schemaDoc struct {
+	Components struct {
+		Schemas map[string]struct {
+			Properties map[string]yaml.Node `yaml:"properties"`
+		} `yaml:"schemas"`
+	} `yaml:"components"`
+}
+
+type liveProbeDoc struct {
+	ObservedAt string `json:"observed_at"`
+	Probes     []struct {
+		Operation string   `json:"operation"`
+		Status    int      `json:"status"`
+		Fields    []string `json:"fields"`
+	} `json:"probes"`
+}
+
+// schemaForOperation maps a live-probe operation to the faker response schema
+// that should describe its body, or "" if the faker does not serve it. The live
+// API prefixes market-data routes with /v2 and carries the ticker in the path;
+// we key off the trailing {package}/{category}[/{sub}] structure.
+func schemaForOperation(operation string) string {
+	parts := strings.SplitN(operation, " ", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	seg := strings.Split(strings.Trim(strings.TrimPrefix(parts[1], "/v2"), "/"), "/")
+	if len(seg) == 1 && seg[0] == "tickers" {
+		return "TickersResponse"
+	}
+	if len(seg) == 2 && seg[0] == "tickers" && seg[1] == "quant" {
+		return "QuantTickersResponse"
+	}
+	// market-data: {ticker}/{package}/{category}[/{sub}]
+	if len(seg) < 3 {
+		return ""
+	}
+	pkg, category, sub := seg[1], seg[2], ""
+	if len(seg) >= 4 {
+		sub = seg[3]
+	}
+	switch pkg {
+	case "classic":
+		switch sub {
+		case "":
+			return "GexData"
+		case "majors":
+			return "GexMajorsData"
+		case "maxchange":
+			return "GexMaxChangeData"
+		}
+	case "state":
+		switch sub {
+		case "":
+			if strings.HasPrefix(category, "gex_") {
+				return "GexData"
+			}
+			return "GreekProfileData"
+		case "majors":
+			return "GexMajorsData"
+		case "maxchange":
+			return "GexMaxChangeData"
+		}
+	case "orderflow":
+		return "OrderflowData"
+	}
+	return ""
+}
+
+// TestServedResponseFieldsMatchLiveProbe asserts that, for every served endpoint
+// captured in the newest live probe, the faker's OpenAPI response schema declares
+// exactly the fields the live API returns. Oracle = the live probe (not the
+// upstream schema, which is too generic for state/orderflow — see AUDIT-*.md).
+func TestServedResponseFieldsMatchLiveProbe(t *testing.T) {
+	probes, err := filepath.Glob("live-probes/*.json")
+	if err != nil || len(probes) == 0 {
+		t.Fatalf("no live probe fixtures: %v", err)
+	}
+	sort.Strings(probes)
+	newest := probes[len(probes)-1] // filenames are dates; last = most recent
+
+	var probe liveProbeDoc
+	readJSON(t, newest, &probe)
+
+	var faker schemaDoc
+	readYAML(t, "../api/openapi.yaml", &faker)
+
+	checked := 0
+	for _, p := range probe.Probes {
+		if p.Status != 200 || len(p.Fields) == 0 {
+			continue
+		}
+		schemaName := schemaForOperation(p.Operation)
+		if schemaName == "" {
+			continue // endpoint the faker does not serve
+		}
+		schema, ok := faker.Components.Schemas[schemaName]
+		if !ok {
+			t.Errorf("%s: schema %q referenced for %s is missing from the faker spec", newest, schemaName, p.Operation)
+			continue
+		}
+		want := append([]string(nil), p.Fields...)
+		got := make([]string, 0, len(schema.Properties))
+		for name := range schema.Properties {
+			got = append(got, name)
+		}
+		sort.Strings(want)
+		sort.Strings(got)
+		if strings.Join(want, ",") != strings.Join(got, ",") {
+			t.Errorf("%s (%s -> %s): response fields drifted from the live API\n  live:  %v\n  faker: %v",
+				p.Operation, newest, schemaName, want, got)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("no served endpoints were checked against the live probe")
+	}
+	t.Logf("verified %d served endpoints against %s", checked, newest)
 }
 
 func operationKeys(doc openAPIDoc, exclude func(string, string, []string) bool) []string {

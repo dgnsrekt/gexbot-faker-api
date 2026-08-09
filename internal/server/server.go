@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,6 +56,8 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	// WebSocket routes (outside OpenAPI validation)
 	if negotiateHandler != nil {
 		r.Get("/negotiate", negotiateHandler.HandleNegotiate)
+		r.Post("/negotiate", negotiateHandler.HandleNegotiatePost)
+		r.Patch("/negotiate", negotiateHandler.HandleNegotiatePatch)
 	}
 	if wsHubs != nil {
 		if wsHubs.Orderflow != nil {
@@ -82,6 +85,9 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	// API routes with compression and OpenAPI validation
 	r.Group(func(apiRouter chi.Router) {
 		apiRouter.Use(middleware.Compress(5))
+		// Auth runs before request validation so a missing Authorization header
+		// fails with the real API's error before any path/param check.
+		apiRouter.Use(authMiddleware)
 		apiRouter.Use(oapimiddleware.OapiRequestValidator(swagger))
 
 		strictHandler := generated.NewStrictHandler(server, nil)
@@ -91,10 +97,80 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	return r, nil
 }
 
+type ctxKey string
+
+// authKeyCtxKey holds the API key parsed from the Authorization header. It seeds
+// each client's playback position (see data.SharedCacheKey / data.CacheKey).
+const authKeyCtxKey ctxKey = "authKey"
+
+// authMiddleware mirrors the real GexBot API: market-data routes authenticate via
+// the Authorization header (Basic or Bearer). The parsed token is stashed in the
+// request context for the handlers; an absent header on a data route is rejected
+// with the exact upstream error body. Faker control/metadata routes stay open.
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := parseAuthToken(r.Header.Get("Authorization"))
+		if token == "" && requiresAuth(r.URL.Path) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"Authorization header not found."}`))
+			return
+		}
+		ctx := context.WithValue(r.Context(), authKeyCtxKey, token)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// parseAuthToken extracts the credential from "Basic <token>" or "Bearer <token>"
+// (the real API accepts both), tolerating a bare token.
+func parseAuthToken(header string) string {
+	if header == "" {
+		return ""
+	}
+	for _, prefix := range []string{"Basic ", "Bearer "} {
+		if strings.HasPrefix(header, prefix) {
+			return strings.TrimSpace(header[len(prefix):])
+		}
+	}
+	return strings.TrimSpace(header)
+}
+
+// requiresAuth reports whether path is a real-API market-data route. It is keyed
+// off the route SHAPE, not a ticker regex: /{ticker}/{classic|state|orderflow}/...
+// and /hist/... require auth for any ticker (including underscore/futures tickers
+// like ES_SPX). Faker extensions — /tickers, /tickers/quant, /{package}/categories,
+// /health, /download/..., control routes — stay open (their 2nd segment is never
+// classic/state/orderflow, and /download carries a date there).
+func requiresAuth(path string) bool {
+	seg := strings.Split(strings.Trim(path, "/"), "/")
+	if len(seg) == 0 {
+		return false
+	}
+	// Historical routes (/hist/eod/..., /hist/{ticker}/...) require auth upstream.
+	if seg[0] == "hist" {
+		return true
+	}
+	if len(seg) >= 2 {
+		switch seg[1] {
+		case "classic", "state", "orderflow":
+			return true
+		}
+	}
+	return false
+}
+
+// authKeyFromContext returns the API key parsed by authMiddleware (empty if none).
+func authKeyFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(authKeyCtxKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
 
 		if r.Method == "OPTIONS" {

@@ -3,50 +3,50 @@
     "id": "classic-chain",
     "method": "GET",
     "path": "/{ticker}/classic/{category}",
-    "status": "behavior-mismatch",
-    "summary": "Route and core JSON shape exist; faker requires a query key instead of Bearer auth and required headers."
+    "status": "compatible",
+    "summary": "Route, auth (Authorization Basic/Bearer header), gex_* path segment, and JSON body all match the live API."
   },
   {
     "id": "state-profile",
     "method": "GET",
     "path": "/{ticker}/state/{category}",
-    "status": "behavior-mismatch",
-    "summary": "Route exists; auth differs and GEX versus Greek response selection needs live fixture verification."
+    "status": "compatible",
+    "summary": "Route, header auth, and GEX vs Greek selection (gex_* vs gamma_zero/etc.) all match the live API."
   },
   {
     "id": "orderflow",
     "method": "GET",
     "path": "/{ticker}/orderflow/{category}",
-    "status": "behavior-mismatch",
-    "summary": "The fixed route and observed live response fields match; auth and required headers differ. The repository OpenAPI overstates the live response fields."
+    "status": "compatible",
+    "summary": "Route, header auth, and observed live response fields match. (Upstream OpenAPI overstates the response; the live probe is the oracle.)"
   },
   {
     "id": "classic-maxchange",
     "method": "GET",
     "path": "/{ticker}/classic/{category}/maxchange",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "state-maxchange",
     "method": "GET",
     "path": "/{ticker}/state/{category}/maxchange",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "classic-majors",
     "method": "GET",
     "path": "/{ticker}/classic/{category}/majors",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "state-majors",
     "method": "GET",
     "path": "/{ticker}/state/{category}/majors",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "tickers",
@@ -59,15 +59,15 @@
     "id": "categories",
     "method": "GET",
     "path": "/{package}/categories",
-    "status": "missing",
-    "summary": "No faker route."
+    "status": "compatible",
+    "summary": "Implemented: returns the package's category names (config.ValidCategories). Matches the live array response."
   },
   {
     "id": "quant-tickers",
     "method": "GET",
     "path": "/tickers/quant",
-    "status": "missing",
-    "summary": "No faker route."
+    "status": "compatible",
+    "summary": "Implemented: returns quant-supported stocks and indexes (no futures), matching the live response fields."
   },
   {
     "id": "option-expiries",
@@ -80,15 +80,15 @@
     "id": "historical-download",
     "method": "GET",
     "path": "/hist/{ticker}/{package}/{category}/{date}",
-    "status": "missing",
-    "summary": "Faker-only download routes do not implement the live redirect, noredirect, and gzip contract."
+    "status": "compatible",
+    "summary": "Implemented: returns a {url} pointing at the faker /download route for that date/ticker/category (mirrors the live URL-indirection)."
   },
   {
     "id": "historical-eod-report",
     "method": "GET",
     "path": "/hist/eod/{ticker}",
-    "status": "missing",
-    "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
+    "status": "compatible",
+    "summary": "Implemented: serves the latest EOD report zip for the ticker (the archive the daemon downloads)."
   },
   {
     "id": "futures-conversion",
@@ -96,19 +96,5 @@
     "path": "/futures/conversion",
     "status": "missing",
     "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
-  },
-  {
-    "id": "websocket-negotiate",
-    "method": "POST",
-    "path": "/negotiate",
-    "status": "missing",
-    "summary": "Faker only implements deprecated GET negotiation with Basic auth and client-side group joins."
-  },
-  {
-    "id": "websocket-update",
-    "method": "PATCH",
-    "path": "/negotiate",
-    "status": "missing",
-    "summary": "No full-replacement group update implementation."
   }
 ]

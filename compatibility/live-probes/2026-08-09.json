@@ -1,0 +1,176 @@
+{
+  "observed_at": "2026-08-09T04:36:50-05:00",
+  "base_url": "https://api.gex.bot",
+  "sanitized": true,
+  "user_agent": "gexbot-faker-audit/1.0",
+  "probes": [
+    {
+      "operation": "GET /v2/tickers",
+      "status": 200,
+      "auth": "none",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "futures",
+        "indexes",
+        "stocks"
+      ]
+    },
+    {
+      "operation": "GET /state/categories",
+      "status": 200,
+      "auth": "none",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "<array>"
+      ]
+    },
+    {
+      "operation": "GET /tickers/quant",
+      "status": 200,
+      "auth": "none",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "indexes",
+        "stocks"
+      ]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "delta_risk_reversal",
+        "major_neg_oi",
+        "major_neg_vol",
+        "major_pos_oi",
+        "major_pos_vol",
+        "max_priors",
+        "min_dte",
+        "sec_min_dte",
+        "spot",
+        "strikes",
+        "sum_gex_oi",
+        "sum_gex_vol",
+        "ticker",
+        "timestamp",
+        "zero_gamma"
+      ]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero/majors",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "mneg_oi",
+        "mneg_vol",
+        "mpos_oi",
+        "mpos_vol",
+        "net_gex_oi",
+        "net_gex_vol",
+        "spot",
+        "ticker",
+        "timestamp",
+        "zero_gamma"
+      ]
+    },
+    {
+      "operation": "GET /v2/SPX/classic/gex_zero/maxchange",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "current",
+        "fifteen",
+        "five",
+        "one",
+        "ten",
+        "thirty",
+        "ticker",
+        "timestamp"
+      ]
+    },
+    {
+      "operation": "GET /v2/SPX/state/gamma_zero",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "major_long_gamma",
+        "major_negative",
+        "major_positive",
+        "major_short_gamma",
+        "min_dte",
+        "mini_contracts",
+        "sec_min_dte",
+        "spot",
+        "ticker",
+        "timestamp"
+      ]
+    },
+    {
+      "operation": "GET /v2/SPX/orderflow/orderflow",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "agg_call_dex",
+        "agg_dex",
+        "agg_put_dex",
+        "cvroflow",
+        "dexoflow",
+        "gexoflow",
+        "net_call_dex",
+        "net_dex",
+        "net_put_dex",
+        "o_mlgamma",
+        "o_msgamma",
+        "ocharm",
+        "ocvr",
+        "ogr",
+        "one_agg_call_dex",
+        "one_agg_dex",
+        "one_agg_put_dex",
+        "one_cvroflow",
+        "one_dexoflow",
+        "one_gexoflow",
+        "one_mcall",
+        "one_mput",
+        "one_net_call_dex",
+        "one_net_dex",
+        "one_net_put_dex",
+        "ovanna",
+        "spot",
+        "ticker",
+        "timestamp",
+        "z_mlgamma",
+        "z_msgamma",
+        "zcharm",
+        "zcvr",
+        "zero_mcall",
+        "zero_mput",
+        "zgr",
+        "zvanna"
+      ]
+    },
+    {
+      "operation": "GET /v2/options/SPX/expiries",
+      "status": 200,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "end_date",
+        "expiries",
+        "start_date",
+        "ticker"
+      ]
+    },
+    {
+      "operation": "GET /v2/futures/conversion",
+      "status": 400,
+      "auth": "basic-header",
+      "content_type": "application/json; charset=utf-8"
+    }
+  ]
+}

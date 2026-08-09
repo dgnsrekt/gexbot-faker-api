@@ -51,16 +51,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX major levels
@@ -110,16 +102,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX max change data
@@ -170,16 +154,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX chain data
@@ -231,16 +207,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX profile major levels
@@ -292,16 +260,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX profile max change data
@@ -358,16 +318,8 @@ paths:
           description: "Aggregation period (full, zero, one) OR Greek type (delta_zero, gamma_zero, etc.)"
           schema:
             type: string
-            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
+          example: gex_zero
       responses:
         '200':
           description: Profile data (GexData for aggregations, GreekProfileData for greeks)
@@ -414,14 +366,6 @@ paths:
             type: string
             pattern: '^[A-Z_]{1,10}$'
           example: SPX
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
       responses:
         '200':
           description: Orderflow metrics data
@@ -454,6 +398,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TickersResponse'
+
+  /tickers/quant:
+    get:
+      operationId: getTickersQuant
+      summary: List quant-supported tickers
+      description: Stocks and indexes available for quant endpoints (no futures).
+      tags: [info]
+      responses:
+        '200':
+          description: Quant-supported tickers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuantTickersResponse'
+
+  /{package}/categories:
+    get:
+      operationId: getPackageCategories
+      summary: List categories for a package
+      description: "Returns the category names supported by a data package."
+      tags: [info]
+      parameters:
+        - name: package
+          in: path
+          required: true
+          description: "Data package: state, classic, or orderflow"
+          schema:
+            type: string
+            enum: [state, classic, orderflow]
+          example: classic
+      responses:
+        '200':
+          description: Category names for the package
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Invalid package
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hist/eod/{ticker}:
+    get:
+      operationId: getHistEod
+      summary: Download the latest end-of-day archive
+      description: Returns the most recent EOD report archive (zip) for a ticker.
+      tags: [hist]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Ticker symbol (e.g., SPX)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+      responses:
+        '200':
+          description: EOD report archive
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No archive available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hist/{ticker}/{package}/{category}/{date}:
+    get:
+      operationId: getHistSnapshot
+      summary: Historical snapshot download link
+      description: |
+        Returns a URL to the historical snapshot for a ticker/package/category on
+        a given date. Mirrors the live API's URL-indirection response.
+      tags: [hist]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+        - name: package
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [state, classic, orderflow]
+          example: classic
+        - name: category
+          in: path
+          required: true
+          description: "Category within the package (e.g. gex_zero, gamma_zero, orderflow)"
+          schema:
+            type: string
+          example: gex_zero
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          example: 2026-08-07
+        - name: noredirect
+          in: query
+          required: false
+          allowEmptyValue: true
+          description: |
+            Presence-only flag (live/client form is a bare `?noredirect`). When
+            present, the JSON `{url}` body is returned; when absent, a 302 redirect
+            to that URL is returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshot download URL (returned when ?noredirect is present)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistSnapshotResponse'
+        '302':
+          description: Redirect to the snapshot URL (returned when noredirect is absent)
+          headers:
+            Location:
+              description: URL of the historical snapshot
+              schema:
+                type: string
+        '404':
+          description: Snapshot not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /health:
     get:
@@ -686,8 +773,8 @@ paths:
           description: DTE aggregation period
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: JSONL file download
@@ -732,8 +819,8 @@ paths:
           description: Type parameter (aggregation or greek type)
           schema:
             type: string
-            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
-          example: zero
+            enum: [gex_full, gex_zero, gex_one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
+          example: gex_zero
       responses:
         '200':
           description: JSONL file download
@@ -872,6 +959,31 @@ components:
             type: string
           description: Array of futures ticker symbols
           example: ["ES_SPX", "NQ_NDX"]
+
+    HistSnapshotResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          description: URL to the historical snapshot data
+          example: /download/2026-08-07/SPX/classic/gex_zero
+      required: [url]
+
+    QuantTickersResponse:
+      type: object
+      properties:
+        stocks:
+          type: array
+          items:
+            type: string
+          description: Array of quant-supported stock ticker symbols
+          example: ["AAPL", "NVDA", "TSLA"]
+        indexes:
+          type: array
+          items:
+            type: string
+          description: Array of quant-supported index ticker symbols
+          example: ["SPX", "NDX"]
 
     HealthResponse:
       type: object
