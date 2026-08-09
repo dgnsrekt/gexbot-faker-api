@@ -73,8 +73,8 @@
     "id": "option-expiries",
     "method": "GET",
     "path": "/options/{ticker}/expiries",
-    "status": "missing",
-    "summary": "No faker route or explicit-expiry discovery implementation."
+    "status": "compatible",
+    "summary": "Implemented: expiries over the loaded date + 90-day horizon; near-term dates grounded in the data min_dte/sec_min_dte, the rest from the options calendar."
   },
   {
     "id": "historical-download",

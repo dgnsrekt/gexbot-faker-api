@@ -542,6 +542,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /options/{ticker}/expiries:
+    get:
+      operationId: getOptionsExpiries
+      summary: List valid option expiries
+      description: |
+        Returns valid option expiration dates for a ticker over the published
+        horizon: the loaded data date through +90 calendar days. Near-term
+        expiries are grounded in the loaded data's min_dte/sec_min_dte; the rest
+        follow the options calendar (daily near-term for index/major-ETF tickers,
+        then weekly). Remove dashes to form explicit-expiry WebSocket group
+        suffixes (2026-07-17 -> 20260717).
+      tags: [options]
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          description: Canonical option-owning ticker (e.g., SPX, SPY, QQQ)
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,5}$'
+          example: SPX
+      responses:
+        '200':
+          description: Valid option expiries within the horizon
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExpiriesResponse'
+        '404':
+          description: No expiries available (current date is not a calendar date)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /health:
     get:
       operationId: getHealth
@@ -959,6 +994,31 @@ components:
             type: string
           description: Array of futures ticker symbols
           example: ["ES_SPX", "NQ_NDX"]
+
+    ExpiriesResponse:
+      type: object
+      required: [ticker, start_date, end_date, expiries]
+      properties:
+        ticker:
+          type: string
+          description: Canonical ticker used for the expiry lookup
+          example: SPX
+        start_date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Start of the published horizon (the loaded data date)
+          example: 2026-08-07
+        end_date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: End of the horizon (start date + 90 calendar days)
+          example: 2026-11-05
+        expiries:
+          type: array
+          items:
+            type: string
+            pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Valid option expiries in YYYY-MM-DD within the horizon
 
     HistSnapshotResponse:
       type: object
