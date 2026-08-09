@@ -7,6 +7,9 @@ on:
   schedule:
     - cron: "17 13 * * *" # daily ~13:17 UTC; one hit on the endpoint, not per push
   workflow_dispatch: {}
+# Read-only: this scheduled, network-facing job only checks out and runs a check.
+permissions:
+  contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
