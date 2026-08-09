@@ -158,6 +158,57 @@ func (h *Hub) LeaveGroup(client *Client, group string) {
 	)
 }
 
+// SetKeyGroups replaces the group memberships of every client authenticated with
+// apiKey on this hub with exactly `groups` (leaving unrequested groups, joining
+// requested ones). Groups this hub does not validate are ignored. It returns the
+// number of distinct groups the key is subscribed to on this hub afterward (0 if
+// no such client is connected). This backs PATCH /negotiate's replace semantics.
+func (h *Hub) SetKeyGroups(apiKey string, groups []string) int {
+	desired := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		if h.ValidateGroup(g) {
+			desired[g] = true
+		}
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	active := make(map[string]bool)
+	for client := range h.clients {
+		if client.apiKey != apiKey {
+			continue
+		}
+		// Leave groups no longer requested.
+		for g := range client.groups {
+			if !desired[g] {
+				if clients, ok := h.groups[g]; ok {
+					delete(clients, client)
+					if len(clients) == 0 {
+						delete(h.groups, g)
+					}
+				}
+				delete(client.groups, g)
+			}
+		}
+		// Join newly requested groups.
+		for g := range desired {
+			if !client.groups[g] {
+				if h.groups[g] == nil {
+					h.groups[g] = make(map[*Client]bool)
+				}
+				h.groups[g][client] = true
+				client.groups[g] = true
+			}
+			active[g] = true
+		}
+		for g := range client.groups {
+			active[g] = true
+		}
+	}
+	return len(active)
+}
+
 // GetActiveGroups returns all groups with at least one subscriber.
 func (h *Hub) GetActiveGroups() []string {
 	h.mu.RLock()

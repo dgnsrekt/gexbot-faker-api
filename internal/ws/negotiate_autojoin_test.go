@@ -55,6 +55,56 @@ func TestPostNegotiateAutoJoin(t *testing.T) {
 	}
 }
 
+// TestPatchReplacesMemberships proves PATCH /negotiate's replace semantics: an
+// omitted group is left (unsubscribed) and the requested group is joined, against
+// the live connection for the API key.
+func TestPatchReplacesMemberships(t *testing.T) {
+	hub := NewHub("classic", zap.NewNop(), IsValidClassicGroup)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+
+	srv := httptest.NewServer(http.HandlerFunc(hub.HandleOrderflowWS))
+	defer srv.Close()
+
+	initial := "blue_SPX_classic_gex_zero"
+	token := url.QueryEscape("testkey:conn-1:" + initial)
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws/classic?access_token=" + token
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	// Wait for the initial auto-join.
+	active := func() map[string]bool {
+		m := map[string]bool{}
+		for _, g := range hub.GetActiveGroups() {
+			m[g] = true
+		}
+		return m
+	}
+	for i := 0; i < 100 && !active()[initial]; i++ {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !active()[initial] {
+		t.Fatalf("initial group %q never joined", initial)
+	}
+
+	// PATCH: replace gex_zero with gex_one for this key.
+	replacement := "blue_SPX_classic_gex_one"
+	if n := hub.SetKeyGroups("testkey", []string{replacement}); n != 1 {
+		t.Fatalf("expected 1 active group after replace, got %d", n)
+	}
+	a := active()
+	if a[initial] {
+		t.Errorf("omitted group %q should have been left", initial)
+	}
+	if !a[replacement] {
+		t.Errorf("requested group %q should be joined", replacement)
+	}
+}
+
 // TestPlainNegotiateNoAutoJoin confirms a token without a group field (the GET
 // /negotiate flow) joins nothing on connect.
 func TestPlainNegotiateNoAutoJoin(t *testing.T) {

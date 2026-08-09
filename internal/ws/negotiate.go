@@ -21,11 +21,18 @@ type NegotiateResponse struct {
 type NegotiateHandler struct {
 	logger *zap.Logger
 	prefix string
+	hubs   map[string]*Hub // hub name -> hub, for PATCH group management
 }
 
 // NewNegotiateHandler creates a new NegotiateHandler.
 func NewNegotiateHandler(logger *zap.Logger, prefix string) *NegotiateHandler {
 	return &NegotiateHandler{logger: logger, prefix: prefix}
+}
+
+// SetHubs wires the WebSocket hubs (keyed by hub name) so PATCH /negotiate can
+// replace live group memberships. Safe to call once at startup before serving.
+func (h *NegotiateHandler) SetHubs(hubs map[string]*Hub) {
+	h.hubs = hubs
 }
 
 // apiKeyFromAuthHeader extracts the key from "Basic <key>" or "Bearer <key>"
@@ -134,14 +141,17 @@ type NegotiatePatchRequest struct {
 	} `json:"groups"`
 }
 
-// NegotiatePatchResponse matches the live PATCH /negotiate response.
+// NegotiatePatchResponse matches the live PATCH /negotiate response: updated_groups
+// is the number of group entries applied, and hubs maps each touched hub to its
+// active group count for the API key.
 type NegotiatePatchResponse struct {
-	UpdatedGroups int                 `json:"updated_groups"`
-	Hubs          map[string][]string `json:"hubs"`
+	UpdatedGroups int            `json:"updated_groups"`
+	Hubs          map[string]int `json:"hubs"`
 }
 
-// HandleNegotiatePatch handles PATCH /negotiate: it updates group subscriptions
-// and reports how many were updated plus the resulting hub->groups mapping.
+// HandleNegotiatePatch handles PATCH /negotiate: it replaces the API key's group
+// memberships on each named hub against the connected clients and returns the
+// resulting active group count per hub.
 func (h *NegotiateHandler) HandleNegotiatePatch(w http.ResponseWriter, r *http.Request) {
 	apiKey := apiKeyFromAuthHeader(r)
 	if apiKey == "" {
@@ -151,14 +161,28 @@ func (h *NegotiateHandler) HandleNegotiatePatch(w http.ResponseWriter, r *http.R
 	var req NegotiatePatchRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	hubs := map[string][]string{}
+	// Group the requested memberships by hub, prefixing to internal form.
+	byHub := map[string][]string{}
 	for _, g := range req.Groups {
-		hubs[g.Hub] = append(hubs[g.Hub], g.Group)
+		if g.Hub != "" && g.Group != "" {
+			byHub[g.Hub] = append(byHub[g.Hub], h.prefix+"_"+g.Group)
+		}
+	}
+
+	hubs := map[string]int{}
+	updated := 0
+	for hubName, groups := range byHub {
+		hub := h.hubs[hubName]
+		if hub == nil {
+			continue // unknown/unwired hub — skip
+		}
+		hubs[hubName] = hub.SetKeyGroups(apiKey, groups)
+		updated += len(groups)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(NegotiatePatchResponse{
-		UpdatedGroups: len(req.Groups),
+		UpdatedGroups: updated,
 		Hubs:          hubs,
 	}); err != nil {
 		h.logger.Error("failed to encode negotiate patch response", zap.Error(err))

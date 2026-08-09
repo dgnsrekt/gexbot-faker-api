@@ -198,6 +198,16 @@ func run() int {
 		}
 		go greekOneStreamer.Run(ctx)
 
+		// Wire the hubs into the negotiate handler so PATCH /negotiate can manage
+		// group memberships (keys match the websocket_urls hub names).
+		negotiateHandler.SetHubs(map[string]*ws.Hub{
+			"orderflow":         orderflowHub,
+			"state_gex":         stateGexHub,
+			"classic":           classicHub,
+			"state_greeks_zero": stateGreeksZeroHub,
+			"state_greeks_one":  stateGreeksOneHub,
+		})
+
 		logger.Info("WebSocket enabled",
 			zap.Strings("hubs", []string{"orderflow", "state_gex", "classic", "state_greeks_zero", "state_greeks_one"}),
 			zap.Duration("streamInterval", cfg.WSStreamInterval),
