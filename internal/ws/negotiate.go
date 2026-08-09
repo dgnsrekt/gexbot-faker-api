@@ -189,12 +189,15 @@ func (h *NegotiateHandler) HandleNegotiatePatch(w http.ResponseWriter, r *http.R
 	// The payload is the complete desired set: iterate every configured hub so a
 	// hub absent from the request is cleared (SetKeyGroups with an empty slice),
 	// not left with stale memberships.
+	// updated_groups is the total ACTIVE group count after replacement — use the
+	// count SetKeyGroups actually applies (deduped, hub-validated), not the raw
+	// request-entry count which would over-report duplicates and rejected groups.
 	hubs := map[string]int{}
 	updated := 0
 	for hubName, hub := range h.hubs {
-		groups := byHub[hubName]
-		hubs[hubName] = hub.SetKeyGroups(apiKey, groups)
-		updated += len(groups)
+		count := hub.SetKeyGroups(apiKey, byHub[hubName])
+		hubs[hubName] = count
+		updated += count
 	}
 
 	w.Header().Set("Content-Type", "application/json")

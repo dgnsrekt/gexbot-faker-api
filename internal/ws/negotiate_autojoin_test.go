@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -211,6 +212,55 @@ func TestPatchClearsOmittedHub(t *testing.T) {
 	}
 	if o := activeSet(orderflow); len(o) != 0 {
 		t.Errorf("omitted hub orderflow should be cleared, got %v", o)
+	}
+}
+
+// TestPatchCountDedupsAndValidates covers PR #26 review: updated_groups is the
+// active group count after replacement, so duplicate entries and hub-rejected
+// groups must not inflate it.
+func TestPatchCountDedupsAndValidates(t *testing.T) {
+	classic := NewHub("classic", zap.NewNop(), IsValidClassicGroup)
+	orderflow := NewHub("orderflow", zap.NewNop(), IsValidOrderflowGroup)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go classic.Run(ctx)
+	go orderflow.Run(ctx)
+
+	neg := NewNegotiateHandler(zap.NewNop(), "blue")
+	neg.SetHubs(map[string]*Hub{"classic": classic, "orderflow": orderflow})
+
+	csrv := httptest.NewServer(http.HandlerFunc(classic.HandleOrderflowWS))
+	defer csrv.Close()
+	cconn := dialAutoJoin(t, csrv, "/ws/classic", "blue_SPX_classic_gex_zero")
+	defer func() { _ = cconn.Close() }()
+	waitActive(t, classic, "blue_SPX_classic_gex_zero")
+
+	// 3 entries: the same valid group twice + one invalid group for the hub.
+	body := `{"groups":[` +
+		`{"hub":"classic","group":"SPX_classic_gex_zero"},` +
+		`{"hub":"classic","group":"SPX_classic_gex_zero"},` +
+		`{"hub":"classic","group":"bogus"}]}`
+	req := httptest.NewRequest("PATCH", "/negotiate", strings.NewReader(body))
+	req.Header.Set("Authorization", "Basic testkey")
+	rec := httptest.NewRecorder()
+	neg.HandleNegotiatePatch(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		UpdatedGroups int            `json:"updated_groups"`
+		Hubs          map[string]int `json:"hubs"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	// One distinct valid group is active — not 3.
+	if resp.UpdatedGroups != 1 {
+		t.Errorf("updated_groups = %d, want 1 (deduped, valid-only)", resp.UpdatedGroups)
+	}
+	if resp.Hubs["classic"] != 1 {
+		t.Errorf("hubs[classic] = %d, want 1", resp.Hubs["classic"])
 	}
 }
 
