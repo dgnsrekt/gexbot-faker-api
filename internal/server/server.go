@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -82,6 +84,9 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	// API routes with compression and OpenAPI validation
 	r.Group(func(apiRouter chi.Router) {
 		apiRouter.Use(middleware.Compress(5))
+		// Auth runs before request validation so a missing Authorization header
+		// fails with the real API's error before any path/param check.
+		apiRouter.Use(authMiddleware)
 		apiRouter.Use(oapimiddleware.OapiRequestValidator(swagger))
 
 		strictHandler := generated.NewStrictHandler(server, nil)
@@ -89,6 +94,69 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	})
 
 	return r, nil
+}
+
+type ctxKey string
+
+// authKeyCtxKey holds the API key parsed from the Authorization header. It seeds
+// each client's playback position (see data.SharedCacheKey / data.CacheKey).
+const authKeyCtxKey ctxKey = "authKey"
+
+var tickerPathRe = regexp.MustCompile(`^[A-Z]{1,5}$`)
+
+// authMiddleware mirrors the real GexBot API: market-data routes authenticate via
+// the Authorization header (Basic or Bearer). The parsed token is stashed in the
+// request context for the handlers; an absent header on a data route is rejected
+// with the exact upstream error body. Faker control/metadata routes stay open.
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := parseAuthToken(r.Header.Get("Authorization"))
+		if token == "" && requiresAuth(r.URL.Path) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"Authorization header not found."}`))
+			return
+		}
+		ctx := context.WithValue(r.Context(), authKeyCtxKey, token)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// parseAuthToken extracts the credential from "Basic <token>" or "Bearer <token>"
+// (the real API accepts both), tolerating a bare token.
+func parseAuthToken(header string) string {
+	if header == "" {
+		return ""
+	}
+	for _, prefix := range []string{"Basic ", "Bearer "} {
+		if strings.HasPrefix(header, prefix) {
+			return strings.TrimSpace(header[len(prefix):])
+		}
+	}
+	return strings.TrimSpace(header)
+}
+
+// requiresAuth reports whether path is a real-API market-data route
+// (/{TICKER}/{classic|state|orderflow}/...). Faker extensions — /tickers,
+// /health, /download/..., control routes — stay open.
+func requiresAuth(path string) bool {
+	seg := strings.Split(strings.Trim(path, "/"), "/")
+	if len(seg) < 2 || !tickerPathRe.MatchString(seg[0]) {
+		return false
+	}
+	switch seg[1] {
+	case "classic", "state", "orderflow":
+		return true
+	}
+	return false
+}
+
+// authKeyFromContext returns the API key parsed by authMiddleware (empty if none).
+func authKeyFromContext(ctx context.Context) string {
+	if v, ok := ctx.Value(authKeyCtxKey).(string); ok {
+		return v
+	}
+	return ""
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

@@ -51,16 +51,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX major levels
@@ -110,16 +102,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX max change data
@@ -170,16 +154,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX chain data
@@ -231,16 +207,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX profile major levels
@@ -292,16 +260,8 @@ paths:
           description: "Aggregation period: full, zero, or one"
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: GEX profile max change data
@@ -358,16 +318,8 @@ paths:
           description: "Aggregation period (full, zero, one) OR Greek type (delta_zero, gamma_zero, etc.)"
           schema:
             type: string
-            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
-          example: zero
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
+            enum: [gex_full, gex_zero, gex_one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
+          example: gex_zero
       responses:
         '200':
           description: Profile data (GexData for aggregations, GreekProfileData for greeks)
@@ -414,14 +366,6 @@ paths:
             type: string
             pattern: '^[A-Z_]{1,10}$'
           example: SPX
-        - name: key
-          in: query
-          required: true
-          description: API key for playback position tracking
-          schema:
-            type: string
-            minLength: 1
-          example: test1234
       responses:
         '200':
           description: Orderflow metrics data
@@ -686,8 +630,8 @@ paths:
           description: DTE aggregation period
           schema:
             type: string
-            enum: [full, zero, one]
-          example: zero
+            enum: [gex_full, gex_zero, gex_one]
+          example: gex_zero
       responses:
         '200':
           description: JSONL file download
@@ -732,8 +676,8 @@ paths:
           description: Type parameter (aggregation or greek type)
           schema:
             type: string
-            enum: [full, zero, one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
-          example: zero
+            enum: [gex_full, gex_zero, gex_one, delta_zero, gamma_zero, delta_one, gamma_one, charm_zero, vanna_zero, charm_one, vanna_one]
+          example: gex_zero
       responses:
         '200':
           description: JSONL file download

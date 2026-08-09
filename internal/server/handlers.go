@@ -67,10 +67,10 @@ var _ generated.StrictServerInterface = (*Server)(nil)
 func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetClassicGexMajorsRequestObject) (generated.GetClassicGexMajorsResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex majors request",
@@ -153,10 +153,10 @@ func (s *Server) GetClassicGexMajors(ctx context.Context, request generated.GetC
 func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.GetClassicGexMaxChangeRequestObject) (generated.GetClassicGexMaxChangeResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex max change request",
@@ -251,10 +251,10 @@ func (s *Server) GetClassicGexMaxChange(ctx context.Context, request generated.G
 func (s *Server) GetClassicGexChain(ctx context.Context, request generated.GetClassicGexChainRequestObject) (generated.GetClassicGexChainResponseObject, error) {
 	ticker := request.Ticker
 	aggregation := string(request.Aggregation)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map aggregation to internal category format
-	category := "gex_" + aggregation // full→gex_full, zero→gex_zero, one→gex_one
+	category := aggregation // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "classic"
 
 	s.logger.Debug("classic gex chain request",
@@ -563,7 +563,7 @@ func mapDataKeyToWSHubs(pkg, category string) []string {
 }
 
 // Type classification helpers
-var aggregationTypes = map[string]bool{"full": true, "zero": true, "one": true}
+var aggregationTypes = map[string]bool{"gex_full": true, "gex_zero": true, "gex_one": true}
 var greekTypes = map[string]bool{
 	"delta_zero": true, "gamma_zero": true, "delta_one": true, "gamma_one": true,
 	"charm_zero": true, "vanna_zero": true, "charm_one": true, "vanna_one": true,
@@ -574,7 +574,7 @@ var greekTypes = map[string]bool{
 func (s *Server) GetStateProfile(ctx context.Context, request generated.GetStateProfileRequestObject) (generated.GetStateProfileResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 	pkg := "state"
 
 	s.logger.Debug("state profile request",
@@ -587,7 +587,7 @@ func (s *Server) GetStateProfile(ctx context.Context, request generated.GetState
 	var category string
 	isGreek := greekTypes[typeParam]
 	if aggregationTypes[typeParam] {
-		category = "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+		category = typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	} else if isGreek {
 		category = typeParam // delta_zero, gamma_zero, etc.
 	} else {
@@ -731,10 +731,10 @@ func (s *Server) GetStateProfile(ctx context.Context, request generated.GetState
 func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetStateGexMajorsRequestObject) (generated.GetStateGexMajorsResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map type to internal category format
-	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+	category := typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "state"
 
 	s.logger.Debug("state gex majors request",
@@ -819,10 +819,10 @@ func (s *Server) GetStateGexMajors(ctx context.Context, request generated.GetSta
 func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.GetStateGexMaxChangeRequestObject) (generated.GetStateGexMaxChangeResponseObject, error) {
 	ticker := request.Ticker
 	typeParam := string(request.Type)
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 
 	// Map type to internal category format
-	category := "gex_" + typeParam // full→gex_full, zero→gex_zero, one→gex_one
+	category := typeParam // path segment already carries the gex_ prefix (gex_full/gex_zero/gex_one)
 	pkg := "state"
 
 	s.logger.Debug("state gex max change request",
@@ -918,7 +918,7 @@ func (s *Server) GetStateGexMaxChange(ctx context.Context, request generated.Get
 // GetOrderflowLatest implements generated.StrictServerInterface
 func (s *Server) GetOrderflowLatest(ctx context.Context, request generated.GetOrderflowLatestRequestObject) (generated.GetOrderflowLatestResponseObject, error) {
 	ticker := request.Ticker
-	apiKey := request.Params.Key
+	apiKey := authKeyFromContext(ctx)
 	pkg := "orderflow"
 	category := "orderflow"
 
@@ -1311,7 +1311,7 @@ func (s *Server) DownloadClassicGex(ctx context.Context, request generated.Downl
 	_ = eod.MaterializeTicker(s.config.DataDir, date, ticker, s.logger)
 
 	// Construct file path: {DataDir}/{date}/{ticker}/classic/gex_{aggregation}.jsonl
-	category := "gex_" + aggregation
+	category := aggregation
 	filePath := filepath.Join(s.config.DataDir, date, ticker, "classic", category+".jsonl")
 
 	// Check if file exists
@@ -1359,7 +1359,7 @@ func (s *Server) DownloadStateData(ctx context.Context, request generated.Downlo
 	// Determine category based on type (same logic as GetStateProfile)
 	var category string
 	if aggregationTypes[typeParam] {
-		category = "gex_" + typeParam
+		category = typeParam
 	} else if greekTypes[typeParam] {
 		category = typeParam
 	} else {

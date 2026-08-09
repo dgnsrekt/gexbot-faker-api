@@ -3,50 +3,50 @@
     "id": "classic-chain",
     "method": "GET",
     "path": "/{ticker}/classic/{category}",
-    "status": "behavior-mismatch",
-    "summary": "Route and core JSON shape exist; faker requires a query key instead of Bearer auth and required headers."
+    "status": "compatible",
+    "summary": "Route, auth (Authorization Basic/Bearer header), gex_* path segment, and JSON body all match the live API."
   },
   {
     "id": "state-profile",
     "method": "GET",
     "path": "/{ticker}/state/{category}",
-    "status": "behavior-mismatch",
-    "summary": "Route exists; auth differs and GEX versus Greek response selection needs live fixture verification."
+    "status": "compatible",
+    "summary": "Route, header auth, and GEX vs Greek selection (gex_* vs gamma_zero/etc.) all match the live API."
   },
   {
     "id": "orderflow",
     "method": "GET",
     "path": "/{ticker}/orderflow/{category}",
-    "status": "behavior-mismatch",
-    "summary": "The fixed route and observed live response fields match; auth and required headers differ. The repository OpenAPI overstates the live response fields."
+    "status": "compatible",
+    "summary": "Route, header auth, and observed live response fields match. (Upstream OpenAPI overstates the response; the live probe is the oracle.)"
   },
   {
     "id": "classic-maxchange",
     "method": "GET",
     "path": "/{ticker}/classic/{category}/maxchange",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "state-maxchange",
     "method": "GET",
     "path": "/{ticker}/state/{category}/maxchange",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "classic-majors",
     "method": "GET",
     "path": "/{ticker}/classic/{category}/majors",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "state-majors",
     "method": "GET",
     "path": "/{ticker}/state/{category}/majors",
-    "status": "behavior-mismatch",
-    "summary": "Route and top-level JSON fields exist; auth and required headers differ."
+    "status": "compatible",
+    "summary": "Route, header auth, gex_* path, and top-level fields all match the live API."
   },
   {
     "id": "tickers",
