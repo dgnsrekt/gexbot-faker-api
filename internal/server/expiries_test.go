@@ -259,3 +259,19 @@ func TestOptionsExpiriesVIXUsesWednesday(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateExpiriesVIXThirtyDayHoliday(t *testing.T) {
+	// VIX Wednesday 2026-03-04 is open, but its SPX Friday 30 days later
+	// (2026-04-03, Good Friday) is a holiday, so Cboe moves the VIX expiration to
+	// the preceding business day (Tuesday 2026-03-03).
+	anchor := mustDate(t, "2026-02-20")
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := dateSet(generateExpiries(anchor, end, false, time.Wednesday))
+
+	if got["2026-03-04"] {
+		t.Error("VIX 2026-03-04 must shift: its SPX Friday (2026-04-03) is Good Friday")
+	}
+	if !got["2026-03-03"] {
+		t.Error("VIX expiration should move to the preceding business day 2026-03-03")
+	}
+}

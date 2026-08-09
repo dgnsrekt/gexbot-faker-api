@@ -107,6 +107,20 @@ func isMarketDay(d time.Time) bool {
 	return !isMarketHoliday(d)
 }
 
+// weeklyExpiryValid reports whether t is a valid weekly expiration for weeklyDay.
+// VIX (Wednesday) additionally requires the related SPX expiration 30 days later
+// to be a trading day: Cboe moves VIX expiration to the preceding business day
+// when that Friday is a holiday, even if the Wednesday itself is open.
+func weeklyExpiryValid(t time.Time, weeklyDay time.Weekday) bool {
+	if !isMarketDay(t) {
+		return false
+	}
+	if weeklyDay == time.Wednesday { // VIX
+		return isMarketDay(t.AddDate(0, 0, 30))
+	}
+	return true
+}
+
 // generateExpiries returns valid option expiration dates (YYYY-MM-DD) within
 // [anchor, end], inclusive. It uses the NYSE session/holiday calendar: daily
 // tickers get every trading day for the first dailyExpiryWindowDays; all tickers
@@ -126,9 +140,10 @@ func generateExpiries(anchor, end time.Time, daily bool, weeklyDay time.Weekday,
 			add(d) // daily near-term (add() skips weekends/holidays)
 		}
 		if d.Weekday() == weeklyDay {
-			// Weekly expiration; roll earlier when the day is a market holiday.
+			// Weekly expiration; roll earlier when the day is invalid (a market
+			// holiday, or for VIX also when the SPX Friday 30 days later is closed).
 			exp := d
-			for !isMarketDay(exp) && !exp.Before(anchor) {
+			for !weeklyExpiryValid(exp, weeklyDay) && !exp.Before(anchor) {
 				exp = exp.AddDate(0, 0, -1)
 			}
 			add(exp)
