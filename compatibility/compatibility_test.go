@@ -52,7 +52,10 @@ func TestCompatibilityMatrixCoversCurrentContract(t *testing.T) {
 	readYAML(t, "upstream-openapi.yaml", &upstream)
 
 	expected := operationKeys(upstream, func(method, path string, tags []string) bool {
-		return contains(tags, "Research") || method == "get" && path == "/negotiate"
+		// /negotiate (all methods) is the Azure Web PubSub handshake — a WebSocket
+		// concern the faker serves outside the REST/OpenAPI surface, so it is not
+		// tracked for REST parity (see README).
+		return contains(tags, "Research") || path == "/negotiate"
 	})
 	actual := make([]string, 0, len(matrix))
 	ids := map[string]bool{}

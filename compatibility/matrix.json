@@ -96,19 +96,5 @@
     "path": "/futures/conversion",
     "status": "missing",
     "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
-  },
-  {
-    "id": "websocket-negotiate",
-    "method": "POST",
-    "path": "/negotiate",
-    "status": "missing",
-    "summary": "Faker only implements deprecated GET negotiation with Basic auth and client-side group joins."
-  },
-  {
-    "id": "websocket-update",
-    "method": "PATCH",
-    "path": "/negotiate",
-    "status": "missing",
-    "summary": "No full-replacement group update implementation."
   }
 ]

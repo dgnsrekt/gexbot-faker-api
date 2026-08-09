@@ -57,6 +57,8 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	// WebSocket routes (outside OpenAPI validation)
 	if negotiateHandler != nil {
 		r.Get("/negotiate", negotiateHandler.HandleNegotiate)
+		r.Post("/negotiate", negotiateHandler.HandleNegotiatePost)
+		r.Patch("/negotiate", negotiateHandler.HandleNegotiatePatch)
 	}
 	if wsHubs != nil {
 		if wsHubs.Orderflow != nil {
