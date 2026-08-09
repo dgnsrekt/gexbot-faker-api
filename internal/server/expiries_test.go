@@ -1,9 +1,43 @@
 package server
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
+	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 )
+
+func dateSet(xs []string) map[string]bool {
+	m := make(map[string]bool, len(xs))
+	for _, x := range xs {
+		m[x] = true
+	}
+	return m
+}
+
+// stubExpiryLoader is a minimal DataLoader for the expiries handler tests.
+type stubExpiryLoader struct {
+	exists bool
+	minDTE int
+	secDTE int
+}
+
+func (s stubExpiryLoader) GetAtIndex(_ context.Context, _, _, _ string, _ int) (*data.GexData, error) {
+	return &data.GexData{MinDTE: s.minDTE, SecMinDTE: s.secDTE}, nil
+}
+func (s stubExpiryLoader) GetRawAtIndex(_ context.Context, _, _, _ string, _ int) ([]byte, error) {
+	return nil, nil
+}
+func (s stubExpiryLoader) GetLength(_, _, _ string) (int, error) { return 1, nil }
+func (s stubExpiryLoader) Exists(_, _, _ string) bool            { return s.exists }
+func (s stubExpiryLoader) GetLoadedKeys() []string               { return nil }
+func (s stubExpiryLoader) FindIndexByTimestamp(_ context.Context, _, _, _ string, _ int64) (int, int64, error) {
+	return 0, 0, nil
+}
+func (s stubExpiryLoader) Close() error { return nil }
 
 func mustDate(t *testing.T, s string) time.Time {
 	t.Helper()
@@ -91,5 +125,93 @@ func TestGenerateExpiriesPinsRealDates(t *testing.T) {
 		if mustDate(t, d).After(end) {
 			t.Errorf("out-of-horizon pinned date leaked: %s", d)
 		}
+	}
+}
+
+func TestGenerateExpiriesExcludesHolidays(t *testing.T) {
+	// Window spanning observed Independence Day: 2026-07-04 is a Saturday, so the
+	// market closes Friday 2026-07-03.
+	anchor := mustDate(t, "2026-06-26")
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := dateSet(generateExpiries(anchor, end, true))
+
+	if got["2026-07-03"] {
+		t.Error("observed Independence Day 2026-07-03 must not be an expiry")
+	}
+	// The weekly expiration shifts to the prior trading day (Thursday 2026-07-02).
+	if !got["2026-07-02"] {
+		t.Error("weekly expiry should shift to 2026-07-02 when the Friday is a holiday")
+	}
+}
+
+func TestGenerateExpiriesGoodFridayShift(t *testing.T) {
+	// Good Friday 2026 is 2026-04-03 (a Friday market holiday).
+	anchor := mustDate(t, "2026-03-27")
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := dateSet(generateExpiries(anchor, end, false)) // weekly-only ticker
+
+	if got["2026-04-03"] {
+		t.Error("Good Friday 2026-04-03 must not be an expiry")
+	}
+	if !got["2026-04-02"] {
+		t.Error("weekly expiry should shift to Thursday 2026-04-02 on Good Friday week")
+	}
+}
+
+func TestGenerateExpiriesWeeklyStockOnFriday(t *testing.T) {
+	// A weekly-only ticker (daily=false) loaded on a Friday must produce Fridays
+	// only — no Mon-Thu contracts.
+	anchor := mustDate(t, "2026-08-07") // Friday
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := generateExpiries(anchor, end, false)
+	for _, d := range got {
+		if mustDate(t, d).Weekday() != time.Friday {
+			t.Errorf("weekly-only calendar has non-Friday %s", d)
+		}
+	}
+	if !dateSet(got)["2026-08-07"] {
+		t.Error("anchor Friday should be a weekly expiry")
+	}
+}
+
+func TestOptionsExpiriesWeeklyStockStaysWeekly(t *testing.T) {
+	// A weekly stock loaded on a Friday has min_dte==0 (an expiry today) but must
+	// NOT be classified daily — regression for the removed min_dte inference.
+	const ticker = "AAPL"
+	if !config.ValidTickers[ticker] || config.FutureTickers[ticker] || dailyExpiryTickers[ticker] {
+		t.Skipf("%s is not a valid weekly stock in this build", ticker)
+	}
+	srv := &Server{
+		loader: stubExpiryLoader{exists: true, minDTE: 0, secDTE: 7},
+		config: &config.ServerConfig{DataDate: "2026-08-07"}, // Friday
+	}
+	resp, err := srv.GetOptionsExpiries(context.Background(),
+		generated.GetOptionsExpiriesRequestObject{Ticker: ticker})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, isOK := resp.(generated.GetOptionsExpiries200JSONResponse)
+	if !isOK {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	for _, d := range ok.Expiries {
+		if mustDate(t, d).Weekday() != time.Friday {
+			t.Errorf("weekly stock produced non-Friday expiry %s (min_dte=0 wrongly treated as daily)", d)
+		}
+	}
+}
+
+func TestOptionsExpiriesUnknownTicker(t *testing.T) {
+	srv := &Server{
+		loader: stubExpiryLoader{},
+		config: &config.ServerConfig{DataDate: "2026-08-07"},
+	}
+	resp, err := srv.GetOptionsExpiries(context.Background(),
+		generated.GetOptionsExpiriesRequestObject{Ticker: "ZZZZ"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := resp.(generated.GetOptionsExpiries400JSONResponse); !ok {
+		t.Errorf("unsupported ticker should return 400, got %T", resp)
 	}
 }

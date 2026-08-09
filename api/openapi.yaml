@@ -570,6 +570,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExpiriesResponse'
+        '400':
+          description: Unsupported or invalid option ticker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No expiries available (current date is not a calendar date)
           content:
