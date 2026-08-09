@@ -350,6 +350,12 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 			logger.Error("failed to update tracker after backfill", zap.Error(err))
 			return false
 		}
+		// A backfilled download just succeeded — record it so last-success stays
+		// consistent with the tracker this run advanced. Without this, a
+		// startup that only backfills (e.g. a weekend, no live runDownload after)
+		// keeps reporting the pre-backfill seed until the next restart. Matches
+		// runDownload's SetToCurrentTime, placed after the tracker write.
+		observability.DaemonLastSuccess.SetToCurrentTime()
 	}
 	return true
 }
