@@ -27,6 +27,14 @@ func DefaultTickers() []string {
 	return []string{"SPX", "NDX", "RUT", "SPY", "QQQ", "IWM"}
 }
 
+// IndexTickers is the set of tickers reported as "indexes" by the /tickers
+// endpoint. Kept beside ValidTickers so classification lives in one documented
+// place rather than a magic literal in the handler. Futures-converted tickers
+// (containing "_", e.g. ES_SPX, NQ_NDX) are classified as futures, not indexes.
+var IndexTickers = map[string]bool{
+	"SPX": true, "NDX": true, "RUT": true, "VIX": true,
+}
+
 // ValidTickers lists all supported tickers (41 total)
 var ValidTickers = map[string]bool{
 	// Indices
