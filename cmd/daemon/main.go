@@ -87,6 +87,19 @@ func run() int {
 	// Create scheduler and tracker
 	scheduler := NewScheduler(daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)
 	tracker := NewDownloadTracker(daemonCfg.StateFile)
+
+	observability.RegisterDaemon()
+	// Seed last-success from the persisted tracker date so "last success age"
+	// reflects the last known download instead of the Unix epoch (~56 years) when
+	// this process hasn't performed a download yet (e.g. today's data was already
+	// present on startup). A live successful download later overwrites it with the
+	// exact time.
+	if last := tracker.GetLastDownloadDate(); last != "" {
+		if d, perr := time.Parse("2006-01-02", last); perr == nil {
+			observability.DaemonLastSuccess.Set(float64(d.Unix()))
+		}
+	}
+
 	runTimeout := time.Duration(daemonCfg.RunTimeoutMinutes) * time.Minute
 	cleanupTTL := time.Duration(cfg.Output.CleanupAfterDays) * 24 * time.Hour
 	var lastCleanup time.Time
