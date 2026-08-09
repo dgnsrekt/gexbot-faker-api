@@ -40,9 +40,14 @@ type HistoryResponse struct {
 
 func NewClient(baseURL, apiKey string, ratePerSec int, timeout, retryDelay time.Duration, retryCount int, logger *zap.Logger) *HTTPClient {
 	transport := &http.Transport{
-		MaxIdleConns:       100,
-		MaxConnsPerHost:    10,
-		IdleConnTimeout:    90 * time.Second,
+		MaxIdleConns:    100,
+		MaxConnsPerHost: 10,
+		IdleConnTimeout: 90 * time.Second,
+		// Keep transparent gzip ON. The /hist download host serves historical
+		// files with Content-Encoding: gzip (the endpoint is "transitioning to
+		// gzip-only"). With this false, Go auto-adds Accept-Encoding: gzip and
+		// transparently decompresses — but ONLY when the request doesn't set that
+		// header itself, which is why downloadFileOnce deliberately never does.
 		DisableCompression: false,
 	}
 
@@ -208,6 +213,13 @@ func (c *HTTPClient) DownloadFile(ctx context.Context, url string, dest io.Write
 }
 
 func (c *HTTPClient) downloadFileOnce(ctx context.Context, url string, dest io.Writer) (int64, error) {
+	// Do NOT set an Accept-Encoding header here. The /hist file host serves
+	// gzip'd payloads with Content-Encoding: gzip, and Go's transport only
+	// transparently decompresses when *it* added Accept-Encoding: gzip (i.e. the
+	// caller didn't). Setting that header manually flips Go into "the caller
+	// handles decompression" mode, so io.Copy below would write raw gzip bytes to
+	// disk and the downstream JSON->JSONL conversion would fail. If explicit
+	// control is ever needed, set the header AND wrap resp.Body in gzip.NewReader.
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, fmt.Errorf("creating request: %w", err)
@@ -223,6 +235,7 @@ func (c *HTTPClient) downloadFileOnce(ctx context.Context, url string, dest io.W
 		return 0, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	// Stream to destination
+	// Stream to destination (Go has already transparently decompressed any
+	// Content-Encoding: gzip response — see downloadFileOnce's header note).
 	return io.Copy(dest, resp.Body)
 }
