@@ -1,6 +1,10 @@
 package observability
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
 	HTTPRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -86,11 +90,32 @@ var (
 	})
 )
 
-func init() {
-	prometheus.MustRegister(
-		HTTPRequests, HTTPRequestDuration, HTTPInFlight, HTTPResponseBytes,
-		WSConnections, WSConnectionsTotal, WSActiveGroups, WSMessagesSent, WSMessageBytes, WSSendErrors, WSLastBroadcast,
-		DataLoadedTimestamp, DataDateTimestamp, Reloads, ReloadDuration, ReloadInProgress, CacheReads, CacheResets, SyncBroadcasts,
-		DaemonRuns, DaemonDuration, DaemonInProgress, DaemonFiles, DaemonLastSuccess, DaemonNextRun,
-	)
+var (
+	registerServerOnce sync.Once
+	registerDaemonOnce sync.Once
+)
+
+// RegisterServer registers only the metrics the API/server binary emits. Metrics
+// are registered per binary (rather than a package init) so the daemon does not
+// export server-only series as phantom zeros and vice versa — a bare `time() -
+// <metric>` on an unset zero reads as ~56 years (the Unix epoch) on the wrong
+// instance. Idempotent, so tests may call it more than once.
+func RegisterServer() {
+	registerServerOnce.Do(func() {
+		prometheus.MustRegister(
+			HTTPRequests, HTTPRequestDuration, HTTPInFlight, HTTPResponseBytes,
+			WSConnections, WSConnectionsTotal, WSActiveGroups, WSMessagesSent, WSMessageBytes, WSSendErrors, WSLastBroadcast,
+			DataLoadedTimestamp, DataDateTimestamp, Reloads, ReloadDuration, ReloadInProgress, CacheReads, CacheResets, SyncBroadcasts,
+		)
+	})
+}
+
+// RegisterDaemon registers only the metrics the daemon binary emits. See
+// RegisterServer for why registration is split by binary. Idempotent.
+func RegisterDaemon() {
+	registerDaemonOnce.Do(func() {
+		prometheus.MustRegister(
+			DaemonRuns, DaemonDuration, DaemonInProgress, DaemonFiles, DaemonLastSuccess, DaemonNextRun,
+		)
+	})
 }
