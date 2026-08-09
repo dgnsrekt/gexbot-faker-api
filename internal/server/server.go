@@ -141,6 +141,13 @@ func parseAuthToken(header string) string {
 // /health, /download/..., control routes — stay open.
 func requiresAuth(path string) bool {
 	seg := strings.Split(strings.Trim(path, "/"), "/")
+	if len(seg) == 0 {
+		return false
+	}
+	// Historical routes (/hist/eod/..., /hist/{ticker}/...) require auth upstream.
+	if seg[0] == "hist" {
+		return true
+	}
 	if len(seg) < 2 || !tickerPathRe.MatchString(seg[0]) {
 		return false
 	}

@@ -439,6 +439,46 @@ func (s *Server) GetPackageCategories(ctx context.Context, request generated.Get
 	return generated.GetPackageCategories200JSONResponse(out), nil
 }
 
+// GetHistEod implements generated.StrictServerInterface. Serves the most recent
+// EOD report archive (zip) for a ticker — the same archive the daemon downloads.
+func (s *Server) GetHistEod(ctx context.Context, request generated.GetHistEodRequestObject) (generated.GetHistEodResponseObject, error) {
+	date, _ := eod.LatestDate(s.config.DataDir)
+	if date == "" {
+		return generated.GetHistEod404JSONResponse{Error: ptr("No EOD archive available for " + request.Ticker)}, nil
+	}
+	f, err := os.Open(eod.ArchivePath(s.config.DataDir, date, request.Ticker))
+	if err != nil {
+		return generated.GetHistEod404JSONResponse{Error: ptr("No EOD archive available for " + request.Ticker)}, nil
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return generated.GetHistEod404JSONResponse{Error: ptr(err.Error())}, nil
+	}
+	// The generated Visit closes Body (an *os.File is an io.ReadCloser).
+	return generated.GetHistEod200ApplicationzipResponse{Body: f, ContentLength: info.Size()}, nil
+}
+
+// GetHistSnapshot implements generated.StrictServerInterface. Mirrors the live
+// API's URL-indirection: it returns a URL to the snapshot rather than the data.
+// The faker points at its own /download route for that date/ticker/category.
+func (s *Server) GetHistSnapshot(ctx context.Context, request generated.GetHistSnapshotRequestObject) (generated.GetHistSnapshotResponseObject, error) {
+	pkg := string(request.Package)
+	// A snapshot exists only if we archived that date/ticker.
+	if _, err := os.Stat(eod.ManifestPath(eod.ArchivePath(s.config.DataDir, request.Date, request.Ticker))); err != nil {
+		return generated.GetHistSnapshot404JSONResponse{
+			Error: ptr("No snapshot for " + request.Ticker + "/" + pkg + "/" + request.Category + " on " + request.Date),
+		}, nil
+	}
+	var url string
+	if pkg == "orderflow" {
+		url = fmt.Sprintf("/download/%s/%s/orderflow", request.Date, request.Ticker)
+	} else {
+		url = fmt.Sprintf("/download/%s/%s/%s/%s", request.Date, request.Ticker, pkg, request.Category)
+	}
+	return generated.GetHistSnapshot200JSONResponse{Url: url}, nil
+}
+
 // GetHealth implements generated.StrictServerInterface
 func (s *Server) GetHealth(ctx context.Context, request generated.GetHealthRequestObject) (generated.GetHealthResponseObject, error) {
 	status := "ok"

@@ -80,15 +80,15 @@
     "id": "historical-download",
     "method": "GET",
     "path": "/hist/{ticker}/{package}/{category}/{date}",
-    "status": "missing",
-    "summary": "Faker-only download routes do not implement the live redirect, noredirect, and gzip contract."
+    "status": "compatible",
+    "summary": "Implemented: returns a {url} pointing at the faker /download route for that date/ticker/category (mirrors the live URL-indirection)."
   },
   {
     "id": "historical-eod-report",
     "method": "GET",
     "path": "/hist/eod/{ticker}",
-    "status": "missing",
-    "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
+    "status": "compatible",
+    "summary": "Implemented: serves the latest EOD report zip for the ticker (the archive the daemon downloads)."
   },
   {
     "id": "futures-conversion",
