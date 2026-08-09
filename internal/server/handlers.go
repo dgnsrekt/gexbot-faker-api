@@ -394,6 +394,51 @@ func (s *Server) GetTickers(ctx context.Context, request generated.GetTickersReq
 	}, nil
 }
 
+// GetTickersQuant implements generated.StrictServerInterface. Mirrors the live
+// /tickers/quant route: stocks and indexes only (no futures).
+func (s *Server) GetTickersQuant(ctx context.Context, request generated.GetTickersQuantRequestObject) (generated.GetTickersQuantResponseObject, error) {
+	tickerSet := make(map[string]bool)
+	for _, key := range s.loader.GetLoadedKeys() {
+		if parts := strings.Split(key, "/"); len(parts) >= 1 {
+			tickerSet[parts[0]] = true
+		}
+	}
+
+	stocks := []string{}
+	indexes := []string{}
+	for ticker := range tickerSet {
+		switch {
+		case config.IndexTickers[ticker]:
+			indexes = append(indexes, ticker)
+		case config.FutureTickers[ticker]:
+			// futures are not exposed on the quant endpoint
+		default:
+			stocks = append(stocks, ticker)
+		}
+	}
+	sort.Strings(stocks)
+	sort.Strings(indexes)
+
+	return generated.GetTickersQuant200JSONResponse{
+		Stocks:  &stocks,
+		Indexes: &indexes,
+	}, nil
+}
+
+// GetPackageCategories implements generated.StrictServerInterface. Returns the
+// category names a data package supports (mirrors the live /{package}/categories).
+func (s *Server) GetPackageCategories(ctx context.Context, request generated.GetPackageCategoriesRequestObject) (generated.GetPackageCategoriesResponseObject, error) {
+	cats, ok := config.ValidCategories[config.Package(request.Package)]
+	if !ok {
+		return generated.GetPackageCategories400JSONResponse{
+			Error: ptr("Invalid package: " + string(request.Package)),
+		}, nil
+	}
+	out := append([]string(nil), cats...)
+	sort.Strings(out)
+	return generated.GetPackageCategories200JSONResponse(out), nil
+}
+
 // GetHealth implements generated.StrictServerInterface
 func (s *Server) GetHealth(ctx context.Context, request generated.GetHealthRequestObject) (generated.GetHealthResponseObject, error) {
 	status := "ok"
@@ -1196,11 +1241,11 @@ func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvai
 			var packageName generated.PackageDataName
 			switch pkgName {
 			case "classic":
-				packageName = generated.Classic
+				packageName = generated.PackageDataNameClassic
 			case "state":
-				packageName = generated.State
+				packageName = generated.PackageDataNameState
 			case "orderflow":
-				packageName = generated.Orderflow
+				packageName = generated.PackageDataNameOrderflow
 			default:
 				continue
 			}

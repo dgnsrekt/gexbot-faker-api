@@ -153,6 +153,9 @@ func schemaForOperation(operation string) string {
 	if len(seg) == 1 && seg[0] == "tickers" {
 		return "TickersResponse"
 	}
+	if len(seg) == 2 && seg[0] == "tickers" && seg[1] == "quant" {
+		return "QuantTickersResponse"
+	}
 	// market-data: {ticker}/{package}/{category}[/{sub}]
 	if len(seg) < 3 {
 		return ""

@@ -59,15 +59,15 @@
     "id": "categories",
     "method": "GET",
     "path": "/{package}/categories",
-    "status": "missing",
-    "summary": "No faker route."
+    "status": "compatible",
+    "summary": "Implemented: returns the package's category names (config.ValidCategories). Matches the live array response."
   },
   {
     "id": "quant-tickers",
     "method": "GET",
     "path": "/tickers/quant",
-    "status": "missing",
-    "summary": "No faker route."
+    "status": "compatible",
+    "summary": "Implemented: returns quant-supported stocks and indexes (no futures), matching the live response fields."
   },
   {
     "id": "option-expiries",

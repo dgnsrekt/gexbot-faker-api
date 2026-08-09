@@ -399,6 +399,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/TickersResponse'
 
+  /tickers/quant:
+    get:
+      operationId: getTickersQuant
+      summary: List quant-supported tickers
+      description: Stocks and indexes available for quant endpoints (no futures).
+      tags: [info]
+      responses:
+        '200':
+          description: Quant-supported tickers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuantTickersResponse'
+
+  /{package}/categories:
+    get:
+      operationId: getPackageCategories
+      summary: List categories for a package
+      description: "Returns the category names supported by a data package."
+      tags: [info]
+      parameters:
+        - name: package
+          in: path
+          required: true
+          description: "Data package: state, classic, or orderflow"
+          schema:
+            type: string
+            enum: [state, classic, orderflow]
+          example: classic
+      responses:
+        '200':
+          description: Category names for the package
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '400':
+          description: Invalid package
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /health:
     get:
       operationId: getHealth
@@ -816,6 +861,22 @@ components:
             type: string
           description: Array of futures ticker symbols
           example: ["ES_SPX", "NQ_NDX"]
+
+    QuantTickersResponse:
+      type: object
+      properties:
+        stocks:
+          type: array
+          items:
+            type: string
+          description: Array of quant-supported stock ticker symbols
+          example: ["AAPL", "NVDA", "TSLA"]
+        indexes:
+          type: array
+          items:
+            type: string
+          description: Array of quant-supported index ticker symbols
+          example: ["SPX", "NDX"]
 
     HealthResponse:
       type: object
