@@ -22,30 +22,12 @@ var ValidCategories = map[Package][]string{
 	PackageOrderflow: {"orderflow"},
 }
 
-// DefaultTickers returns a default set of common tickers
+// DefaultTickers returns a default set of common tickers to download when the
+// config doesn't specify any. This is a curated convenience default, not the
+// full universe — see tickers.json / ValidTickers for the complete set.
 func DefaultTickers() []string {
 	return []string{"SPX", "NDX", "RUT", "SPY", "QQQ", "IWM"}
 }
 
-// IndexTickers is the set of tickers reported as "indexes" by the /tickers
-// endpoint. Kept beside ValidTickers so classification lives in one documented
-// place rather than a magic literal in the handler. Futures-converted tickers
-// (containing "_", e.g. ES_SPX, NQ_NDX) are classified as futures, not indexes.
-var IndexTickers = map[string]bool{
-	"SPX": true, "NDX": true, "RUT": true, "VIX": true,
-}
-
-// ValidTickers lists all supported tickers (41 total)
-var ValidTickers = map[string]bool{
-	// Indices
-	"SPX": true, "ES_SPX": true, "NDX": true, "NQ_NDX": true, "RUT": true, "VIX": true,
-	// ETFs
-	"SPY": true, "QQQ": true, "TQQQ": true, "UVXY": true, "IWM": true, "TLT": true,
-	"GLD": true, "USO": true, "SLV": true, "HYG": true, "IBIT": true,
-	// Stocks
-	"AAPL": true, "TSLA": true, "MSFT": true, "AMZN": true, "NVDA": true, "META": true,
-	"NFLX": true, "AVGO": true, "MSTR": true, "GOOG": true, "GOOGL": true, "AMD": true,
-	"SMCI": true, "COIN": true, "PLTR": true, "APP": true, "BABA": true, "SNOW": true,
-	"IONQ": true, "HOOD": true, "CRWD": true, "MU": true, "CRWV": true, "INTC": true,
-	"UNH": true, "VALE": true, "SOFI": true, "GME": true, "TSM": true, "ORCL": true, "RDDT": true,
-}
+// ValidTickers, IndexTickers, and FutureTickers are synced from GEXbot's
+// /tickers endpoint and live in tickers.go (backed by the embedded tickers.json).
