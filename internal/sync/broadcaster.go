@@ -13,6 +13,7 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 // timestampExtractor is a minimal struct for extracting just the timestamp from raw JSON.
@@ -37,11 +38,11 @@ type SyncBroadcaster struct {
 
 // sseClient represents a connected SSE subscriber.
 type sseClient struct {
-	apiKey   string
-	dataCh   chan []byte
-	doneCh   chan struct{}
-	flusher  http.Flusher
-	writer   http.ResponseWriter
+	apiKey  string
+	dataCh  chan []byte
+	doneCh  chan struct{}
+	flusher http.Flusher
+	writer  http.ResponseWriter
 }
 
 // NewSyncBroadcaster creates a new sync broadcaster.
@@ -119,7 +120,7 @@ func (sb *SyncBroadcaster) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	defer sb.removeClient(client)
 
 	sb.logger.Info("sync client connected",
-		zap.String("api_key", apiKey),
+		zap.String("api_key", maskAPIKey(apiKey)),
 		zap.String("remote_addr", r.RemoteAddr),
 	)
 
@@ -135,7 +136,7 @@ func (sb *SyncBroadcaster) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			sb.logger.Info("sync client disconnected",
-				zap.String("api_key", apiKey),
+				zap.String("api_key", maskAPIKey(apiKey)),
 			)
 			return
 		case <-client.doneCh:
@@ -214,7 +215,7 @@ func (sb *SyncBroadcaster) buildPositions(ctx context.Context, apiKey string) []
 		length, err := sb.loader.GetLength(ticker, pkg, category)
 		if err != nil {
 			sb.logger.Debug("failed to get data length",
-				zap.String("cache_key", cacheKey),
+				zap.String("cache_key", maskCacheKey(cacheKey)),
 				zap.Error(err),
 			)
 			continue
@@ -358,10 +359,12 @@ func (sb *SyncBroadcaster) broadcastToAll(ctx context.Context) {
 
 		select {
 		case client.dataCh <- eventData:
+			observability.SyncBroadcasts.WithLabelValues("sent").Inc()
 		default:
+			observability.SyncBroadcasts.WithLabelValues("dropped").Inc()
 			// Channel full, client is slow
 			sb.logger.Debug("client channel full, dropping batch",
-				zap.String("api_key", client.apiKey),
+				zap.String("api_key", maskAPIKey(client.apiKey)),
 			)
 		}
 	}
@@ -394,13 +397,7 @@ func (sb *SyncBroadcaster) formatEvent(eventType string, data interface{}) ([]by
 	return []byte(event), nil
 }
 
-// maskAPIKey masks an API key, showing only the first 4 characters.
-func maskAPIKey(key string) string {
-	if len(key) <= 4 {
-		return "****"
-	}
-	return key[:4] + "****"
-}
+func maskAPIKey(string) string { return "[REDACTED]" }
 
 // maskCacheKey masks the API key portion of a cache key.
 // Supports formats: ticker/pkg/category/apiKey, ticker/pkg/apiKey, ws/hub/ticker/category/apiKey

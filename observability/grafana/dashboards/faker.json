@@ -1,0 +1,21 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"id": 1, "title": "Targets", "type": "stat", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "up{job=~\"faker-api|faker-daemon\"}", "legendFormat": "{{job}}"}], "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}},
+    {"id": 2, "title": "HTTP requests / second", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "sum(rate(faker_http_requests_total[5m])) by (route, status_class)", "legendFormat": "{{route}} {{status_class}}"}], "gridPos": {"h": 8, "w": 18, "x": 6, "y": 0}},
+    {"id": 3, "title": "HTTP p95 latency", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le, route))", "legendFormat": "{{route}}"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}},
+    {"id": 4, "title": "WebSocket connections", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "faker_ws_connections", "legendFormat": "{{hub}}"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}},
+    {"id": 5, "title": "WebSocket messages / second", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "sum(rate(faker_ws_messages_sent_total[5m])) by (hub, format)", "legendFormat": "{{hub}} {{format}}"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}},
+    {"id": 6, "title": "Data age", "type": "stat", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "time() - faker_data_date_timestamp_seconds"}], "fieldConfig": {"defaults": {"unit": "s"}}, "gridPos": {"h": 4, "w": 6, "x": 12, "y": 16}},
+    {"id": 7, "title": "Daemon last success age", "type": "stat", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "time() - faker_daemon_last_success_timestamp_seconds"}], "fieldConfig": {"defaults": {"unit": "s"}}, "gridPos": {"h": 4, "w": 6, "x": 18, "y": 16}},
+    {"id": 8, "title": "Go memory", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "go_memstats_alloc_bytes", "legendFormat": "{{job}}"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}}
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": ["faker", "observability"],
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "Faker API Observability",
+  "uid": "faker-observability",
+  "version": 1
+}

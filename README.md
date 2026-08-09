@@ -8,6 +8,8 @@ https://github.com/user-attachments/assets/e7b82f7a-311c-493f-bd48-32e7ba572196
 
 NOTE: This only downloads and replays GexBot market data.
 
+Optional authenticated monitoring is documented in [OBSERVABILITY.md](OBSERVABILITY.md).
+
 ## Features
 
 - REST API with Swagger UI documentation at `/docs`

@@ -1,0 +1,27 @@
+discovery.docker "faker" {
+  host = "unix:///var/run/docker.sock"
+  filter {
+    name   = "label"
+    values = ["observability.logs=true"]
+  }
+}
+
+discovery.relabel "faker" {
+  targets = discovery.docker.faker.targets
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "faker" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.faker.output
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 	"go.uber.org/zap"
 )
 
@@ -63,8 +64,18 @@ func (h *Hub) Run(ctx context.Context) {
 
 		case client := <-h.register:
 			h.mu.Lock()
+			firstClient := len(h.clients) == 0
 			h.clients[client] = true
 			h.mu.Unlock()
+			observability.WSConnections.WithLabelValues(h.name).Inc()
+			observability.WSConnectionsTotal.WithLabelValues(h.name).Inc()
+			if firstClient {
+				// Start the stall clock when the hub becomes active so
+				// FakerWebSocketStalled can fire even before the first broadcast
+				// creates the last-broadcast series. Only on the 0->1 transition,
+				// so a steady stream of reconnects can't keep masking a real stall.
+				observability.WSLastBroadcast.WithLabelValues(h.name).SetToCurrentTime()
+			}
 			h.logger.Debug("client registered",
 				zap.String("hub", h.name),
 				zap.String("connID", client.connID),
@@ -72,6 +83,11 @@ func (h *Hub) Run(ctx context.Context) {
 
 		case client := <-h.unregister:
 			h.mu.Lock()
+			// Only adjust the connection gauge when this client was actually
+			// present: unregister can be queued twice (a failed broadcast plus
+			// readPump's defer), and map deletion is idempotent but the gauge
+			// is not — an unconditional Dec would drive it negative.
+			removed := false
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				// Remove from all groups
@@ -84,8 +100,14 @@ func (h *Hub) Run(ctx context.Context) {
 					}
 				}
 				client.Close()
+				removed = true
 			}
+			activeGroups := len(h.groups)
 			h.mu.Unlock()
+			if removed {
+				observability.WSConnections.WithLabelValues(h.name).Dec()
+				observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(activeGroups))
+			}
 			h.logger.Debug("client unregistered",
 				zap.String("hub", h.name),
 				zap.String("connID", client.connID),
@@ -130,6 +152,7 @@ func (h *Hub) JoinGroup(client *Client, group string) {
 	}
 	h.groups[group][client] = true
 	client.groups[group] = true
+	observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.groups)))
 
 	h.logger.Debug("client joined group",
 		zap.String("hub", h.name),
@@ -150,6 +173,7 @@ func (h *Hub) LeaveGroup(client *Client, group string) {
 		}
 	}
 	delete(client.groups, group)
+	observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.groups)))
 
 	h.logger.Debug("client left group",
 		zap.String("hub", h.name),
@@ -219,6 +243,11 @@ func (h *Hub) SetKeyGroups(apiKey string, groups []string) int {
 			active[g] = true
 		}
 	}
+	// PATCH /negotiate mutates h.groups directly, so refresh the hub-wide active
+	// group gauge here too (h.groups already has empty groups pruned above). Uses
+	// len(h.groups) under the held lock — GetActiveGroups would re-lock and
+	// deadlock. Matches the convention in JoinGroup/LeaveGroup.
+	observability.WSActiveGroups.WithLabelValues(h.name).Set(float64(len(h.groups)))
 	return len(active)
 }
 
@@ -337,10 +366,15 @@ func (h *Hub) BroadcastToClients(clients []*Client, group string, encodedData []
 			msg = buildDataMessage(group, encodedData, typeUrl)
 		}
 		if !client.SafeSend(msg) {
+			observability.WSSendErrors.WithLabelValues(h.name).Inc()
 			// Buffer full or closed, schedule disconnect
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
+			continue
 		}
+		observability.WSMessagesSent.WithLabelValues(h.name, client.protocol).Inc()
+		observability.WSMessageBytes.WithLabelValues(h.name, client.protocol).Add(float64(len(msg)))
+		observability.WSLastBroadcast.WithLabelValues(h.name).SetToCurrentTime()
 	}
 }

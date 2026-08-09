@@ -15,6 +15,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/data"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 // ReloadManager coordinates data reloading across server components.
@@ -83,11 +84,19 @@ type ReloadResult struct {
 // Reload validates the new date, loads new data, swaps the loader, and resets the cache.
 // Returns error if reload fails (original data remains intact in that case).
 func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadResult, error) {
+	started := time.Now()
+	result := "failed"
+	defer func() {
+		observability.ReloadDuration.Observe(time.Since(started).Seconds())
+		observability.Reloads.WithLabelValues(result).Inc()
+	}()
 	// Prevent concurrent reloads
 	if !rm.reloadMu.TryLock() {
 		return nil, fmt.Errorf("reload already in progress")
 	}
 	defer rm.reloadMu.Unlock()
+	observability.ReloadInProgress.Set(1)
+	defer observability.ReloadInProgress.Set(0)
 
 	previousDate := rm.CurrentDate()
 
@@ -156,6 +165,11 @@ func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadRes
 
 	// Resume streamers
 	rm.isReloading.Store(false)
+	result = "success"
+	observability.DataLoadedTimestamp.SetToCurrentTime()
+	if date, err := time.Parse("2006-01-02", newDate); err == nil {
+		observability.DataDateTimestamp.Set(float64(date.Unix()))
+	}
 
 	// Close old loader (release resources)
 	if err := oldLoader.Close(); err != nil {

@@ -29,6 +29,8 @@ help:
     @echo "  just logs                Follow all container logs"
     @echo "  just api-logs            Follow API logs only"
     @echo "  just daemon-logs         Follow daemon logs only"
+    @echo "  just observability-up    Start authenticated monitoring"
+    @echo "  just observability-up-no-auth  Start monitoring without auth"
     @echo ""
     @echo "Common Commands"
     @echo ""
@@ -158,3 +160,24 @@ api-logs:
 # Follow daemon logs only
 daemon-logs:
     docker compose logs -f --tail 100 gex-daemon
+
+# Start the opt-in observability stack with gateway authentication.
+observability-up:
+    #!/usr/bin/env sh
+    set -eu
+    test -n "${OBSERVABILITY_PASSWORD:-}" || { echo "OBSERVABILITY_PASSWORD is required" >&2; exit 1; }
+    test -n "${NTFY_TOPIC:-}" || { echo "NTFY_TOPIC is required for alert delivery" >&2; exit 1; }
+    docker compose --profile observability up -d --build
+
+# Trusted-LAN convenience mode; does not change the faker API.
+observability-up-no-auth:
+    #!/usr/bin/env sh
+    set -eu
+    test -n "${NTFY_TOPIC:-}" || { echo "NTFY_TOPIC is required for alert delivery" >&2; exit 1; }
+    OBSERVABILITY_AUTH_ENABLED=false docker compose --profile observability up -d --build
+
+observability-down:
+    docker compose --profile observability down
+
+observability-logs:
+    docker compose --profile observability logs -f --tail 100

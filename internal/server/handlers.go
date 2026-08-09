@@ -1133,13 +1133,7 @@ func f32ptr(v float64) *float32 {
 	return &f
 }
 
-// maskAPIKey returns a masked version of the API key showing only first 4 chars
-func maskAPIKey(key string) string {
-	if len(key) <= 4 {
-		return key
-	}
-	return key[:4] + "****"
-}
+func maskAPIKey(string) string { return "[REDACTED]" }
 
 // maskCacheKey masks the API key portion of a cache key (format: ticker/pkg/category/apiKey)
 func maskCacheKey(cacheKey string) string {
