@@ -577,6 +577,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /futures/conversion:
+    get:
+      operationId: getFuturesConversion
+      summary: Get spot-to-futures conversion parameters
+      description: |
+        Returns the active front-month futures contract and affine conversion
+        parameters (spot ~= multiplier * future + additive) for an index/future
+        pair. The faker derives the contract code from the loaded date and uses a
+        fixed per-pair basis; multiplier/additive are synthesized (no futures feed).
+      tags: [futures]
+      parameters:
+        - name: ticker
+          in: query
+          description: Index/ETF ticker
+          schema:
+            type: string
+            enum: [SPX, SPY, NDX, QQQ, RUT, IWM, DIA, GLD, USO]
+          example: SPX
+        - name: future
+          in: query
+          description: Futures root
+          schema:
+            type: string
+            enum: [ES, NQ, RTY, YM, GC, CL]
+          example: ES
+        - name: model
+          in: query
+          required: false
+          description: Conversion model
+          schema:
+            type: string
+            enum: [additive, multiplicative, affine]
+            default: additive
+          example: additive
+      responses:
+        '200':
+          description: Futures conversion parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FuturesConversionResponse'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /health:
     get:
       operationId: getHealth
@@ -994,6 +1042,25 @@ components:
             type: string
           description: Array of futures ticker symbols
           example: ["ES_SPX", "NQ_NDX"]
+
+    FuturesConversionResponse:
+      type: object
+      required: [future_contract, multiplier, additive]
+      properties:
+        future_contract:
+          type: string
+          description: Active front-month futures contract code (e.g. ESU6)
+          example: ESU6
+        multiplier:
+          type: number
+          format: double
+          description: Multiplicative term of the affine conversion
+          example: 1
+        additive:
+          type: number
+          format: double
+          description: Additive term of the affine conversion
+          example: 23.6657268366
 
     ExpiriesResponse:
       type: object

@@ -94,7 +94,7 @@
     "id": "futures-conversion",
     "method": "GET",
     "path": "/futures/conversion",
-    "status": "missing",
-    "summary": "Live-doc-only endpoint; absent from the faker and nfa-llc OpenAPI repository."
+    "status": "compatible",
+    "summary": "Implemented: front-month contract code from the loaded date + fixed per-pair basis rendered in additive/multiplicative/affine models. Required ticker/future validated with the live error bodies."
   }
 ]

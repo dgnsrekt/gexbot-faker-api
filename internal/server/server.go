@@ -146,9 +146,9 @@ func requiresAuth(path string) bool {
 	if len(seg) == 0 {
 		return false
 	}
-	// Historical (/hist/...) and options (/options/{ticker}/expiries) routes
-	// require auth upstream.
-	if seg[0] == "hist" || seg[0] == "options" {
+	// Historical (/hist/...), options (/options/...) and futures (/futures/...)
+	// routes require auth upstream.
+	if seg[0] == "hist" || seg[0] == "options" || seg[0] == "futures" {
 		return true
 	}
 	if len(seg) >= 2 {

@@ -168,9 +168,15 @@
     },
     {
       "operation": "GET /v2/futures/conversion",
-      "status": 400,
+      "status": 200,
       "auth": "basic-header",
-      "content_type": "application/json; charset=utf-8"
+      "content_type": "application/json; charset=utf-8",
+      "fields": [
+        "additive",
+        "future_contract",
+        "multiplier"
+      ],
+      "note": "probed with ?ticker=SPX&future=ES"
     }
   ]
 }
