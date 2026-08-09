@@ -79,8 +79,8 @@ func executeDownload(ctx context.Context, cfg *config.Config, date string, logge
 	logger.Info("generated tasks", zap.Int("count", len(tasks)))
 
 	if len(tasks) == 0 {
-		logger.Warn("no tasks generated, check config")
-		return nil, nil
+		// Non-nil error so every caller is safe from a nil-result deref.
+		return nil, fmt.Errorf("no download tasks generated for %s (check package config)", date)
 	}
 
 	// Execute downloads

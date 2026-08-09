@@ -31,9 +31,9 @@ func TestSchedulerMissedMarketDays(t *testing.T) {
 	s.now = func() time.Time { return time.Date(2026, 8, 10, 9, 0, 0, 0, loc) }
 
 	// last=Wed 08-05 -> Thu 08-06, Fri 08-07 (weekend skipped, today 08-10 excluded).
-	got, capped := s.MissedMarketDays("2026-08-05", 90)
-	if want := []string{"2026-08-06", "2026-08-07"}; !reflect.DeepEqual(got, want) || capped {
-		t.Fatalf("missed = %v (capped=%v), want %v (capped=false)", got, capped, want)
+	got, dropped := s.MissedMarketDays("2026-08-05", 90)
+	if want := []string{"2026-08-06", "2026-08-07"}; !reflect.DeepEqual(got, want) || dropped {
+		t.Fatalf("missed = %v (dropped=%v), want %v (dropped=false)", got, dropped, want)
 	}
 
 	// Gap spans only a weekend -> nothing missed.
@@ -46,9 +46,17 @@ func TestSchedulerMissedMarketDays(t *testing.T) {
 		t.Fatalf("no gap should be empty, got %v", got)
 	}
 
-	// Cap keeps only the most recent maxDays and flags it.
-	got, capped = s.MissedMarketDays("2026-08-05", 1)
-	if !capped || !reflect.DeepEqual(got, []string{"2026-08-07"}) {
-		t.Fatalf("cap=1 should keep only 2026-08-07 (capped), got %v capped=%v", got, capped)
+	// Stale lastDate (older than the look-back window): the scan must anchor to
+	// today, drop the unfetchable older days, and return only recent dates —
+	// never a stale year that all falls outside the window.
+	got, dropped = s.MissedMarketDays("2026-01-01", 90)
+	if !dropped {
+		t.Fatal("stale lastDate should report dropped=true")
+	}
+	if len(got) == 0 || got[0] < "2026-05-01" {
+		t.Fatalf("stale lastDate must return only recent (within-window) days, got first=%v", got)
+	}
+	if last := got[len(got)-1]; last >= "2026-08-10" {
+		t.Fatalf("must exclude today and later, got last=%v", last)
 	}
 }

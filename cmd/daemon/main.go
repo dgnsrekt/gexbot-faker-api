@@ -168,20 +168,23 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	logger.Info("starting scheduled EOD download", zap.String("date", today))
 	start := time.Now()
 
-	// Bound the run: a stalled request must fail into the 5-minute retry loop,
-	// not wedge the daemon's single-goroutine ticker indefinitely.
-	runCtx, cancel := context.WithTimeout(ctx, runTimeout)
-	defer cancel()
-
-	result, err := executeEODDownload(runCtx, cfg, today, logger)
+	// Bound the EOD attempt: a stalled request must fail into the 5-minute retry
+	// loop, not wedge the daemon's single-goroutine ticker indefinitely.
+	eodCtx, eodCancel := context.WithTimeout(ctx, runTimeout)
+	result, err := executeEODDownload(eodCtx, cfg, today, logger)
+	eodCancel()
 	duration := time.Since(start)
 
 	if (err != nil || result == nil || result.Failed > 0) && scheduler.IsFallbackTime() {
 		logger.Warn("EOD unavailable at fallback deadline; using individual downloads", zap.String("date", today))
-		result, err = executeDownload(runCtx, cfg, today, logger)
+		// Fresh deadline so an EOD stall that burned the full timeout can't leave
+		// the fallback starting on an already-cancelled context.
+		fbCtx, fbCancel := context.WithTimeout(ctx, runTimeout)
+		result, err = executeDownload(fbCtx, cfg, today, logger)
 		if err == nil && result.Failed == 0 {
 			err = packMissingArchives(cfg, today)
 		}
+		fbCancel()
 	}
 
 	duration = time.Since(start)
@@ -209,9 +212,10 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	return true
 }
 
-// maxBackfillDays caps how far back startup backfill reaches — the individual
-// /hist endpoint only serves a ~90-day look-back window.
-const maxBackfillDays = 90
+// backfillLookbackDays is how far back (in calendar days) startup backfill
+// reaches — the individual /hist endpoint only serves a ~90-day look-back window,
+// so older missed days are unfetchable anyway.
+const backfillLookbackDays = 90
 
 // backfillMissedDays downloads any full market days missed between the last
 // recorded download and today (today is left to the normal scheduled run).
@@ -226,13 +230,13 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 		// No baseline — a fresh daemon must not backfill unbounded history.
 		return
 	}
-	missed, capped := scheduler.MissedMarketDays(last, maxBackfillDays)
+	missed, dropped := scheduler.MissedMarketDays(last, backfillLookbackDays)
 	if len(missed) == 0 {
 		return
 	}
-	if capped {
+	if dropped {
 		logger.Warn("backfill gap exceeds look-back window; older days skipped",
-			zap.String("since", last), zap.Int("backfilling", len(missed)), zap.Int("maxDays", maxBackfillDays))
+			zap.String("since", last), zap.Int("backfilling", len(missed)), zap.Int("lookbackDays", backfillLookbackDays))
 	}
 	logger.Info("backfilling missed market days", zap.Strings("dates", missed))
 

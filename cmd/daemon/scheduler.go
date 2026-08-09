@@ -68,30 +68,37 @@ func (s *Scheduler) Location() *time.Location {
 
 // MissedMarketDays returns trading days strictly after lastDate and strictly
 // before today (oldest first). Today is excluded because the normal scheduled
-// run handles it. Results are capped to the maxDays most recent days (the
-// individual /hist endpoint only serves a ~90-day look-back), and the returned
-// bool reports whether older days were dropped by that cap.
-func (s *Scheduler) MissedMarketDays(lastDate string, maxDays int) ([]string, bool) {
+// run handles it.
+//
+// The scan is anchored to TODAY and clamped to the endpoint's look-back window
+// (lookbackDays calendar days): when lastDate is older than the window, the scan
+// starts at today-lookbackDays so the result is the most recent, still-fetchable
+// market days — never a stale year that all falls outside the window. The
+// returned bool reports whether older, now-unfetchable days were dropped.
+func (s *Scheduler) MissedMarketDays(lastDate string, lookbackDays int) ([]string, bool) {
 	last, err := time.ParseInLocation("2006-01-02", lastDate, s.location)
 	if err != nil {
 		return nil, false
 	}
-	todayStr := s.now().In(s.location).Format("2006-01-02")
+	now := s.now().In(s.location)
+	todayStr := now.Format("2006-01-02")
+
+	start := last.AddDate(0, 0, 1)
+	dropped := false
+	if lookbackDays > 0 {
+		if earliest := now.AddDate(0, 0, -lookbackDays); start.Before(earliest) {
+			start = earliest
+			dropped = true
+		}
+	}
 
 	var days []string
-	// Bound the scan so a corrupt/ancient lastDate can never spin forever.
-	d := last.AddDate(0, 0, 1)
-	for i := 0; i < 366 && d.Format("2006-01-02") < todayStr; i, d = i+1, d.AddDate(0, 0, 1) {
+	// Loop is bounded by (today - start) <= lookbackDays, so it always terminates.
+	for d := start; d.Format("2006-01-02") < todayStr; d = d.AddDate(0, 0, 1) {
 		ds := d.Format("2006-01-02")
 		if s.IsMarketDay(ds) {
 			days = append(days, ds)
 		}
 	}
-
-	capped := false
-	if maxDays > 0 && len(days) > maxDays {
-		days = days[len(days)-maxDays:]
-		capped = true
-	}
-	return days, capped
+	return days, dropped
 }
