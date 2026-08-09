@@ -442,7 +442,9 @@ func (s *Server) GetPackageCategories(ctx context.Context, request generated.Get
 // GetHistEod implements generated.StrictServerInterface. Serves the most recent
 // EOD report archive (zip) for a ticker — the same archive the daemon downloads.
 func (s *Server) GetHistEod(ctx context.Context, request generated.GetHistEodRequestObject) (generated.GetHistEodResponseObject, error) {
-	date, _ := eod.LatestDate(s.config.DataDir)
+	// Newest date that actually has THIS ticker's archive (the globally-latest
+	// date may not include every ticker).
+	date := eod.LatestTickerDate(s.config.DataDir, request.Ticker)
 	if date == "" {
 		return generated.GetHistEod404JSONResponse{Error: ptr("No EOD archive available for " + request.Ticker)}, nil
 	}
@@ -476,7 +478,14 @@ func (s *Server) GetHistSnapshot(ctx context.Context, request generated.GetHistS
 	} else {
 		url = fmt.Sprintf("/download/%s/%s/%s/%s", request.Date, request.Ticker, pkg, request.Category)
 	}
-	return generated.GetHistSnapshot200JSONResponse{Url: url}, nil
+	// Match the live contract: bare ?noredirect returns the JSON {url}; absence
+	// produces a 302 redirect to that URL.
+	if request.Params.Noredirect != nil {
+		return generated.GetHistSnapshot200JSONResponse{Url: url}, nil
+	}
+	return generated.GetHistSnapshot302Response{
+		Headers: generated.GetHistSnapshot302ResponseHeaders{Location: url},
+	}, nil
 }
 
 // GetHealth implements generated.StrictServerInterface

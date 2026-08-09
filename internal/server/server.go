@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -104,8 +103,6 @@ type ctxKey string
 // each client's playback position (see data.SharedCacheKey / data.CacheKey).
 const authKeyCtxKey ctxKey = "authKey"
 
-var tickerPathRe = regexp.MustCompile(`^[A-Z]{1,5}$`)
-
 // authMiddleware mirrors the real GexBot API: market-data routes authenticate via
 // the Authorization header (Basic or Bearer). The parsed token is stashed in the
 // request context for the handlers; an absent header on a data route is rejected
@@ -138,9 +135,12 @@ func parseAuthToken(header string) string {
 	return strings.TrimSpace(header)
 }
 
-// requiresAuth reports whether path is a real-API market-data route
-// (/{TICKER}/{classic|state|orderflow}/...). Faker extensions — /tickers,
-// /health, /download/..., control routes — stay open.
+// requiresAuth reports whether path is a real-API market-data route. It is keyed
+// off the route SHAPE, not a ticker regex: /{ticker}/{classic|state|orderflow}/...
+// and /hist/... require auth for any ticker (including underscore/futures tickers
+// like ES_SPX). Faker extensions — /tickers, /tickers/quant, /{package}/categories,
+// /health, /download/..., control routes — stay open (their 2nd segment is never
+// classic/state/orderflow, and /download carries a date there).
 func requiresAuth(path string) bool {
 	seg := strings.Split(strings.Trim(path, "/"), "/")
 	if len(seg) == 0 {
@@ -150,12 +150,11 @@ func requiresAuth(path string) bool {
 	if seg[0] == "hist" {
 		return true
 	}
-	if len(seg) < 2 || !tickerPathRe.MatchString(seg[0]) {
-		return false
-	}
-	switch seg[1] {
-	case "classic", "state", "orderflow":
-		return true
+	if len(seg) >= 2 {
+		switch seg[1] {
+		case "classic", "state", "orderflow":
+			return true
+		}
 	}
 	return false
 }
@@ -171,7 +170,7 @@ func authKeyFromContext(ctx context.Context) string {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "*")
 
 		if r.Method == "OPTIONS" {

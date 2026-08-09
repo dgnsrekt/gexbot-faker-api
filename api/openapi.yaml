@@ -514,16 +514,27 @@ paths:
         - name: noredirect
           in: query
           required: false
-          description: Present on the live API to return the URL instead of a 302 redirect.
+          allowEmptyValue: true
+          description: |
+            Presence-only flag (live/client form is a bare `?noredirect`). When
+            present, the JSON `{url}` body is returned; when absent, a 302 redirect
+            to that URL is returned.
           schema:
-            type: boolean
+            type: string
       responses:
         '200':
-          description: Snapshot download URL
+          description: Snapshot download URL (returned when ?noredirect is present)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HistSnapshotResponse'
+        '302':
+          description: Redirect to the snapshot URL (returned when noredirect is absent)
+          headers:
+            Location:
+              description: URL of the historical snapshot
+              schema:
+                type: string
         '404':
           description: Snapshot not available
           content:
