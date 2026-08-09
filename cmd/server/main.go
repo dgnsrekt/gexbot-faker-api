@@ -77,9 +77,10 @@ func run() int {
 		logger.Error("failed to load data", zap.Error(err))
 		return 1
 	}
-	latest, _ := eod.LatestDate(cfg.DataDir)
-	if err := eod.CleanupMaterialized(cfg.DataDir, cfg.DataDate, latest); err != nil {
-		logger.Warn("failed to clean materialized EOD cache", zap.Error(err))
+	// Record the load so the daemon's TTL cleanup keeps this date warm. Proactive
+	// cleanup is now owned by the daemon (see internal/eod.CleanupStale).
+	if err := eod.TouchLoaded(cfg.DataDir, cfg.DataDate); err != nil {
+		logger.Warn("failed to mark loaded date", zap.Error(err))
 	}
 
 	// Wrap in reloadable loader for hot reload support
@@ -104,6 +105,23 @@ func run() int {
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Heartbeat: keep the actively-served date's .last-loaded marker fresh so the
+	// daemon's TTL cleanup never evicts a date we're still serving.
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := eod.TouchLoaded(cfg.DataDir, reloadManager.CurrentDate()); err != nil {
+					logger.Warn("heartbeat: failed to mark loaded date", zap.Error(err))
+				}
+			}
+		}
+	}()
 
 	// WebSocket components (optional)
 	var wsHubs *server.WebSocketHubs

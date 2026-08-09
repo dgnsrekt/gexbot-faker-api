@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"time"
 )
 
@@ -94,38 +93,44 @@ func LoadServerConfig() (*ServerConfig, error) {
 	return cfg, nil
 }
 
-// detectLatestDate scans the data directory for date folders and returns the most recent one
+// detectLatestDate returns the most recent available date. It prefers the newest
+// EOD archive under dataDir/eod — archives exist even for dates the server hasn't
+// materialized yet (those materialize on demand at load) — and falls back to the
+// newest non-empty materialized date dir.
 func detectLatestDate(dataDir string) (string, error) {
 	datePattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
-	entries, err := os.ReadDir(dataDir)
-	if err != nil {
-		return "", fmt.Errorf("reading data directory: %w", err)
+	if archived := newestDateDir(filepath.Join(dataDir, "eod"), datePattern, false); archived != "" {
+		return archived, nil
 	}
+	if materialized := newestDateDir(dataDir, datePattern, true); materialized != "" {
+		return materialized, nil
+	}
+	return "", fmt.Errorf("no date folders found in %s", dataDir)
+}
 
-	var dates []string
+// newestDateDir returns the greatest (newest, since YYYY-MM-DD sorts lexically)
+// date-named subdir of dir. When requireNonEmpty, only dirs with at least one
+// entry qualify. Returns "" if none match or dir can't be read.
+func newestDateDir(dir string, pat *regexp.Regexp, requireNonEmpty bool) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	best := ""
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		name := entry.Name()
+		if !entry.IsDir() || !pat.MatchString(name) || name <= best {
 			continue
 		}
-		name := entry.Name()
-		if datePattern.MatchString(name) {
-			// Verify it's not empty (has at least one file/folder inside)
-			subPath := filepath.Join(dataDir, name)
-			subEntries, err := os.ReadDir(subPath)
-			if err == nil && len(subEntries) > 0 {
-				dates = append(dates, name)
+		if requireNonEmpty {
+			if sub, err := os.ReadDir(filepath.Join(dir, name)); err != nil || len(sub) == 0 {
+				continue
 			}
 		}
+		best = name
 	}
-	if len(dates) == 0 {
-		return "", fmt.Errorf("no date folders found in %s", dataDir)
-	}
-
-	// Sort descending (newest first) - YYYY-MM-DD format sorts lexicographically
-	sort.Sort(sort.Reverse(sort.StringSlice(dates)))
-
-	return dates[0], nil
+	return best
 }
 
 func getEnvOrDefault(key, defaultVal string) string {

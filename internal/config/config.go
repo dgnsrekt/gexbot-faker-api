@@ -45,6 +45,10 @@ type PackageConfig struct {
 type OutputConfig struct {
 	Directory          string `mapstructure:"directory"`
 	AutoConvertToJSONL bool   `mapstructure:"auto_convert_to_jsonl"`
+	// AutoCleanup enables the daemon's TTL eviction of materialized JSONL that
+	// hasn't been loaded within CleanupAfterDays. The EOD archives are untouched.
+	AutoCleanup      bool `mapstructure:"auto_cleanup"`
+	CleanupAfterDays int  `mapstructure:"cleanup_after_days"`
 }
 
 type LoggingConfig struct {
@@ -66,6 +70,8 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("download.resume_enabled", true)
 	v.SetDefault("output.directory", "data")
 	v.SetDefault("output.auto_convert_to_jsonl", true)
+	v.SetDefault("output.auto_cleanup", false)
+	v.SetDefault("output.cleanup_after_days", 7)
 	v.SetDefault("logging.enabled", true)
 	v.SetDefault("logging.directory", "logs")
 	v.SetDefault("logging.level", "info")
@@ -113,6 +119,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Download.Workers < 1 {
 		return fmt.Errorf("workers must be >= 1")
+	}
+	if c.Output.AutoCleanup && c.Output.CleanupAfterDays < 1 {
+		return fmt.Errorf("cleanup_after_days must be >= 1 when auto_cleanup is enabled")
 	}
 	return nil
 }
