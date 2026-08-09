@@ -596,6 +596,7 @@ paths:
       parameters:
         - name: ticker
           in: query
+          required: true
           description: Index/ETF ticker
           schema:
             type: string
@@ -603,6 +604,7 @@ paths:
           example: SPX
         - name: future
           in: query
+          required: true
           description: Futures root
           schema:
             type: string
