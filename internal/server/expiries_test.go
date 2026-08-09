@@ -51,7 +51,7 @@ func mustDate(t *testing.T, s string) time.Time {
 func TestGenerateExpiriesHorizonAndOrder(t *testing.T) {
 	anchor := mustDate(t, "2026-08-07") // a Friday
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
-	got := generateExpiries(anchor, end, true)
+	got := generateExpiries(anchor, end, true, time.Friday)
 
 	if len(got) == 0 {
 		t.Fatal("expected expiries")
@@ -75,8 +75,8 @@ func TestGenerateExpiriesDailyVsWeekly(t *testing.T) {
 	anchor := mustDate(t, "2026-08-07")
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
 
-	daily := generateExpiries(anchor, end, true)
-	weekly := generateExpiries(anchor, end, false)
+	daily := generateExpiries(anchor, end, true, time.Friday)
+	weekly := generateExpiries(anchor, end, false, time.Friday)
 
 	// Daily includes consecutive near-term weekdays (Mon-Fri) that weekly omits.
 	set := func(xs []string) map[string]bool {
@@ -108,7 +108,7 @@ func TestGenerateExpiriesPinsRealDates(t *testing.T) {
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
 	// A pinned mid-week date the weekly calendar wouldn't otherwise include.
 	pinned := mustDate(t, "2026-09-15") // a Tuesday
-	got := generateExpiries(anchor, end, false, pinned)
+	got := generateExpiries(anchor, end, false, time.Friday, pinned)
 
 	found := false
 	for _, d := range got {
@@ -120,7 +120,7 @@ func TestGenerateExpiriesPinsRealDates(t *testing.T) {
 		t.Errorf("pinned real expiry 2026-09-15 not included: %v", got)
 	}
 	// A pinned date outside the horizon is dropped.
-	out := generateExpiries(anchor, end, false, anchor.AddDate(0, 0, 200))
+	out := generateExpiries(anchor, end, false, time.Friday, anchor.AddDate(0, 0, 200))
 	for _, d := range out {
 		if mustDate(t, d).After(end) {
 			t.Errorf("out-of-horizon pinned date leaked: %s", d)
@@ -133,7 +133,7 @@ func TestGenerateExpiriesExcludesHolidays(t *testing.T) {
 	// market closes Friday 2026-07-03.
 	anchor := mustDate(t, "2026-06-26")
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
-	got := dateSet(generateExpiries(anchor, end, true))
+	got := dateSet(generateExpiries(anchor, end, true, time.Friday))
 
 	if got["2026-07-03"] {
 		t.Error("observed Independence Day 2026-07-03 must not be an expiry")
@@ -148,7 +148,7 @@ func TestGenerateExpiriesGoodFridayShift(t *testing.T) {
 	// Good Friday 2026 is 2026-04-03 (a Friday market holiday).
 	anchor := mustDate(t, "2026-03-27")
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
-	got := dateSet(generateExpiries(anchor, end, false)) // weekly-only ticker
+	got := dateSet(generateExpiries(anchor, end, false, time.Friday)) // weekly-only ticker
 
 	if got["2026-04-03"] {
 		t.Error("Good Friday 2026-04-03 must not be an expiry")
@@ -163,7 +163,7 @@ func TestGenerateExpiriesWeeklyStockOnFriday(t *testing.T) {
 	// only — no Mon-Thu contracts.
 	anchor := mustDate(t, "2026-08-07") // Friday
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
-	got := generateExpiries(anchor, end, false)
+	got := generateExpiries(anchor, end, false, time.Friday)
 	for _, d := range got {
 		if mustDate(t, d).Weekday() != time.Friday {
 			t.Errorf("weekly-only calendar has non-Friday %s", d)
@@ -213,5 +213,49 @@ func TestOptionsExpiriesUnknownTicker(t *testing.T) {
 	}
 	if _, ok := resp.(generated.GetOptionsExpiries400JSONResponse); !ok {
 		t.Errorf("unsupported ticker should return 400, got %T", resp)
+	}
+}
+
+func TestGenerateExpiriesVIXWednesday(t *testing.T) {
+	// VIX options expire on Wednesdays (not daily, not Friday). Window with no
+	// Wednesday market holiday, so every expiry must land on a Wednesday.
+	anchor := mustDate(t, "2026-08-07")
+	end := anchor.AddDate(0, 0, expiryHorizonDays)
+	got := generateExpiries(anchor, end, false, time.Wednesday)
+	if len(got) == 0 {
+		t.Fatal("expected VIX Wednesday expiries")
+	}
+	for _, d := range got {
+		if wd := mustDate(t, d).Weekday(); wd != time.Wednesday {
+			t.Errorf("VIX expiry %s is a %s, want Wednesday", d, wd)
+		}
+	}
+}
+
+func TestOptionsExpiriesVIXUsesWednesday(t *testing.T) {
+	const ticker = "VIX"
+	if !config.ValidTickers[ticker] || config.FutureTickers[ticker] {
+		t.Skipf("%s not a valid ticker in this build", ticker)
+	}
+	if dailyExpiryTickers[ticker] {
+		t.Fatal("VIX must not be classified as a daily-expiry ticker")
+	}
+	srv := &Server{
+		loader: stubExpiryLoader{}, // no data -> no pinned dates
+		config: &config.ServerConfig{DataDate: "2026-08-07"},
+	}
+	resp, err := srv.GetOptionsExpiries(context.Background(),
+		generated.GetOptionsExpiriesRequestObject{Ticker: ticker})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, isOK := resp.(generated.GetOptionsExpiries200JSONResponse)
+	if !isOK {
+		t.Fatalf("expected 200, got %T", resp)
+	}
+	for _, d := range ok.Expiries {
+		if mustDate(t, d).Weekday() != time.Wednesday {
+			t.Errorf("VIX expiry %s is not a Wednesday", d)
+		}
 	}
 }

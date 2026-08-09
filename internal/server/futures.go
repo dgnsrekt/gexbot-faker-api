@@ -77,15 +77,35 @@ func equityIndexFront(anchor time.Time) (time.Month, int) {
 	}
 }
 
-// crudeFront returns the front CL delivery month. CL is listed monthly and the
-// front expires ~the 20th of the month before delivery, so before the 20th the
-// front is next month, after it the month after.
+// clTermination returns the last trading day of the CL contract for the given
+// delivery month: the 3rd business day before the 25th calendar day of the month
+// prior to delivery (if the 25th is not a business day, count from the business
+// day preceding it). Per CME NYMEX rule 200.
+func clTermination(deliveryYear int, deliveryMonth time.Month) time.Time {
+	prior := time.Date(deliveryYear, deliveryMonth, 1, 0, 0, 0, 0, time.UTC).AddDate(0, -1, 0)
+	ref := time.Date(prior.Year(), prior.Month(), 25, 0, 0, 0, 0, time.UTC)
+	for !isMarketDay(ref) {
+		ref = ref.AddDate(0, 0, -1)
+	}
+	for count := 0; count < 3; {
+		ref = ref.AddDate(0, 0, -1)
+		if isMarketDay(ref) {
+			count++
+		}
+	}
+	return ref
+}
+
+// crudeFront returns the front CL delivery month: the earliest delivery month
+// whose termination day is on or after anchor.
 func crudeFront(anchor time.Time) (time.Month, int) {
-	d := anchor.AddDate(0, 1, 0)
-	if anchor.Day() > 20 {
+	d := time.Date(anchor.Year(), anchor.Month(), 1, 0, 0, 0, 0, time.UTC)
+	for {
+		if !clTermination(d.Year(), d.Month()).Before(anchor) {
+			return d.Month(), d.Year()
+		}
 		d = d.AddDate(0, 1, 0)
 	}
-	return d.Month(), d.Year()
 }
 
 // goldFront returns the front GC delivery month. Gold liquidity concentrates in

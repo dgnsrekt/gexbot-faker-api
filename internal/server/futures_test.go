@@ -22,10 +22,11 @@ func TestFrontMonthContract(t *testing.T) {
 		{"ES", "2026-09-10", "ESU6"}, // roll day: still front
 		{"ES", "2026-09-11", "ESZ6"}, // after roll: next quarter (Dec)
 		{"ES", "2026-12-31", "ESH7"}, // past Dec roll -> next-year March
-		// Crude: monthly, rolls ~20th of the prior month (live: CLU6 on 08-07).
-		{"CL", "2026-08-07", "CLU6"},
-		{"CL", "2026-08-20", "CLU6"}, // on/before 20th: next month
-		{"CL", "2026-08-21", "CLV6"}, // after 20th: month after
+		// Crude: business-day termination (3 bd before the 25th of the prior month).
+		// Oct-delivery CL terminates 3 bd before Fri 2026-09-25 = Tue 2026-09-22.
+		{"CL", "2026-08-07", "CLU6"}, // live: Sep contract
+		{"CL", "2026-09-22", "CLV6"}, // termination day: Oct still front
+		{"CL", "2026-09-23", "CLX6"}, // after termination: rolls to Nov
 		// Gold: liquid Feb/Apr/Jun/Aug/Dec; early August rolls to Dec (live: GCZ6).
 		{"GC", "2026-08-07", "GCZ6"},
 		{"GC", "2026-07-31", "GCQ6"}, // before Aug delivery begins

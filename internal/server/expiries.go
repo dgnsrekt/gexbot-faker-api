@@ -21,9 +21,10 @@ const (
 // dailyExpiryTickers have 0DTE / daily option expirations (every trading day).
 // Classification is by ticker, independent of days-to-expiry — a weekly-only
 // stock loaded on a Friday also has a 0DTE that day but is not a daily ticker.
+// VIX is deliberately excluded: its options expire on Wednesdays, not daily.
 var dailyExpiryTickers = map[string]bool{
 	"SPX": true, "SPY": true, "QQQ": true, "NDX": true,
-	"IWM": true, "XSP": true, "DIA": true, "RUT": true, "VIX": true,
+	"IWM": true, "XSP": true, "DIA": true, "RUT": true,
 }
 
 // nthWeekday returns the nth (1-based) given weekday of a month.
@@ -93,28 +94,29 @@ func usMarketHolidays(year int) map[string]bool {
 	return set
 }
 
+// isMarketHoliday reports whether d is a NYSE full-day closure.
+func isMarketHoliday(d time.Time) bool {
+	return usMarketHolidays(d.Year())[d.Format("2006-01-02")]
+}
+
+// isMarketDay reports whether d is a trading day (weekday, not a holiday).
+func isMarketDay(d time.Time) bool {
+	if wd := d.Weekday(); wd == time.Saturday || wd == time.Sunday {
+		return false
+	}
+	return !isMarketHoliday(d)
+}
+
 // generateExpiries returns valid option expiration dates (YYYY-MM-DD) within
 // [anchor, end], inclusive. It uses the NYSE session/holiday calendar: daily
 // tickers get every trading day for the first dailyExpiryWindowDays; all tickers
-// get weekly expirations (Fridays, shifted earlier when the Friday is closed).
-// pinned dates come from real data and are trusted (horizon-bounded only).
-func generateExpiries(anchor, end time.Time, daily bool, pinned ...time.Time) []string {
-	holidays := map[string]bool{}
-	for y := anchor.Year(); y <= end.Year(); y++ {
-		for k := range usMarketHolidays(y) {
-			holidays[k] = true
-		}
-	}
-	isTradingDay := func(t time.Time) bool {
-		if wd := t.Weekday(); wd == time.Saturday || wd == time.Sunday {
-			return false
-		}
-		return !holidays[t.Format("2006-01-02")]
-	}
-
+// get weekly expirations on weeklyDay (Friday for most, Wednesday for VIX),
+// shifted earlier when that day is closed. pinned dates come from real data and
+// are trusted (horizon-bounded only).
+func generateExpiries(anchor, end time.Time, daily bool, weeklyDay time.Weekday, pinned ...time.Time) []string {
 	set := map[string]bool{}
 	add := func(t time.Time) {
-		if !t.Before(anchor) && !t.After(end) && isTradingDay(t) {
+		if !t.Before(anchor) && !t.After(end) && isMarketDay(t) {
 			set[t.Format("2006-01-02")] = true
 		}
 	}
@@ -123,10 +125,10 @@ func generateExpiries(anchor, end time.Time, daily bool, pinned ...time.Time) []
 		if daily && !d.After(dailyUntil) {
 			add(d) // daily near-term (add() skips weekends/holidays)
 		}
-		if d.Weekday() == time.Friday {
-			// Weekly expiration; roll earlier when the Friday is a market holiday.
+		if d.Weekday() == weeklyDay {
+			// Weekly expiration; roll earlier when the day is a market holiday.
 			exp := d
-			for !isTradingDay(exp) && !exp.Before(anchor) {
+			for !isMarketDay(exp) && !exp.Before(anchor) {
 				exp = exp.AddDate(0, 0, -1)
 			}
 			add(exp)
@@ -165,7 +167,15 @@ func (s *Server) GetOptionsExpiries(ctx context.Context, request generated.GetOp
 		}, nil
 	}
 	end := anchor.AddDate(0, 0, expiryHorizonDays)
+
+	// VIX options expire Wednesdays (Cboe), not daily/Friday; everything else uses
+	// the Friday weekly schedule with a per-ticker daily flag.
 	daily := dailyExpiryTickers[ticker]
+	weeklyDay := time.Friday
+	if ticker == "VIX" {
+		daily = false
+		weeklyDay = time.Wednesday
+	}
 
 	// Ground the nearest expiries in real data: min_dte/sec_min_dte are the
 	// days-to-expiry of the nearest two expirations at that date.
@@ -180,6 +190,6 @@ func (s *Server) GetOptionsExpiries(ctx context.Context, request generated.GetOp
 		Ticker:    ticker,
 		StartDate: anchor.Format("2006-01-02"),
 		EndDate:   end.Format("2006-01-02"),
-		Expiries:  generateExpiries(anchor, end, daily, pinned...),
+		Expiries:  generateExpiries(anchor, end, daily, weeklyDay, pinned...),
 	}, nil
 }
