@@ -1,3 +1,11 @@
+# Studio UI build stage — produces web/dist, embedded into the server binary.
+FROM node:22-alpine AS studio
+WORKDIR /app/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build && touch dist/.gitkeep
+
 # Build stage
 FROM golang:1.24-alpine AS builder
 
@@ -12,6 +20,10 @@ RUN go mod download
 
 # Copy source code
 COPY . .
+
+# Overlay the built Studio UI so //go:embed picks up the real assets (not the
+# checked-in .gitkeep placeholder).
+COPY --from=studio /app/web/dist ./web/dist
 
 # Generate API code and build all binaries
 RUN go generate ./api && \

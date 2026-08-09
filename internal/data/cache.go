@@ -1,6 +1,7 @@
 package data
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
@@ -130,6 +131,30 @@ func (c *IndexCache) GetPositionsByAPIKey(apiKey string) map[string]int {
 		}
 	}
 	return result
+}
+
+// AllPositions returns every tracked position grouped by API key. The API key is
+// the last "/"-separated segment of each cache key; the remaining prefix (e.g.
+// "SPX/classic/gex_zero" or "ws/classic/SPX/gex_zero") is the data key. Used by
+// the Studio UI's Client keys panel to list all connected clients and their
+// playback positions in one call.
+func (c *IndexCache) AllPositions() map[string]map[string]int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	out := make(map[string]map[string]int)
+	for k, v := range c.indexes {
+		idx := strings.LastIndex(k, "/")
+		if idx < 0 || idx == len(k)-1 {
+			continue // malformed key with no apiKey segment
+		}
+		dataKey, apiKey := k[:idx], k[idx+1:]
+		if out[apiKey] == nil {
+			out[apiKey] = make(map[string]int)
+		}
+		out[apiKey][dataKey] = v
+	}
+	return out
 }
 
 // GetMode returns the current cache mode.
