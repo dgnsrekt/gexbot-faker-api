@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -155,13 +154,15 @@ func (m *downloadManager) worker() {
 				return e
 			}
 			// The download already produced the JSONL (auto-convert) and packed
-			// it, so the date is materialized — mark each packed ticker so the
-			// Library shows it "ready" immediately instead of prompting a
-			// redundant re-unpack. The archive stays as the TTL re-materialize
-			// backup.
+			// it, so the date is materialized — mark each ticker so the Library
+			// shows it "ready" immediately instead of prompting a redundant
+			// re-unpack. The archive stays as the TTL re-materialize backup.
+			// MarkMaterialized is a no-op for a ticker with no data dir (e.g. an
+			// all-404 ticker); a real write failure must fail the job so the
+			// Library doesn't report "ready" for an unmarked date.
 			for _, tk := range req.tickers {
-				if _, statErr := os.Stat(eod.ManifestPath(eod.ArchivePath(m.dataDir, req.date, tk))); statErr == nil {
-					_ = eod.MarkMaterialized(m.dataDir, req.date, tk)
+				if e := eod.MarkMaterialized(m.dataDir, req.date, tk); e != nil {
+					return fmt.Errorf("mark %s materialized: %w", tk, e)
 				}
 			}
 			return nil

@@ -111,6 +111,21 @@ func TestMarkMaterialized(t *testing.T) {
 	}
 }
 
+func TestMarkMaterializedWriteError(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+	// Ticker dir exists (so it's not the no-op path), but the marker path is
+	// occupied by a directory, so the marker write must fail — the download
+	// worker relies on this error to fail the job instead of falsely reporting
+	// the date "ready" with no marker on disk.
+	if err := os.MkdirAll(filepath.Join(root, date, ticker, markerName), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := MarkMaterialized(root, date, ticker); err == nil {
+		t.Error("MarkMaterialized should return an error when the marker cannot be written")
+	}
+}
+
 func writeCatFixture(t *testing.T, root, date, ticker, pkg, cat string) {
 	t.Helper()
 	p := filepath.Join(root, date, ticker, pkg, cat+".jsonl")
