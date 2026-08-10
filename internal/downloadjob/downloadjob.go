@@ -179,12 +179,12 @@ func validateEODManifest(cfg *config.Config, ticker string, manifest *eod.Manife
 	return nil
 }
 
-// PackMissingArchives packs individually-downloaded files into EOD archives for
-// tickers whose archive is missing OR incomplete for the currently requested
-// package set. Because the Studio lets users download package subsets, a later
-// request that adds a package must rebuild the archive — an existing manifest
-// that doesn't cover the requested tasks is re-packed (eod.Pack overwrites
-// atomically via tmp+rename), so the new package reaches the Library.
+// PackMissingArchives (re)packs each ticker's EOD archive whenever the archive is
+// missing OR its manifest doesn't cover the JSONL currently on disk. Coverage is
+// judged against the on-disk files — not the requested config — so a later
+// request that adds a package (new JSONL) rebuilds the archive, while a partial
+// download (some feeds 404 and never land) does NOT churn (the manifest already
+// covers everything present). eod.Pack overwrites atomically (tmp+rename).
 func PackMissingArchives(cfg *config.Config, date string) error {
 	tickers := cfg.Tickers
 	if len(tickers) == 0 {
@@ -194,16 +194,45 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
 		if data, err := os.ReadFile(eod.ManifestPath(archive)); err == nil {
 			var man eod.Manifest
-			if json.Unmarshal(data, &man) == nil && validateEODManifest(cfg, ticker, &man) == nil {
-				continue // archive already covers the requested task set
+			if json.Unmarshal(data, &man) == nil && manifestCoversJSONL(cfg.Output.Directory, date, ticker, &man) {
+				continue // archive already covers everything on disk
 			}
-			// Manifest present but missing a requested package → rebuild below.
+			// Manifest present but new JSONL appeared → rebuild below.
 		}
 		if _, err := eod.Pack(cfg.Output.Directory, date, ticker, "individual-fallback"); err != nil {
 			return fmt.Errorf("%s: %w", ticker, err)
 		}
 	}
 	return nil
+}
+
+// manifestCoversJSONL reports whether man already contains every package/category
+// JSONL present under <root>/<date>/<ticker>.
+func manifestCoversJSONL(root, date, ticker string, man *eod.Manifest) bool {
+	have := make(map[string]bool, len(man.Members))
+	for _, m := range man.Members {
+		have[m.Package+"/"+m.Category] = true
+	}
+	tickerDir := filepath.Join(root, date, ticker)
+	covered := true
+	_ = filepath.Walk(tickerDir, func(p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".jsonl") {
+			return nil
+		}
+		rel, relErr := filepath.Rel(tickerDir, p)
+		if relErr != nil {
+			return nil
+		}
+		parts := strings.Split(rel, string(os.PathSeparator))
+		if len(parts) == 2 {
+			key := parts[0] + "/" + strings.TrimSuffix(parts[1], ".jsonl")
+			if !have[key] {
+				covered = false
+			}
+		}
+		return nil
+	})
+	return covered
 }
 
 // GenerateTasksForDate expands the configured tickers × enabled packages ×

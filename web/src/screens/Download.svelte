@@ -164,7 +164,7 @@
   }
   function jobColor(s: string): string {
     if (s === 'done') return 'var(--green)'
-    if (s === 'running') return 'var(--amber)'
+    if (s === 'running' || s === 'partial') return 'var(--amber)'
     if (s === 'error') return 'var(--red)'
     return '#3a3e46'
   }
@@ -285,7 +285,7 @@
           <div class="mono qdate">{j.date}</div>
           <div class="bar"><div class="fill" style="width:{j.total ? Math.round((j.done / j.total) * 100) : (j.state === 'done' ? 100 : 0)}%;background:{jobColor(j.state)}"></div></div>
           <div class="mono qstate" style="color:{jobColor(j.state)}">{j.state}{j.total ? ` ${j.done}/${j.total}` : ''}</div>
-          <div class="mono qres">{j.state === 'done' ? `${j.success} ok · ${j.skipped} skip · ${j.not_found} n/f${j.failed ? ` · ${j.failed} fail` : ''}` : j.error ?? ''}</div>
+          <div class="mono qres">{j.state === 'done' || j.state === 'partial' ? `${j.success} ok · ${j.skipped} skip · ${j.not_found} n/f${j.failed ? ` · ${j.failed} fail` : ''}` : j.error ?? ''}</div>
         </div>
       {/each}
     </div>

@@ -76,7 +76,7 @@ export interface DownloadOptions {
 
 export interface DownloadJob {
   date: string
-  state: 'queued' | 'running' | 'done' | 'error'
+  state: 'queued' | 'running' | 'done' | 'partial' | 'error'
   done: number
   total: number
   success: number

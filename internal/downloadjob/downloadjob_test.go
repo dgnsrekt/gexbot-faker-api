@@ -78,6 +78,42 @@ func TestPackMissingArchivesRebuildsOnAddedPackage(t *testing.T) {
 	}
 }
 
+// TestPackMissingArchivesNoChurnOnPartial covers the completeness note: when a
+// requested feed 404s (never lands on disk), a re-pack must NOT rebuild the
+// archive every call — coverage is judged against on-disk JSONL, not the config.
+func TestPackMissingArchivesNoChurnOnPartial(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+	writeCat(t, root, date, ticker, "classic", "gex_full") // classic landed; state 404'd (absent)
+
+	// Request both classic+state, but only classic is on disk.
+	cfg := cfgWith(root, ticker, map[string][]string{"classic": {"gex_full"}, "state": {"gex_full"}})
+	if err := PackMissingArchives(cfg, date); err != nil {
+		t.Fatal(err)
+	}
+	archive := eod.ArchivePath(root, date, ticker)
+	info1, err := os.Stat(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A second identical call must be a no-op (state still absent → manifest
+	// already covers on-disk JSONL). The archive file must not be rewritten.
+	if err := PackMissingArchives(cfg, date); err != nil {
+		t.Fatal(err)
+	}
+	info2, err := os.Stat(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info1.ModTime().Equal(info2.ModTime()) {
+		t.Errorf("partial archive was re-packed on a no-op call (mtime changed)")
+	}
+	if p := manifestPackages(t, root, date, ticker); p["state"] {
+		t.Errorf("manifest should not claim state (it 404'd): %v", p)
+	}
+}
+
 func TestGenerateTasksForDate(t *testing.T) {
 	cfg := &config.Config{Tickers: []string{"SPX", "NDX"}}
 	cfg.Packages.Classic.Enabled = true

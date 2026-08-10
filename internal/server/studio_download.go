@@ -87,6 +87,20 @@ func newDownloadManager(dataDir string, logger *zap.Logger) *downloadManager {
 
 func (m *downloadManager) enabled() bool { return m.baseCfg != nil }
 
+// downloadJobState maps a finished batch to a UI state. A 404 is NotFound (the
+// requested feed doesn't exist upstream), not Failed — the available data is
+// still packed, but the job is marked "partial" (not green "done") so an
+// incomplete archive never looks complete. Hard failures (err) are "error".
+func downloadJobState(res *download.BatchResult, err error) string {
+	if err != nil {
+		return "error"
+	}
+	if res != nil && res.NotFound > 0 {
+		return "partial"
+	}
+	return "done"
+}
+
 // cfgFor clones the base config with the request's ticker/package selection.
 func (m *downloadManager) cfgFor(tickers, packages []string) *config.Config {
 	c := *m.baseCfg // shallow copy; nested API/Download/Output are value structs
@@ -143,12 +157,10 @@ func (m *downloadManager) worker() {
 		if res != nil {
 			job.Success, job.Skipped, job.Failed, job.NotFound = res.Success, res.Skipped, res.Failed, res.NotFound
 		}
+		job.State = downloadJobState(res, err)
 		if err != nil {
-			job.State = "error"
 			job.Error = err.Error()
 			m.logger.Warn("studio download failed", zap.String("date", req.date), zap.Error(err))
-		} else {
-			job.State = "done"
 		}
 		m.mu.Unlock()
 	}

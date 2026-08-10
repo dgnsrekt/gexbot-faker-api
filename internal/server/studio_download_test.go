@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,7 +11,23 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 )
+
+func TestDownloadJobState(t *testing.T) {
+	// All succeeded → done.
+	if s := downloadJobState(&download.BatchResult{Total: 3, Success: 3}, nil); s != "done" {
+		t.Errorf("all-success → %q, want done", s)
+	}
+	// A 404 is NotFound, not Failed — must be "partial", not green "done".
+	if s := downloadJobState(&download.BatchResult{Total: 3, Success: 2, NotFound: 1}, nil); s != "partial" {
+		t.Errorf("mixed success+not_found → %q, want partial", s)
+	}
+	// Hard failure → error.
+	if s := downloadJobState(&download.BatchResult{Total: 3, Success: 2, Failed: 1}, errors.New("1 failed")); s != "error" {
+		t.Errorf("with error → %q, want error", s)
+	}
+}
 
 func TestCleanSelection(t *testing.T) {
 	valid := func(s string) bool { return s == "SPX" || s == "NDX" }
