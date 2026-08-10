@@ -11,6 +11,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/redact"
 )
 
 // logsBaseSelector picks the faker containers Alloy ships to Loki (labeled
@@ -19,7 +23,7 @@ const logsBaseSelector = `{service=~"gex-.*"}`
 
 // errorLevelMatch matches error/warn zap lines in a raw log line, for the
 // volume series (level is a JSON field, not a Loki label).
-const errorLevelMatch = `"level":"(error|warn|fatal|panic)"`
+const errorLevelMatch = `"level":"(error|warn|fatal|panic|dpanic)"`
 
 const (
 	logsPollInterval = 1500 * time.Millisecond
@@ -114,6 +118,7 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 	nowNs := time.Now().UnixNano()
 	lines, lastNs, err := client.queryRange(ctx, query, nowNs-int64(window), nowNs, logsBackfillMax, "backward")
 	if err != nil {
+		h.server.logger.Warn("studio logs: initial Loki query failed", zap.Error(err))
 		sendEvent(map[string]string{"error": "Loki is unreachable. Is the observability stack running?"})
 		return
 	}
@@ -124,6 +129,10 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 		lastNs = nowNs
 	}
 
+	// Track Loki health as a state machine so an outage is surfaced to the client
+	// and logged once (at the transition), not swallowed forever nor spammed every
+	// 1.5s poll.
+	healthy := true
 	ticker := time.NewTicker(logsPollInterval)
 	defer ticker.Stop()
 	for {
@@ -134,7 +143,17 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 			end := time.Now().UnixNano()
 			fresh, newLast, err := client.queryRange(ctx, query, lastNs+1, end, logsPollMax, "forward")
 			if err != nil {
+				if healthy {
+					healthy = false
+					h.server.logger.Warn("studio logs: Loki tail failed, retrying", zap.Error(err))
+					sendEvent(map[string]string{"error": "Lost connection to Loki — retrying…"})
+				}
 				continue
+			}
+			if !healthy {
+				healthy = true
+				h.server.logger.Info("studio logs: Loki tail recovered")
+				sendEvent(map[string]string{"info": "Reconnected to Loki."})
 			}
 			for _, l := range fresh {
 				sendEvent(l)
@@ -154,11 +173,16 @@ func (h *StudioHandlers) handleLogsVolume(w http.ResponseWriter, r *http.Request
 		writeStudioJSON(w, map[string]any{"points": []any{}})
 		return
 	}
-	window := parseLogRange(r.URL.Query().Get("range"))
+	qp := r.URL.Query()
+	window := parseLogRange(qp.Get("range"))
 	client := &lokiClient{base: base, hc: &http.Client{Timeout: 8 * time.Second}}
-	metric := `sum(count_over_time(` + logsBaseSelector + ` |~ ` + strconv.Quote(errorLevelMatch) + `[1m]))`
+	// Same selector/filters as the log feed, so the sparkline describes the rows
+	// on screen (not every service). Append the error/warn line match.
+	sel := buildLogQuery(qp.Get("service"), qp.Get("search"), qp.Get("hide_access") == "1")
+	metric := `sum(count_over_time(` + sel + ` |~ ` + strconv.Quote(errorLevelMatch) + `[1m]))`
 	points, err := client.metricRange(r.Context(), metric, window, time.Minute)
 	if err != nil {
+		h.server.logger.Warn("studio logs: volume query failed", zap.Error(err))
 		writeStudioJSON(w, map[string]any{"points": []any{}})
 		return
 	}
@@ -277,25 +301,31 @@ func (c *lokiClient) get(ctx context.Context, path string, out any) error {
 // parseLogLine turns a container stdout line (zap JSON) into a display entry with
 // all structured fields preserved, falling back to raw text when unstructured.
 func parseLogLine(raw, service string, ns int64) logLine {
-	entry := logLine{Service: service, Level: "info", Msg: raw}
+	entry := logLine{Service: service, Level: "info", Msg: redact.Text(raw)}
 	var o map[string]any
 	if err := json.Unmarshal([]byte(raw), &o); err == nil {
 		if lvl, ok := o["level"].(string); ok && lvl != "" {
 			entry.Level = lvl
 		}
 		if msg, ok := o["msg"].(string); ok && msg != "" {
-			entry.Msg = msg
+			entry.Msg = redact.Text(msg)
 		}
 		if c, ok := o["caller"].(string); ok {
 			entry.Caller = c
 		}
+		// Defense-in-depth: strip signed-URL query strings from forwarded field
+		// values, since future log producers may include them.
 		fields := map[string]any{}
 		for k, v := range o {
 			switch k {
 			case "level", "ts", "msg", "caller":
 				continue
 			}
-			fields[k] = v
+			if s, ok := v.(string); ok {
+				fields[k] = redact.Text(s)
+			} else {
+				fields[k] = v
+			}
 		}
 		if len(fields) > 0 {
 			entry.Fields = fields

@@ -36,11 +36,21 @@
   let es: EventSource | null = null
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
+  // Group zap levels so a chip can't hide the most severe rows: error covers
+  // error/fatal/panic/dpanic, warn covers warn/warning.
+  function levelGroup(l: string): string {
+    const x = l.toLowerCase()
+    if (x === 'error' || x === 'fatal' || x === 'panic' || x === 'dpanic') return 'error'
+    if (x === 'warn' || x === 'warning') return 'warn'
+    if (x === 'debug') return 'debug'
+    return 'info'
+  }
+
   // service + hideAccess are applied server-side (in the Loki query, so a sparse
   // service like the daemon isn't crowded out of the backfill); only the level
   // filter is client-side.
   const shown = $derived(
-    level === 'all' ? rows : rows.filter((r) => r.level.toLowerCase() === level),
+    level === 'all' ? rows : rows.filter((r) => levelGroup(r.level) === level),
   )
   const errPerMin = $derived(volume.reduce((a, p) => a + p.v, 0))
 
@@ -62,6 +72,10 @@
           errorMsg = d.error
           return
         }
+        if (d.info) {
+          errorMsg = '' // recovery notice
+          return
+        }
         rows.push({ ...(d as LogLine), _id: nextId++ })
         if (rows.length > MAX) rows = rows.slice(-MAX)
       } catch {
@@ -71,9 +85,11 @@
     es.onerror = () => (connected = false)
   }
 
+  // Volume uses the same filters as the feed so the sparkline matches the rows.
   async function fetchVolume() {
     try {
-      const r = await fetch(`/studio/api/logs/volume?range=${range}`)
+      const qs = new URLSearchParams({ range, service, search, hide_access: hideAccess ? '1' : '0' })
+      const r = await fetch(`/studio/api/logs/volume?${qs}`)
       const d = await r.json()
       volume = d.points ?? []
     } catch {
@@ -81,23 +97,26 @@
     }
   }
 
-  function setRange(r: (typeof RANGES)[number]) {
-    range = r
+  function reload() {
     connect()
     fetchVolume()
   }
+  function setRange(r: (typeof RANGES)[number]) {
+    range = r
+    reload()
+  }
   function setService(s: string) {
     service = s
-    connect()
+    reload()
   }
   function toggleAccess() {
     hideAccess = !hideAccess
-    connect()
+    reload()
   }
   function onSearch(v: string) {
     search = v
     clearTimeout(searchTimer)
-    searchTimer = setTimeout(connect, 350)
+    searchTimer = setTimeout(reload, 350)
   }
   function toggle(id: number) {
     const s = new Set(expanded)

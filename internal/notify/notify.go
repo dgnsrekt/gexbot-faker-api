@@ -91,9 +91,11 @@ func (c *Client) send(ctx context.Context, title, message, tags, priority string
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Log the server only — the topic (in the path) is capability-bearing
+		// (anyone with it can read/publish), and logs are now aggregated over HTTP.
 		c.logger.Warn("notification failed",
 			zap.Int("status", resp.StatusCode),
-			zap.String("url", url),
+			zap.String("server", c.config.Server),
 		)
 		return fmt.Errorf("notification failed with status: %d", resp.StatusCode)
 	}
