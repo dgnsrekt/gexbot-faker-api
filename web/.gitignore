@@ -1,0 +1,5 @@
+node_modules/
+# Built assets are produced by `just studio-build` (or CI) and embedded via
+# //go:embed; keep only .gitkeep so the Go package compiles before a build.
+dist/*
+!dist/.gitkeep

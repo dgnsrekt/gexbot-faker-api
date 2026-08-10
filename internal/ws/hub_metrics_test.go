@@ -10,6 +10,25 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestClientCountAndName(t *testing.T) {
+	hub := NewHub("orderflow", zap.NewNop(), func(string) bool { return true })
+	if hub.Name() != "orderflow" {
+		t.Fatalf("Name() = %q, want orderflow", hub.Name())
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+
+	if hub.ClientCount() != 0 {
+		t.Fatalf("ClientCount() = %d before any register, want 0", hub.ClientCount())
+	}
+	c := newTestClient(hub, "k")
+	hub.register <- c
+	waitFor(t, func() bool { return hub.ClientCount() == 1 }, "ClientCount()==1 after register")
+	hub.unregister <- c
+	waitFor(t, func() bool { return hub.ClientCount() == 0 }, "ClientCount()==0 after unregister")
+}
+
 func newTestClient(h *Hub, apiKey string) *Client {
 	return &Client{
 		hub:    h,

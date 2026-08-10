@@ -342,6 +342,96 @@ func LatestTickerDate(root, ticker string) string {
 	return ""
 }
 
+// ArchiveInfo is a per-date summary of the EOD archives on disk, aggregated
+// across every ticker for that date. It backs the Studio UI's Data Library table.
+type ArchiveInfo struct {
+	Date     string   `json:"date"`
+	Tickers  []string `json:"tickers"`
+	Packages []string `json:"packages"`
+	Size     int64    `json:"size_bytes"`
+	Records  int      `json:"records"`
+	Status   string   `json:"status"` // "ok" | "corrupt"
+}
+
+// ListArchives enumerates the EOD archives under <root>/eod, one ArchiveInfo per
+// date (newest first). For each date it unions the tickers and packages, sums the
+// zip sizes and manifest record counts, and marks status "corrupt" if any present
+// archive is missing or has an unreadable manifest. Dates with no archive zips are
+// skipped. A missing eod dir yields an empty slice, not an error.
+func ListArchives(root string) ([]ArchiveInfo, error) {
+	entries, err := os.ReadDir(filepath.Join(root, "eod"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ArchiveInfo{}, nil
+		}
+		return nil, err
+	}
+
+	var out []ArchiveInfo
+	for _, dateEntry := range entries {
+		if !dateEntry.IsDir() || !dateRe.MatchString(dateEntry.Name()) {
+			continue
+		}
+		date := dateEntry.Name()
+		tickerEntries, err := os.ReadDir(filepath.Join(root, "eod", date))
+		if err != nil {
+			continue
+		}
+		info := ArchiveInfo{Date: date, Status: "ok"}
+		tickerSet := map[string]bool{}
+		pkgSet := map[string]bool{}
+		hasArchive := false
+		for _, te := range tickerEntries {
+			if !te.IsDir() {
+				continue
+			}
+			ticker := te.Name()
+			archive := ArchivePath(root, date, ticker)
+			stat, err := os.Stat(archive)
+			if err != nil {
+				continue // no zip for this ticker
+			}
+			hasArchive = true
+			tickerSet[ticker] = true
+			info.Size += stat.Size()
+
+			manifestBytes, err := os.ReadFile(ManifestPath(archive))
+			if err != nil {
+				info.Status = "corrupt"
+				continue
+			}
+			var man Manifest
+			if err := json.Unmarshal(manifestBytes, &man); err != nil {
+				info.Status = "corrupt"
+				continue
+			}
+			for _, m := range man.Members {
+				info.Records += m.Records
+				if m.Package != "" {
+					pkgSet[m.Package] = true
+				}
+			}
+		}
+		if !hasArchive {
+			continue
+		}
+		info.Tickers = sortedKeys(tickerSet)
+		info.Packages = sortedKeys(pkgSet)
+		out = append(out, info)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Date > out[j].Date })
+	return out, nil
+}
+
+func sortedKeys(set map[string]bool) []string {
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // TouchLoaded records that the server just loaded date, refreshing the mtime of
 // <root>/<date>/.last-loaded (read by CleanupStale). No-op if the materialized
 // date dir doesn't exist.

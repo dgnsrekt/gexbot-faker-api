@@ -265,6 +265,18 @@ func (h *Hub) GetActiveGroups() []string {
 	return groups
 }
 
+// Name returns the hub's name (e.g. "orderflow", "classic").
+func (h *Hub) Name() string { return h.name }
+
+// ClientCount returns the number of currently connected clients. Used by the
+// Studio UI's Live Streams screen (the connected-client count is otherwise only
+// available as a Prometheus gauge).
+func (h *Hub) ClientCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
+}
+
 // Broadcast sends a message to all clients in a group.
 func (h *Hub) Broadcast(group string, payload []byte) {
 	h.broadcast <- &GroupMessage{Group: group, Payload: payload}

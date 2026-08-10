@@ -16,6 +16,7 @@ help:
     @echo "Server Commands"
     @echo ""
     @echo "  just build-gex-faker              Build the GEX Faker server binary"
+    @echo "  just studio-build                 Build the GEX Faker Studio web UI (/studio)"
     @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
     @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
     @echo "  just generate-protos              Generate protobuf code for WebSocket"
@@ -64,8 +65,15 @@ generate-protos:
     ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/webpubsub --go_opt=paths=source_relative proto/webpubsub_messages.proto
     ~/bin/protoc --proto_path=proto --proto_path=$HOME/bin/include --go_out=internal/ws/generated/gex --go_opt=paths=source_relative proto/gex.proto
 
-# Build the GEX Faker server binary
-build-gex-faker: generate-gex-faker-api-spec
+# Build the GEX Faker Studio web UI (embedded into the server via //go:embed).
+# Re-create dist/.gitkeep afterwards: `vite build` empties the dir, and the
+# checked-in .gitkeep must survive so the Go package still compiles on a clean
+# checkout that hasn't run a UI build.
+studio-build:
+    cd web && npm ci && npm run build && touch dist/.gitkeep
+
+# Build the GEX Faker server binary (embeds the Studio UI built by studio-build)
+build-gex-faker: generate-gex-faker-api-spec studio-build
     go build -o bin/gexbot-server ./cmd/server
 
 # Run the GEX Faker server (development)

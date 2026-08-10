@@ -11,11 +11,12 @@ GEX Faker API is a Go server that replays historical options/derivatives data fr
 ```bash
 # Build
 just build                          # Build downloader binary
-just build-gex-faker                # Build server binary (auto-generates API code)
+just studio-build                   # Build the Studio web UI (web/ → web/dist, embedded)
+just build-gex-faker                # Build server binary (runs studio-build + generates API code)
 
 # Run
 just serve-gex-faker                # Build and run server
-PORT=8080 DATA_DATE=2025-11-24 go run ./cmd/server  # Run with env overrides
+PORT=8080 DATA_DATE=2025-11-24 go run ./cmd/server  # Run with env overrides (uses last-built web/dist)
 
 # Code Generation
 just generate-gex-faker-api-spec    # Generate Go code from OpenAPI spec
@@ -74,11 +75,32 @@ Protocol: Azure Web PubSub-compatible with Zstandard-compressed Protobufs.
 - Two modes: `MemoryLoader` (loads all to RAM) or `StreamLoader` (reads from disk)
 - `IndexCache` tracks per-API-key playback positions
 
+### GEX Faker Studio (web UI)
+An LM-Studio-style web UI served by the same server at `/studio`, for managing the
+faker without curl/env-vars.
+- `web/` - Vite + Svelte 5 + TypeScript SPA. `npm run build` (or `just studio-build`)
+  writes `web/dist`, which is embedded via `//go:embed` in `web/embed.go`
+  (`web.Dist`) and served by `internal/server/studio.go`. A checked-in
+  `web/dist/.gitkeep` keeps the Go package compilable before a build; `web/dist`
+  is otherwise gitignored (build it, don't commit it). Docker builds it in a Node
+  stage (see `Dockerfile`).
+- Read-only control-plane JSON at `/studio/api/{status,config,hubs,library,keys,endpoints}`
+  (`internal/server/studio_handlers.go`); the SPA also calls the existing open
+  control endpoints (`/reload-date`, `/reset-cache`, `/current-date`, `/tickers`, ...).
+- MVP screens: Local server, Data library (load a date → `POST /reload-date`), Live
+  streams (hub stats + group-name builder), Settings (effective env vars). Download
+  and Logs are Phase-2 placeholders.
+- When adding a Studio endpoint: add a handler in `studio_handlers.go`, register it
+  in `RegisterStudioRoutes`, add a typed wrapper in `web/src/lib/api.ts`, then
+  rebuild the UI. New backend accessors added for the UI: `ws.Hub.ClientCount()`,
+  `data.IndexCache.AllPositions()`, `eod.ListArchives()`.
+
 ### Key Packages
-- `internal/server/` - HTTP router, handlers, Swagger UI
+- `internal/server/` - HTTP router, handlers, Swagger UI, Studio UI + endpoints
 - `internal/ws/` - WebSocket hubs, streamers, negotiate handler, protobuf encoding
 - `internal/data/` - Data loading and caching
 - `internal/config/` - Configuration loading and validation
+- `web/` - GEX Faker Studio SPA (embedded)
 - `proto/` - Protobuf definitions for WebSocket messages
 
 ## Data Packages and Categories

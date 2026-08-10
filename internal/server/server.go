@@ -56,6 +56,14 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	r.Get("/asyncapi.yaml", asyncapiHandler)
 	r.Get("/asyncapi", asyncapiUIHandler)
 
+	// GEX Faker Studio: embedded SPA at /studio + its read-only control-plane
+	// JSON endpoints at /studio/api/*. Registered before the API group so it
+	// skips auth/validation/compression (assets must not be compressed).
+	if err := registerStudioUI(r); err != nil {
+		return nil, err
+	}
+	RegisterStudioRoutes(r, server, wsHubs)
+
 	// WebSocket routes (outside OpenAPI validation)
 	if negotiateHandler != nil {
 		r.Get("/negotiate", negotiateHandler.HandleNegotiate)

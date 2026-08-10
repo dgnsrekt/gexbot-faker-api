@@ -1,0 +1,117 @@
+:root {
+  --bg: #0d0e10;
+  --bg-log: #0b0c0e;
+  --panel: #111214;
+  --panel-2: #141619;
+  --input: #191b1f;
+  --border: #212429;
+  --border-2: #272a30;
+  --border-3: #23262b;
+  --text: #e7e8ea;
+  --text-2: #d6d8db;
+  --muted: #8b8f98;
+  --muted-2: #7b808a;
+  --dim: #63686f;
+  --dimmer: #5c616a;
+  --green: #6fcf97;
+  --green-2: #7fd1a8;
+  --green-ink: #0d1a12;
+  --green-bg: #16211b;
+  --green-border: #2c4335;
+  --amber: #e0b164;
+  --blue: #7aa7e0;
+  --red: #e08080;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  height: 100%;
+}
+
+#app {
+  height: 100vh;
+}
+
+a {
+  color: var(--green-2);
+  text-decoration: none;
+}
+a:hover {
+  color: #a7e5c6;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2b2e34;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Shared building blocks */
+.card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.card-head {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.btn {
+  font-size: 11.5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: #9aa0a9;
+  cursor: pointer;
+  background: var(--input);
+}
+.btn:hover {
+  color: var(--text);
+  border-color: #3a3e46;
+}
+.pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1b1e23;
+  color: #9aa0a9;
+}
