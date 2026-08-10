@@ -27,6 +27,11 @@ type ServerConfig struct {
 	// (e.g. http://loki:3100). Empty disables the Logs feed (it degrades with a
 	// "start the observability stack" message).
 	LokiURL string
+	// StudioAuthToken, when set, gates all /studio routes behind HTTP Basic auth
+	// (any username, password = the token). Empty leaves the Studio open (local
+	// dev default). Set it whenever the API port is reachable beyond a trusted
+	// host — the Studio exposes control endpoints and container logs.
+	StudioAuthToken string
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -82,6 +87,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 		SyncBroadcastSystemID:       syncBroadcastID,
 		SyncBroadcastSystemInterval: syncInterval,
 		LokiURL:                     getEnvOrDefault("LOKI_URL", ""),
+		StudioAuthToken:             getEnvOrDefault("STUDIO_AUTH_TOKEN", ""),
 	}
 
 	// Validate

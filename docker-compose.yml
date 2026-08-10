@@ -21,6 +21,9 @@ services:
       - SYNC_BROADCAST_SYSTEM_INTERVAL=${SYNC_BROADCAST_SYSTEM_INTERVAL:-1s}
       # Studio Logs screen reads logs from Loki over the compose network.
       - LOKI_URL=${LOKI_URL:-http://loki:3100}
+      # Set to require HTTP Basic auth on /studio (any user, password = token).
+      # Empty = open; set this whenever the API port is reachable beyond a trusted host.
+      - STUDIO_AUTH_TOKEN=${STUDIO_AUTH_TOKEN:-}
     depends_on:
       - loki
     labels:

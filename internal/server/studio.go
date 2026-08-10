@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -13,6 +14,34 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/web"
 )
+
+// studioAuthMiddleware gates the Studio behind HTTP Basic auth when token is set
+// (any username, password must equal the token). An empty token leaves the
+// Studio open. Basic is used so the browser natively prompts and stores the
+// credential, and the SPA's same-origin fetch/SSE calls carry it automatically;
+// a Bearer header is also accepted for curl/programmatic use.
+func studioAuthMiddleware(token string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if token == "" || studioTokenOK(r, token) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			w.Header().Set("WWW-Authenticate", `Basic realm="GEX Faker Studio"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		})
+	}
+}
+
+func studioTokenOK(r *http.Request, token string) bool {
+	if _, pass, ok := r.BasicAuth(); ok {
+		return subtle.ConstantTimeCompare([]byte(pass), []byte(token)) == 1
+	}
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		return subtle.ConstantTimeCompare([]byte(strings.TrimPrefix(h, "Bearer ")), []byte(token)) == 1
+	}
+	return false
+}
 
 // registerStudioUI serves the embedded SPA at /studio and /studio/*. Assets are
 // served uncompressed (like the swagger-ui handlers — chi's Compress corrupts
