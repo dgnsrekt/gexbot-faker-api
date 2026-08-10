@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -150,7 +151,20 @@ func (m *downloadManager) worker() {
 			if res != nil && res.Failed > 0 {
 				return fmt.Errorf("%d of %d files failed", res.Failed, res.Total)
 			}
-			return downloadjob.PackMissingArchives(cfg, req.date)
+			if e := downloadjob.PackMissingArchives(cfg, req.date); e != nil {
+				return e
+			}
+			// The download already produced the JSONL (auto-convert) and packed
+			// it, so the date is materialized — mark each packed ticker so the
+			// Library shows it "ready" immediately instead of prompting a
+			// redundant re-unpack. The archive stays as the TTL re-materialize
+			// backup.
+			for _, tk := range req.tickers {
+				if _, statErr := os.Stat(eod.ManifestPath(eod.ArchivePath(m.dataDir, req.date, tk))); statErr == nil {
+					_ = eod.MarkMaterialized(m.dataDir, req.date, tk)
+				}
+			}
+			return nil
 		})
 
 		m.mu.Lock()
