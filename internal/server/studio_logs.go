@@ -6,34 +6,68 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
-// logsQuery selects the faker containers Alloy ships to Loki (labeled
+// logsBaseSelector picks the faker containers Alloy ships to Loki (labeled
 // service=gex-faker-api / gex-daemon via observability.service).
-const logsQuery = `{service=~"gex-.*"}`
+const logsBaseSelector = `{service=~"gex-.*"}`
+
+// errorLevelMatch matches error/warn zap lines in a raw log line, for the
+// volume series (level is a JSON field, not a Loki label).
+const errorLevelMatch = `"level":"(error|warn|fatal|panic)"`
 
 const (
 	logsPollInterval = 1500 * time.Millisecond
-	logsBackfill     = 5 * time.Minute
-	logsBackfillMax  = 300
+	logsBackfillMax  = 500
 	logsPollMax      = 1000
 )
 
-// logLine is one entry streamed to the Studio Logs screen.
+// logRanges maps the UI's range chips to durations.
+var logRanges = map[string]time.Duration{
+	"5m": 5 * time.Minute,
+	"1h": time.Hour,
+	"6h": 6 * time.Hour,
+}
+
+func parseLogRange(s string) time.Duration {
+	if d, ok := logRanges[s]; ok {
+		return d
+	}
+	return 5 * time.Minute
+}
+
+// logLine is one entry streamed to the Studio Logs screen. Fields carries every
+// structured zap field beyond level/ts/msg/caller so the UI can render them.
 type logLine struct {
-	Time    string `json:"time"`
-	Level   string `json:"level"`
-	Service string `json:"service"`
-	Msg     string `json:"msg"`
+	Time    string         `json:"time"`
+	Level   string         `json:"level"`
+	Service string         `json:"service"`
+	Msg     string         `json:"msg"`
+	Caller  string         `json:"caller,omitempty"`
+	Fields  map[string]any `json:"fields,omitempty"`
+}
+
+// buildLogQuery returns the LogQL selector, adding a case-insensitive substring
+// filter when the user typed a search term.
+func buildLogQuery(search string) string {
+	q := logsBaseSelector
+	if s := strings.TrimSpace(search); s != "" {
+		if len(s) > 200 {
+			s = s[:200]
+		}
+		q += " |~ " + strconv.Quote("(?i)"+regexp.QuoteMeta(s))
+	}
+	return q
 }
 
 // handleLogs streams faker logs to the browser as SSE. The server queries Loki on
 // the internal compose network (LOKI_URL) and forwards entries, so the browser
-// never talks to Loki directly (no exposed port, no CORS). If Loki isn't
-// configured or is unreachable, it emits a single error event the UI surfaces.
+// never talks to Loki directly. Query params: range=5m|1h|6h, search=<text>.
 func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -43,7 +77,6 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
-
 	sendEvent := func(v any) {
 		b, _ := json.Marshal(v)
 		fmt.Fprintf(w, "data: %s\n\n", b)
@@ -56,12 +89,16 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	query := buildLogQuery(r.URL.Query().Get("search"))
+	window := parseLogRange(r.URL.Query().Get("range"))
+
 	ctx := r.Context()
 	client := &lokiClient{base: base, hc: &http.Client{Timeout: 8 * time.Second}}
 
-	// Backfill a recent window, then tail forward from the last-seen timestamp.
+	// Backfill the most recent lines in the window (direction=backward), shown
+	// oldest→newest, then tail forward from the last-seen timestamp.
 	nowNs := time.Now().UnixNano()
-	lines, lastNs, err := client.queryRange(ctx, nowNs-int64(logsBackfill), nowNs, logsBackfillMax)
+	lines, lastNs, err := client.queryRange(ctx, query, nowNs-int64(window), nowNs, logsBackfillMax, "backward")
 	if err != nil {
 		sendEvent(map[string]string{"error": "Loki is unreachable. Is the observability stack running?"})
 		return
@@ -81,9 +118,9 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-ticker.C:
 			end := time.Now().UnixNano()
-			fresh, newLast, err := client.queryRange(ctx, lastNs+1, end, logsPollMax)
+			fresh, newLast, err := client.queryRange(ctx, query, lastNs+1, end, logsPollMax, "forward")
 			if err != nil {
-				continue // transient; keep tailing
+				continue
 			}
 			for _, l := range fresh {
 				sendEvent(l)
@@ -95,35 +132,42 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// lokiClient does forward range queries against Loki's HTTP API.
+// handleLogsVolume returns an error/warn-per-minute series over the range, for
+// the Logs screen's volume sparkline.
+func (h *StudioHandlers) handleLogsVolume(w http.ResponseWriter, r *http.Request) {
+	base := h.server.config.LokiURL
+	if base == "" {
+		writeStudioJSON(w, map[string]any{"points": []any{}})
+		return
+	}
+	window := parseLogRange(r.URL.Query().Get("range"))
+	client := &lokiClient{base: base, hc: &http.Client{Timeout: 8 * time.Second}}
+	metric := `sum(count_over_time(` + logsBaseSelector + ` |~ ` + strconv.Quote(errorLevelMatch) + `[1m]))`
+	points, err := client.metricRange(r.Context(), metric, window, time.Minute)
+	if err != nil {
+		writeStudioJSON(w, map[string]any{"points": []any{}})
+		return
+	}
+	writeStudioJSON(w, map[string]any{"points": points})
+}
+
+// lokiClient does range queries against Loki's HTTP API.
 type lokiClient struct {
 	base string
 	hc   *http.Client
 }
 
-// queryRange returns log lines in [startNs, endNs] ascending, and the max Loki
-// timestamp seen (0 if none).
-func (c *lokiClient) queryRange(ctx context.Context, startNs, endNs int64, limit int) ([]logLine, int64, error) {
+// queryRange returns log lines in [startNs, endNs] ascending (regardless of the
+// Loki fetch direction), plus the max Loki timestamp seen (0 if none). direction
+// selects which limit lines Loki returns: "backward" = most recent, "forward" =
+// earliest.
+func (c *lokiClient) queryRange(ctx context.Context, query string, startNs, endNs int64, limit int, direction string) ([]logLine, int64, error) {
 	q := url.Values{}
-	q.Set("query", logsQuery)
+	q.Set("query", query)
 	q.Set("start", strconv.FormatInt(startNs, 10))
 	q.Set("end", strconv.FormatInt(endNs, 10))
 	q.Set("limit", strconv.Itoa(limit))
-	q.Set("direction", "forward")
-	u := c.base + "/loki/api/v1/query_range?" + q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, 0, err
-	}
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("loki status %d", resp.StatusCode)
-	}
+	q.Set("direction", direction)
 
 	var payload struct {
 		Data struct {
@@ -133,7 +177,7 @@ func (c *lokiClient) queryRange(ctx context.Context, startNs, endNs int64, limit
 			} `json:"result"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := c.get(ctx, "/loki/api/v1/query_range?"+q.Encode(), &payload); err != nil {
 		return nil, 0, err
 	}
 
@@ -153,7 +197,6 @@ func (c *lokiClient) queryRange(ctx context.Context, startNs, endNs int64, limit
 			all = append(all, tsLine{ns: ns, line: parseLogLine(v[1], service, ns)})
 		}
 	}
-	// Loki returns per-stream ordering; merge to a single ascending timeline.
 	sort.Slice(all, func(i, j int) bool { return all[i].ns < all[j].ns })
 	out := make([]logLine, 0, len(all))
 	for _, t := range all {
@@ -162,20 +205,89 @@ func (c *lokiClient) queryRange(ctx context.Context, startNs, endNs int64, limit
 	return out, maxNs, nil
 }
 
-// parseLogLine turns a container stdout line (zap JSON) into a display entry,
-// falling back to the raw text (level "info") when it isn't structured.
+// volumePoint is one bucket of the volume sparkline.
+type volumePoint struct {
+	T int64   `json:"t"` // unix seconds
+	V float64 `json:"v"` // count in the bucket
+}
+
+// metricRange runs a Loki metric query over [now-window, now] at the given step.
+func (c *lokiClient) metricRange(ctx context.Context, metric string, window, step time.Duration) ([]volumePoint, error) {
+	now := time.Now()
+	q := url.Values{}
+	q.Set("query", metric)
+	q.Set("start", strconv.FormatInt(now.Add(-window).UnixNano(), 10))
+	q.Set("end", strconv.FormatInt(now.UnixNano(), 10))
+	q.Set("step", strconv.Itoa(int(step.Seconds())))
+
+	var payload struct {
+		Data struct {
+			Result []struct {
+				Values [][2]any `json:"values"` // [unixSec(float), "count"]
+			} `json:"result"`
+		} `json:"data"`
+	}
+	if err := c.get(ctx, "/loki/api/v1/query_range?"+q.Encode(), &payload); err != nil {
+		return nil, err
+	}
+	points := []volumePoint{}
+	if len(payload.Data.Result) > 0 {
+		for _, v := range payload.Data.Result[0].Values {
+			t, _ := v[0].(float64)
+			var val float64
+			if s, ok := v[1].(string); ok {
+				val, _ = strconv.ParseFloat(s, 64)
+			}
+			points = append(points, volumePoint{T: int64(t), V: val})
+		}
+	}
+	return points, nil
+}
+
+func (c *lokiClient) get(ctx context.Context, path string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("loki status %d", resp.StatusCode)
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// parseLogLine turns a container stdout line (zap JSON) into a display entry with
+// all structured fields preserved, falling back to raw text when unstructured.
 func parseLogLine(raw, service string, ns int64) logLine {
 	entry := logLine{Service: service, Level: "info", Msg: raw}
-	var zapEntry struct {
-		Level string  `json:"level"`
-		Ts    float64 `json:"ts"`
-		Msg   string  `json:"msg"`
-	}
-	if err := json.Unmarshal([]byte(raw), &zapEntry); err == nil && zapEntry.Msg != "" {
-		entry.Level = zapEntry.Level
-		entry.Msg = zapEntry.Msg
-		if zapEntry.Ts > 0 {
-			entry.Time = time.Unix(int64(zapEntry.Ts), 0).UTC().Format("15:04:05")
+	var o map[string]any
+	if err := json.Unmarshal([]byte(raw), &o); err == nil {
+		if lvl, ok := o["level"].(string); ok && lvl != "" {
+			entry.Level = lvl
+		}
+		if msg, ok := o["msg"].(string); ok && msg != "" {
+			entry.Msg = msg
+		}
+		if c, ok := o["caller"].(string); ok {
+			entry.Caller = c
+		}
+		fields := map[string]any{}
+		for k, v := range o {
+			switch k {
+			case "level", "ts", "msg", "caller":
+				continue
+			}
+			fields[k] = v
+		}
+		if len(fields) > 0 {
+			entry.Fields = fields
+		}
+		if ts, ok := o["ts"].(float64); ok && ts > 0 {
+			entry.Time = time.Unix(int64(ts), 0).UTC().Format("15:04:05")
 			return entry
 		}
 	}

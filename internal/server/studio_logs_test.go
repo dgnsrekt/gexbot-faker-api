@@ -36,19 +36,51 @@ func TestLokiQueryRange(t *testing.T) {
 	defer loki.Close()
 
 	c := &lokiClient{base: loki.URL, hc: loki.Client()}
-	lines, maxNs, err := c.queryRange(context.Background(), 0, 1000, 100)
+	lines, maxNs, err := c.queryRange(context.Background(), logsBaseSelector, 0, 1000, 100, "backward")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 lines, got %d", len(lines))
 	}
-	// Ascending by ns: the daemon "a" (ns 100) before the api "b" (ns 200).
+	// Ascending by ns regardless of fetch direction: daemon "a" (ns 100) before
+	// api "b" (ns 200).
 	if lines[0].Msg != "a" || lines[1].Msg != "b" {
 		t.Errorf("lines not merged ascending: %+v", lines)
 	}
 	if maxNs != 200 {
 		t.Errorf("maxNs = %d, want 200", maxNs)
+	}
+}
+
+func TestParseLogLinePreservesFields(t *testing.T) {
+	l := parseLogLine(`{"level":"info","ts":1,"caller":"server.go:227","msg":"request completed","method":"GET","route":"/health","status":200,"duration":0.0004}`, "gex-faker-api", 1)
+	if l.Caller != "server.go:227" {
+		t.Errorf("caller = %q", l.Caller)
+	}
+	if l.Fields["method"] != "GET" || l.Fields["route"] != "/health" {
+		t.Errorf("fields not preserved: %+v", l.Fields)
+	}
+	if _, ok := l.Fields["msg"]; ok {
+		t.Error("msg leaked into fields")
+	}
+	if _, ok := l.Fields["caller"]; ok {
+		t.Error("caller leaked into fields")
+	}
+}
+
+func TestBuildLogQuery(t *testing.T) {
+	if q := buildLogQuery(""); q != logsBaseSelector {
+		t.Errorf("empty search = %q, want base selector", q)
+	}
+	q := buildLogQuery(`err"or`)
+	if !strings.Contains(q, "|~") || !strings.Contains(q, "(?i)") {
+		t.Errorf("search query missing case-insensitive filter: %q", q)
+	}
+	// The user's embedded quote must be backslash-escaped (strconv.Quote), so it
+	// can't break out of the LogQL string literal.
+	if !strings.Contains(q, `err\"or`) {
+		t.Errorf("embedded quote not escaped in query: %q", q)
 	}
 }
 
