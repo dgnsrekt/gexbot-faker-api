@@ -84,6 +84,59 @@ func TestListArchivesCorruptManifest(t *testing.T) {
 	}
 }
 
+func TestMarkMaterialized(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+	packFixture(t, root, date, ticker, 1) // archive present, no marker
+
+	// Before marking: archived (0 materialized).
+	got, _ := ListArchives(root)
+	if len(got) != 1 || got[0].Materialized != 0 {
+		t.Fatalf("pre-mark: %+v, want materialized 0", got)
+	}
+
+	// A download would leave JSONL on disk; simulate that + mark.
+	writeCatFixture(t, root, date, ticker, "classic", "gex_full")
+	if err := MarkMaterialized(root, date, ticker); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = ListArchives(root)
+	if got[0].Materialized != 1 {
+		t.Errorf("post-mark materialized = %d, want 1", got[0].Materialized)
+	}
+
+	// No-op when the ticker's data dir is absent.
+	if err := MarkMaterialized(root, date, "NOPE"); err != nil {
+		t.Errorf("marking an absent ticker should be a no-op, got %v", err)
+	}
+}
+
+func TestMarkMaterializedWriteError(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+	// Ticker dir exists (so it's not the no-op path), but the marker path is
+	// occupied by a directory, so the marker write must fail — the download
+	// worker relies on this error to fail the job instead of falsely reporting
+	// the date "ready" with no marker on disk.
+	if err := os.MkdirAll(filepath.Join(root, date, ticker, markerName), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := MarkMaterialized(root, date, ticker); err == nil {
+		t.Error("MarkMaterialized should return an error when the marker cannot be written")
+	}
+}
+
+func writeCatFixture(t *testing.T, root, date, ticker, pkg, cat string) {
+	t.Helper()
+	p := filepath.Join(root, date, ticker, pkg, cat+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(p), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestListArchivesMissingDir(t *testing.T) {
 	got, err := ListArchives(t.TempDir()) // no eod/ subdir
 	if err != nil {

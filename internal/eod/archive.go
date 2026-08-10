@@ -461,6 +461,20 @@ func sortedKeys(set map[string]bool) []string {
 	return keys
 }
 
+// MarkMaterialized records that a ticker's JSONL is already on disk (e.g.
+// produced directly by a download's auto-convert) so ListArchives reports it
+// materialized without a redundant unpack. It writes the same .eod-materialized
+// marker MaterializeTicker does (the source archive path). No-op if the ticker's
+// data dir is absent.
+func MarkMaterialized(root, date, ticker string) error {
+	dir := filepath.Join(root, date, ticker)
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return nil
+	}
+	archive := ArchivePath(root, date, ticker)
+	return os.WriteFile(filepath.Join(dir, markerName), []byte(archive+"\n"), 0600)
+}
+
 // TouchLoaded records that the server just loaded date, refreshing the mtime of
 // <root>/<date>/.last-loaded (read by CleanupStale). No-op if the materialized
 // date dir doesn't exist.
