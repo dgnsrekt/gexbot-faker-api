@@ -37,14 +37,26 @@ export interface HubStat {
   interval: string
 }
 
+export type LibraryState = 'loaded' | 'ready' | 'archived' | 'materializing'
+
 export interface LibraryRow {
   date: string
   tickers: string[]
   packages: string[]
   size_bytes: number
   records: number
-  status: string
+  status: string // "ok" | "corrupt" (archive integrity)
+  materialized: number // tickers with JSONL on disk
+  total: number // archived tickers for the date
   loaded: boolean
+  state: LibraryState
+  job_error?: string // last background-materialize failure for this date, if any
+}
+
+export interface MaterializeJob {
+  date: string
+  state: 'running' | 'done' | 'error'
+  error?: string
 }
 
 export interface KeyStream {
@@ -98,6 +110,7 @@ export const api = {
   categories: (pkg: string) => getJSON<string[]>(`/${pkg}/categories`),
   reloadDate: (date: string) => postJSON<{ new_date: string }>('/reload-date', { date }),
   resetCache: () => postJSON<{ count: number }>('/reset-cache', {}),
+  materialize: (date: string) => postJSON<MaterializeJob>('/studio/api/materialize', { date }),
 }
 
 export function fmtBytes(n: number): string {

@@ -6,7 +6,7 @@
 
   let rows = $state<LibraryRow[]>([])
   let loading = $state(true)
-  let busyDate = $state<string | null>(null)
+  let busyDate = $state<string | null>(null) // a Load in progress
   let error = $state('')
 
   async function refresh() {
@@ -22,11 +22,30 @@
 
   onMount(refresh)
 
+  // Poll only while something is materializing, so a static library isn't hit
+  // every few seconds (the library read stats/reads every archive manifest).
+  const materializing = $derived(rows.some((r) => r.state === 'materializing'))
+  $effect(() => {
+    if (!materializing) return
+    const t = setInterval(refresh, 2000)
+    return () => clearInterval(t)
+  })
+
+  async function materialize(date: string) {
+    error = ''
+    try {
+      await api.materialize(date)
+      await refresh() // flips the row to "materializing"; the effect starts polling
+    } catch (e) {
+      error = `Materialize failed: ${e}`
+    }
+  }
+
   async function load(date: string) {
     busyDate = date
     error = ''
     try {
-      await api.reloadDate(date)
+      await api.reloadDate(date) // fast: only offered on ready dates
       await refresh()
       onchanged()
     } catch (e) {
@@ -38,6 +57,11 @@
 
   const totalSize = $derived(rows.reduce((a, r) => a + r.size_bytes, 0))
   const loadedRow = $derived(rows.find((r) => r.loaded))
+
+  function pct(r: LibraryRow): string {
+    if (!r.total) return '0%'
+    return Math.round((r.materialized / r.total) * 100) + '%'
+  }
 </script>
 
 <div class="wrap">
@@ -85,15 +109,28 @@
             {#if r.status === 'corrupt'}
               <span class="badge corrupt">corrupt</span>
             {/if}
-            {#if r.loaded}
+
+            {#if r.state === 'loaded'}
               <span class="badge loaded-badge">Loaded</span>
-            {:else}
-              <button
-                class="btn load"
-                disabled={busyDate !== null}
-                onclick={() => load(r.date)}
-              >
+            {:else if r.state === 'materializing'}
+              <div class="materializing" title="Unpacking EOD archives to JSONL">
+                <div class="mbar"><div class="mfill" style="width:{pct(r)}"></div></div>
+                <span class="mono mtext">Materializing {r.materialized}/{r.total}</span>
+              </div>
+            {:else if r.state === 'ready'}
+              <button class="btn load" disabled={busyDate !== null} onclick={() => load(r.date)}>
                 {busyDate === r.date ? 'Loading…' : 'Load'}
+              </button>
+            {:else}
+              {#if r.job_error}
+                <span class="failed mono" title={r.job_error}>failed</span>
+              {/if}
+              <button
+                class="btn materialize"
+                title={r.job_error ? `Retry: ${r.job_error}` : "Unpack this date's EOD archives so it can be loaded"}
+                onclick={() => materialize(r.date)}
+              >
+                {r.job_error ? 'Retry' : 'Materialize'}
               </button>
             {/if}
           </div>
@@ -149,7 +186,7 @@
   .thead,
   .row {
     display: grid;
-    grid-template-columns: 96px 120px minmax(80px, 1fr) 72px 84px 120px;
+    grid-template-columns: 96px 120px minmax(80px, 1fr) 72px 84px 150px;
     gap: 12px;
     align-items: center;
     padding: 11px 14px;
@@ -218,6 +255,45 @@
   .btn.load:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .failed {
+    font-size: 10px;
+    color: var(--red);
+    border: 1px solid #4a2b2b;
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+  .btn.materialize {
+    padding: 4px 10px;
+    color: var(--amber);
+    border-color: #4a3a20;
+  }
+  .btn.materialize:hover {
+    color: #f0c682;
+    border-color: #6a5528;
+  }
+  .materializing {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    width: 100%;
+  }
+  .mbar {
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: #1e2126;
+    overflow: hidden;
+  }
+  .mfill {
+    height: 100%;
+    background: var(--amber);
+    transition: width 0.4s ease;
+  }
+  .mtext {
+    font-size: 10px;
+    color: var(--amber);
   }
   .msg {
     padding: 20px 14px;

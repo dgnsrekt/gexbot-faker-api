@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +19,10 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
 
+// studioDateRe validates the exact YYYY-MM-DD shape accepted by the materialize
+// endpoint (no separators/traversal).
+var studioDateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
 // StudioHandlers backs the GEX Faker Studio UI's read-only control-plane
 // endpoints under /studio/api. They aggregate state the Server already holds
 // (config, loader, cache, reload manager) plus the WebSocket hubs, so the SPA can
@@ -26,15 +31,22 @@ import (
 type StudioHandlers struct {
 	server *Server
 	hubs   *WebSocketHubs
+	mat    *materializeManager
 }
 
 // RegisterStudioRoutes wires the /studio/api/* JSON endpoints onto r.
 func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
-	h := &StudioHandlers{server: s, hubs: hubs}
+	h := &StudioHandlers{
+		server: s,
+		hubs:   hubs,
+		mat:    newMaterializeManager(s.config.DataDir, s.logger),
+	}
 	r.Get("/studio/api/status", h.handleStatus)
 	r.Get("/studio/api/config", h.handleConfig)
 	r.Get("/studio/api/hubs", h.handleHubs)
 	r.Get("/studio/api/library", h.handleLibrary)
+	r.Post("/studio/api/materialize", h.handleMaterialize)
+	r.Get("/studio/api/materialize", h.handleMaterializeStatus)
 	r.Get("/studio/api/keys", h.handleKeys)
 	r.Get("/studio/api/endpoints", h.handleEndpoints)
 }
@@ -199,6 +211,14 @@ func (h *StudioHandlers) handleHubs(w http.ResponseWriter, _ *http.Request) {
 	writeStudioJSON(w, stats)
 }
 
+type libRow struct {
+	eod.ArchiveInfo
+	Loaded   bool   `json:"loaded"`
+	Total    int    `json:"total"`               // archived tickers for the date
+	State    string `json:"state"`               // loaded | ready | archived | materializing
+	JobError string `json:"job_error,omitempty"` // last background-materialize failure, if any
+}
+
 func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
 	archives, err := eod.ListArchives(h.server.config.DataDir)
 	if err != nil {
@@ -206,15 +226,79 @@ func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	loaded := h.currentDate()
-	type libRow struct {
-		eod.ArchiveInfo
-		Loaded bool `json:"loaded"`
-	}
 	rows := make([]libRow, 0, len(archives))
 	for _, a := range archives {
-		rows = append(rows, libRow{ArchiveInfo: a, Loaded: a.Date == loaded})
+		total := len(a.Tickers)
+		state := studioLibraryState(a.Date == loaded, h.mat.inProgress(a.Date), a.Materialized, total)
+		row := libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state}
+		// Surface a terminal background failure so the UI doesn't silently revert
+		// to a Materialize button and drop the error.
+		if job, ok := h.mat.status(a.Date); ok && job.State == "error" {
+			row.JobError = job.Error
+		}
+		rows = append(rows, row)
 	}
 	writeStudioJSON(w, rows)
+}
+
+// studioLibraryState maps a date's materialization to a UI state: "loaded" (being
+// served), "materializing" (a background job is running), "ready" (every ticker
+// materialized → Load is instant), else "archived" (needs Materialize first;
+// includes a partially-materialized date with no running job).
+func studioLibraryState(isLoaded, running bool, materialized, total int) string {
+	switch {
+	case isLoaded:
+		return "loaded"
+	case running:
+		return "materializing"
+	case total > 0 && materialized == total:
+		return "ready"
+	default:
+		return "archived"
+	}
+}
+
+// handleMaterialize starts (or joins) a background materialization for a date.
+// Body: {"date":"YYYY-MM-DD"}. Returns the job (202 Accepted).
+func (h *StudioHandlers) handleMaterialize(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Date string `json:"date"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Date == "" {
+		http.Error(w, `{"error":"date is required"}`, http.StatusBadRequest)
+		return
+	}
+	// Strict YYYY-MM-DD only — rejects path-like values (e.g. "2026-08-07/..")
+	// before any path join, so an unauthenticated caller can't grow the job map
+	// with lexical variants that resolve to real paths.
+	if !studioDateRe.MatchString(body.Date) {
+		http.Error(w, `{"error":"date must be YYYY-MM-DD"}`, http.StatusBadRequest)
+		return
+	}
+	// And it must actually have an archive to unpack.
+	if !eod.HasArchive(h.server.config.DataDir, body.Date) {
+		http.Error(w, `{"error":"no archive for that date"}`, http.StatusBadRequest)
+		return
+	}
+	job := h.mat.start(body.Date)
+	w.WriteHeader(http.StatusAccepted)
+	writeStudioJSON(w, job)
+}
+
+// handleMaterializeStatus returns the job for ?date=... (404 if none), or every
+// job seen this process when no date is given.
+func (h *StudioHandlers) handleMaterializeStatus(w http.ResponseWriter, r *http.Request) {
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		writeStudioJSON(w, h.mat.all())
+		return
+	}
+	job, ok := h.mat.status(date)
+	if !ok {
+		http.Error(w, `{"error":"no job for that date"}`, http.StatusNotFound)
+		return
+	}
+	writeStudioJSON(w, job)
 }
 
 type keyStream struct {

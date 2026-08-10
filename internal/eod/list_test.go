@@ -93,3 +93,28 @@ func TestListArchivesMissingDir(t *testing.T) {
 		t.Fatalf("expected empty, got %v", got)
 	}
 }
+
+func TestListArchivesMaterializedCount(t *testing.T) {
+	root := t.TempDir()
+	packFixture(t, root, "2026-08-07", "SPX", 1)
+	packFixture(t, root, "2026-08-07", "NDX", 1)
+	// Materialize only SPX (marker present); NDX stays archive-only.
+	marker := filepath.Join(root, "2026-08-07", "SPX", markerName)
+	if err := os.MkdirAll(filepath.Dir(marker), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(marker, []byte("archive\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ListArchives(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 date, got %d", len(got))
+	}
+	if got[0].Materialized != 1 || len(got[0].Tickers) != 2 {
+		t.Errorf("materialized=%d of %d tickers, want 1 of 2", got[0].Materialized, len(got[0].Tickers))
+	}
+}
