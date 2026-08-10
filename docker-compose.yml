@@ -6,7 +6,12 @@ services:
     container_name: gex-faker-api
     user: "${PUID:-1000}:${PGID:-1000}"
     ports:
-      - "${HOST_PORT:-8080}:8080"
+      # Bind to loopback by default so `docker compose up` never exposes the API
+      # (and the Studio control plane + logs) to the LAN unauthenticated. For
+      # remote access set HOST_BIND=0.0.0.0 AND set STUDIO_AUTH_TOKEN — and put it
+      # behind TLS (e.g. a reverse proxy), since Basic/Bearer over plain HTTP is
+      # plaintext.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:8080"
     volumes:
       - ${DATA_HOST_DIR:-./data}:/app/data:rw
     environment:

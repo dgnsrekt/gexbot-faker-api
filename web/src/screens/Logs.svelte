@@ -69,11 +69,16 @@
       try {
         const d = JSON.parse(e.data)
         if (d.error) {
+          // The backend keeps the SSE open while retrying Loki, so EventSource
+          // never fires onerror — reflect the outage here so the toolbar stops
+          // showing "live" while no logs arrive.
           errorMsg = d.error
+          connected = false
           return
         }
         if (d.info) {
           errorMsg = '' // recovery notice
+          connected = true
           return
         }
         rows.push({ ...(d as LogLine), _id: nextId++ })

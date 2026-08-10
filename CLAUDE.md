@@ -96,10 +96,12 @@ faker without curl/env-vars.
   run in the DEFAULT compose stack** (not the `observability` profile); Grafana/
   Prometheus/Uptime-Kuma/Caddy stay opt-in. If `LOKI_URL` is unset (e.g. `go run`), Logs
   shows a "start the observability stack" message.
-- **Auth**: `STUDIO_AUTH_TOKEN` gates all `/studio` routes behind HTTP Basic (any
-  username, password = the token) via `studioAuthMiddleware`. Empty = open (local
-  dev). Set it whenever the API port is reachable beyond a trusted host — the
-  Studio exposes control endpoints and container logs. Log lines are redacted for
+- **Auth / exposure**: Compose binds the API port to `127.0.0.1` by default
+  (`HOST_BIND`), so `docker compose up` never exposes the Studio to the LAN. For
+  remote access set `HOST_BIND=0.0.0.0` **and** `STUDIO_AUTH_TOKEN` (and front it
+  with TLS — Basic/Bearer over plain HTTP is plaintext). `STUDIO_AUTH_TOKEN` gates
+  all `/studio` routes behind HTTP Basic (any username, password = the token) via
+  `studioAuthMiddleware`; empty = open (local dev). Log lines are redacted for
   signed-URL query strings at the source (`internal/redact`) and again in the logs
   proxy.
 - When adding a Studio endpoint: add a handler in `studio_handlers.go`, register it
