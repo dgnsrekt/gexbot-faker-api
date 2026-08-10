@@ -50,6 +50,7 @@ export interface LibraryRow {
   total: number // archived tickers for the date
   loaded: boolean
   state: LibraryState
+  job_error?: string // last background-materialize failure for this date, if any
 }
 
 export interface MaterializeJob {

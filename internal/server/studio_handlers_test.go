@@ -149,6 +149,26 @@ func TestStudioLibraryEmptyDir(t *testing.T) {
 	}
 }
 
+func TestStudioMaterializeRejectsBadDate(t *testing.T) {
+	h := newStudioTestServer(t, t.TempDir()) // temp dir has no archives
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/studio/api/materialize", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	// Malformed / traversal shapes must be rejected before any path join.
+	for _, bad := range []string{`{"date":"not-a-date"}`, `{"date":"2026-08-07/.."}`, `{"date":"../eod"}`, `{"date":""}`} {
+		if code := post(bad); code != http.StatusBadRequest {
+			t.Errorf("materialize %s → %d, want 400", bad, code)
+		}
+	}
+	// Well-formed date but no archive on disk → 400 (not 202).
+	if code := post(`{"date":"2026-08-07"}`); code != http.StatusBadRequest {
+		t.Errorf("materialize valid-format-no-archive → %d, want 400", code)
+	}
+}
+
 func TestStudioEndpointsNonEmpty(t *testing.T) {
 	h := newStudioTestServer(t, t.TempDir())
 	var eps []endpointDoc

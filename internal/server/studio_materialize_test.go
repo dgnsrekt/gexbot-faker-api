@@ -59,18 +59,18 @@ func TestMaterializeManager(t *testing.T) {
 
 	m := newMaterializeManager(root, zap.NewNop())
 	job := m.start("2026-08-07")
-	if job.State != "running" {
-		t.Fatalf("start returned state %q, want running", job.State)
+	if job.State != "queued" && job.State != "running" {
+		t.Fatalf("start returned state %q, want queued/running", job.State)
 	}
 
-	// start again while running → same in-flight job, no duplicate.
-	if again := m.start("2026-08-07"); again.State != "running" {
-		t.Errorf("re-start returned %q, want running", again.State)
+	// start again while in flight → same job, no duplicate goroutine.
+	if again := m.start("2026-08-07"); again.State != "queued" && again.State != "running" {
+		t.Errorf("re-start returned %q, want queued/running", again.State)
 	}
 
 	// Wait (bounded) for completion.
 	deadline := time.Now().Add(5 * time.Second)
-	for m.running("2026-08-07") {
+	for m.inProgress("2026-08-07") {
 		if time.Now().After(deadline) {
 			t.Fatal("materialize did not finish within 5s")
 		}

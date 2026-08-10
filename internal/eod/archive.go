@@ -357,6 +357,28 @@ type ArchiveInfo struct {
 	Materialized int `json:"materialized"`
 }
 
+// HasArchive reports whether date has at least one completed EOD archive zip on
+// disk. date must be a valid YYYY-MM-DD; anything else (including path-traversal
+// attempts) returns false without touching the filesystem.
+func HasArchive(root, date string) bool {
+	if !dateRe.MatchString(date) {
+		return false
+	}
+	tickerEntries, err := os.ReadDir(filepath.Join(root, "eod", date))
+	if err != nil {
+		return false
+	}
+	for _, te := range tickerEntries {
+		if !te.IsDir() {
+			continue
+		}
+		if _, err := os.Stat(ArchivePath(root, date, te.Name())); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
 // ListArchives enumerates the EOD archives under <root>/eod, one ArchiveInfo per
 // date (newest first). For each date it unions the tickers and packages, sums the
 // zip sizes and manifest record counts, and marks status "corrupt" if any present

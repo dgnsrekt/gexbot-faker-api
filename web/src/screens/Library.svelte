@@ -122,12 +122,15 @@
                 {busyDate === r.date ? 'Loading…' : 'Load'}
               </button>
             {:else}
+              {#if r.job_error}
+                <span class="failed mono" title={r.job_error}>failed</span>
+              {/if}
               <button
                 class="btn materialize"
-                title="Unpack this date's EOD archives so it can be loaded"
+                title={r.job_error ? `Retry: ${r.job_error}` : "Unpack this date's EOD archives so it can be loaded"}
                 onclick={() => materialize(r.date)}
               >
-                Materialize
+                {r.job_error ? 'Retry' : 'Materialize'}
               </button>
             {/if}
           </div>
@@ -252,6 +255,13 @@
   .btn.load:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .failed {
+    font-size: 10px;
+    color: var(--red);
+    border: 1px solid #4a2b2b;
+    border-radius: 4px;
+    padding: 2px 7px;
   }
   .btn.materialize {
     padding: 4px 10px;

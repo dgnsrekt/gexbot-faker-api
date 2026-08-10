@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
-	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -18,6 +18,10 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/ws"
 )
+
+// studioDateRe validates the exact YYYY-MM-DD shape accepted by the materialize
+// endpoint (no separators/traversal).
+var studioDateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 // StudioHandlers backs the GEX Faker Studio UI's read-only control-plane
 // endpoints under /studio/api. They aggregate state the Server already holds
@@ -209,9 +213,10 @@ func (h *StudioHandlers) handleHubs(w http.ResponseWriter, _ *http.Request) {
 
 type libRow struct {
 	eod.ArchiveInfo
-	Loaded bool   `json:"loaded"`
-	Total  int    `json:"total"` // archived tickers for the date
-	State  string `json:"state"` // loaded | ready | archived | materializing
+	Loaded   bool   `json:"loaded"`
+	Total    int    `json:"total"`               // archived tickers for the date
+	State    string `json:"state"`               // loaded | ready | archived | materializing
+	JobError string `json:"job_error,omitempty"` // last background-materialize failure, if any
 }
 
 func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
@@ -224,8 +229,14 @@ func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
 	rows := make([]libRow, 0, len(archives))
 	for _, a := range archives {
 		total := len(a.Tickers)
-		state := studioLibraryState(a.Date == loaded, h.mat.running(a.Date), a.Materialized, total)
-		rows = append(rows, libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state})
+		state := studioLibraryState(a.Date == loaded, h.mat.inProgress(a.Date), a.Materialized, total)
+		row := libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state}
+		// Surface a terminal background failure so the UI doesn't silently revert
+		// to a Materialize button and drop the error.
+		if job, ok := h.mat.status(a.Date); ok && job.State == "error" {
+			row.JobError = job.Error
+		}
+		rows = append(rows, row)
 	}
 	writeStudioJSON(w, rows)
 }
@@ -257,8 +268,15 @@ func (h *StudioHandlers) handleMaterialize(w http.ResponseWriter, r *http.Reques
 		http.Error(w, `{"error":"date is required"}`, http.StatusBadRequest)
 		return
 	}
-	// Only allow dates that actually have an EOD archive on disk.
-	if _, err := os.Stat(filepath.Join(h.server.config.DataDir, "eod", body.Date)); err != nil {
+	// Strict YYYY-MM-DD only — rejects path-like values (e.g. "2026-08-07/..")
+	// before any path join, so an unauthenticated caller can't grow the job map
+	// with lexical variants that resolve to real paths.
+	if !studioDateRe.MatchString(body.Date) {
+		http.Error(w, `{"error":"date must be YYYY-MM-DD"}`, http.StatusBadRequest)
+		return
+	}
+	// And it must actually have an archive to unpack.
+	if !eod.HasArchive(h.server.config.DataDir, body.Date) {
 		http.Error(w, `{"error":"no archive for that date"}`, http.StatusBadRequest)
 		return
 	}
