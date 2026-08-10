@@ -19,6 +19,10 @@ services:
       - SYNC_BROADCAST_SYSTEM_ENABLED=${SYNC_BROADCAST_SYSTEM_ENABLED:-false}
       - SYNC_BROADCAST_SYSTEM_ID=${SYNC_BROADCAST_SYSTEM_ID:-}
       - SYNC_BROADCAST_SYSTEM_INTERVAL=${SYNC_BROADCAST_SYSTEM_INTERVAL:-1s}
+      # Studio Logs screen reads logs from Loki over the compose network.
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
+    depends_on:
+      - loki
     labels:
       - observability.logs=true
       - observability.service=gex-faker-api
@@ -85,9 +89,12 @@ services:
       - prometheus_data:/prometheus
     restart: unless-stopped
 
+  # Loki + Alloy run in the DEFAULT stack (not the observability profile): the
+  # Studio Logs screen queries Loki over the compose network. Alloy tails the
+  # observability.logs=true containers and ships their logs. Loki has no host
+  # port — only the API and the opt-in Caddy gateway reach it internally.
   loki:
     image: grafana/loki:latest
-    profiles: [observability]
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ./observability/loki/config.yml:/etc/loki/config.yml:ro
@@ -96,7 +103,6 @@ services:
 
   alloy:
     image: grafana/alloy:latest
-    profiles: [observability]
     command: run /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro

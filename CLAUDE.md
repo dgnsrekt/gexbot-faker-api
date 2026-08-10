@@ -87,9 +87,15 @@ faker without curl/env-vars.
 - Read-only control-plane JSON at `/studio/api/{status,config,hubs,library,keys,endpoints}`
   (`internal/server/studio_handlers.go`); the SPA also calls the existing open
   control endpoints (`/reload-date`, `/reset-cache`, `/current-date`, `/tickers`, ...).
-- MVP screens: Local server, Data library (load a date → `POST /reload-date`), Live
-  streams (hub stats + group-name builder), Settings (effective env vars). Download
-  and Logs are Phase-2 placeholders.
+- Screens: Local server, Data library (Materialize archived dates in the background →
+  Load ready ones), Live streams (hub stats + group-name builder), Settings (effective
+  env vars), Logs (live feed from Loki). Download is the remaining Phase-2 placeholder.
+- **Logs** (`internal/server/studio_logs.go`): `GET /studio/api/logs` is an SSE proxy —
+  the server queries Loki (`LOKI_URL`, default `http://loki:3100`) over the compose
+  network and streams parsed lines, so the browser never talks to Loki. **Loki + Alloy
+  run in the DEFAULT compose stack** (not the `observability` profile); Grafana/
+  Prometheus/Uptime-Kuma/Caddy stay opt-in. If `LOKI_URL` is unset (e.g. `go run`), Logs
+  shows a "start the observability stack" message.
 - When adding a Studio endpoint: add a handler in `studio_handlers.go`, register it
   in `RegisterStudioRoutes`, add a typed wrapper in `web/src/lib/api.ts`, then
   rebuild the UI. New backend accessors added for the UI: `ws.Hub.ClientCount()`,
