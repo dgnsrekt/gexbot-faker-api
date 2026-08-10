@@ -6,7 +6,54 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 )
+
+func TestCleanSelection(t *testing.T) {
+	valid := func(s string) bool { return s == "SPX" || s == "NDX" }
+	// Dedupe.
+	if got, ok := cleanSelection([]string{"SPX", "NDX", "SPX"}, valid); !ok || len(got) != 2 {
+		t.Errorf("dedupe: got %v ok=%v, want [SPX NDX]", got, ok)
+	}
+	// Traversal / unknown → rejected.
+	for _, bad := range [][]string{{"../evil"}, {"SPX", "BOGUS"}, {"SPX/../x"}} {
+		if _, ok := cleanSelection(bad, valid); ok {
+			t.Errorf("cleanSelection(%v) accepted, want rejected", bad)
+		}
+	}
+}
+
+func TestStudioDownloadRejectsBadSelection(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "testkey") // enable downloads so validation is reached
+	dl := newDownloadManager(t.TempDir(), zap.NewNop())
+	if !dl.enabled() {
+		t.Skip("downloader config unavailable in this environment")
+	}
+	h := &StudioHandlers{
+		server: &Server{config: &config.ServerConfig{DataDir: t.TempDir()}, logger: zap.NewNop()},
+		dl:     dl,
+	}
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/studio/api/download", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h.handleDownload(rec, req)
+		return rec.Code
+	}
+	// Traversal / unknown ticker and unknown package must be rejected (400) — no
+	// job is created and nothing reaches the filesystem.
+	for _, bad := range []string{
+		`{"dates":["2026-08-10"],"tickers":["../evil"],"packages":["classic"]}`,
+		`{"dates":["2026-08-10"],"tickers":["BOGUS"],"packages":["classic"]}`,
+		`{"dates":["2026-08-10"],"tickers":["SPX"],"packages":["evil"]}`,
+	} {
+		if c := post(bad); c != http.StatusBadRequest {
+			t.Errorf("download %s → %d, want 400", bad, c)
+		}
+	}
+}
 
 func TestStudioCalendar(t *testing.T) {
 	h := newStudioTestServer(t, t.TempDir())

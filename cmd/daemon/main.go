@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/downloadjob"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
@@ -240,26 +241,35 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 		observability.DaemonDuration.Observe(time.Since(start).Seconds())
 	}()
 
-	// Bound the EOD attempt: a stalled request must fail into the 5-minute retry
-	// loop, not wedge the daemon's single-goroutine ticker indefinitely.
-	eodCtx, eodCancel := context.WithTimeout(ctx, runTimeout)
-	result, err := downloadjob.ExecuteEODDownload(eodCtx, cfg, today, logger)
-	eodCancel()
-	duration := time.Since(start)
+	// Hold the cross-process per-date lock so a Studio download for the same date
+	// can't race this run over shared staging/tmp/archive files.
+	var result *download.BatchResult
+	var err error
+	lockErr := downloadjob.WithDateLock(cfg.Output.Directory, today, func() error {
+		// Bound the EOD attempt: a stalled request must fail into the 5-minute retry
+		// loop, not wedge the daemon's single-goroutine ticker indefinitely.
+		eodCtx, eodCancel := context.WithTimeout(ctx, runTimeout)
+		result, err = downloadjob.ExecuteEODDownload(eodCtx, cfg, today, logger)
+		eodCancel()
 
-	if (err != nil || result == nil || result.Failed > 0) && scheduler.IsFallbackTime() {
-		logger.Warn("EOD unavailable at fallback deadline; using individual downloads", zap.String("date", today))
-		// Fresh deadline so an EOD stall that burned the full timeout can't leave
-		// the fallback starting on an already-cancelled context.
-		fbCtx, fbCancel := context.WithTimeout(ctx, runTimeout)
-		result, err = downloadjob.ExecuteDownload(fbCtx, cfg, today, logger, nil)
-		if err == nil && result.Failed == 0 {
-			err = downloadjob.PackMissingArchives(cfg, today)
+		if (err != nil || result == nil || result.Failed > 0) && scheduler.IsFallbackTime() {
+			logger.Warn("EOD unavailable at fallback deadline; using individual downloads", zap.String("date", today))
+			// Fresh deadline so an EOD stall that burned the full timeout can't leave
+			// the fallback starting on an already-cancelled context.
+			fbCtx, fbCancel := context.WithTimeout(ctx, runTimeout)
+			result, err = downloadjob.ExecuteDownload(fbCtx, cfg, today, logger, nil)
+			if err == nil && result.Failed == 0 {
+				err = downloadjob.PackMissingArchives(cfg, today)
+			}
+			fbCancel()
 		}
-		fbCancel()
+		return nil // work-level errors are carried in err
+	})
+	if lockErr != nil && err == nil {
+		err = lockErr
 	}
 
-	duration = time.Since(start)
+	duration := time.Since(start)
 	if err != nil || result == nil || result.Failed > 0 {
 		observability.DaemonRuns.WithLabelValues("failed").Inc()
 		if result != nil {
@@ -325,12 +335,20 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 	logger.Info("backfilling missed market days", zap.Strings("dates", missed))
 
 	for _, date := range missed {
-		runCtx, cancel := context.WithTimeout(ctx, runTimeout)
-		result, err := downloadjob.ExecuteDownload(runCtx, cfg, date, logger, nil)
-		if err == nil && result.Failed == 0 { // executeDownload returns a non-nil error on zero tasks
-			err = downloadjob.PackMissingArchives(cfg, date)
+		var result *download.BatchResult
+		var err error
+		lockErr := downloadjob.WithDateLock(cfg.Output.Directory, date, func() error {
+			runCtx, cancel := context.WithTimeout(ctx, runTimeout)
+			defer cancel()
+			result, err = downloadjob.ExecuteDownload(runCtx, cfg, date, logger, nil)
+			if err == nil && result.Failed == 0 { // ExecuteDownload returns a non-nil error on zero tasks
+				err = downloadjob.PackMissingArchives(cfg, date)
+			}
+			return nil // work-level errors carried in err
+		})
+		if lockErr != nil && err == nil {
+			err = lockErr
 		}
-		cancel()
 
 		if err != nil || result == nil || result.Failed > 0 {
 			if err == nil {

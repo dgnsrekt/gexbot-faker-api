@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -10,9 +11,28 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/downloadjob"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
+
+// cleanSelection dedupes vals and returns ok=false if any value fails valid —
+// used to reject unknown/traversal tickers and unknown packages before they
+// reach any filesystem path.
+func cleanSelection(vals []string, valid func(string) bool) ([]string, bool) {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(vals))
+	for _, v := range vals {
+		if !valid(v) {
+			return nil, false
+		}
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out, true
+}
 
 // downloadJob is the status of a background download of one date.
 type downloadJob struct {
@@ -98,14 +118,26 @@ func (m *downloadManager) worker() {
 		m.mu.Unlock()
 
 		cfg := m.cfgFor(req.tickers, req.packages)
-		res, err := downloadjob.ExecuteDownload(context.Background(), cfg, req.date, m.logger, func(done, total int) {
-			m.mu.Lock()
-			job.Done, job.Total = done, total
-			m.mu.Unlock()
+		var res *download.BatchResult
+		// Hold the cross-process per-date lock across download→pack so a concurrent
+		// daemon run for the same date can't corrupt shared staging/tmp/archive
+		// files. Only pack a complete batch: a partial failure must not publish an
+		// incomplete archive that looks successful.
+		err := downloadjob.WithDateLock(m.dataDir, req.date, func() error {
+			var e error
+			res, e = downloadjob.ExecuteDownload(context.Background(), cfg, req.date, m.logger, func(done, total int) {
+				m.mu.Lock()
+				job.Done, job.Total = done, total
+				m.mu.Unlock()
+			})
+			if e != nil {
+				return e
+			}
+			if res != nil && res.Failed > 0 {
+				return fmt.Errorf("%d of %d files failed", res.Failed, res.Total)
+			}
+			return downloadjob.PackMissingArchives(cfg, req.date)
 		})
-		if err == nil {
-			err = downloadjob.PackMissingArchives(cfg, req.date)
-		}
 
 		m.mu.Lock()
 		if res != nil {
@@ -185,8 +217,19 @@ func (h *StudioHandlers) handleDownload(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, `{"error":"dates is required"}`, http.StatusBadRequest)
 		return
 	}
-	if len(body.Tickers) == 0 || len(body.Packages) == 0 {
-		http.Error(w, `{"error":"pick at least one ticker and package"}`, http.StatusBadRequest)
+	// Validate + dedupe the caller-controlled dimensions: unknown/traversal
+	// tickers would otherwise flow into filepath.Join(base, date, ticker, ...) and
+	// let a request write outside the intended directory.
+	tickers, ok := cleanSelection(body.Tickers, func(t string) bool { return config.ValidTickers[t] })
+	if !ok || len(tickers) == 0 {
+		http.Error(w, `{"error":"unknown or empty ticker selection"}`, http.StatusBadRequest)
+		return
+	}
+	packages, ok := cleanSelection(body.Packages, func(p string) bool {
+		return p == "state" || p == "classic" || p == "orderflow"
+	})
+	if !ok || len(packages) == 0 {
+		http.Error(w, `{"error":"unknown or empty package selection"}`, http.StatusBadRequest)
 		return
 	}
 	jobs := []downloadJob{}
@@ -194,7 +237,7 @@ func (h *StudioHandlers) handleDownload(w http.ResponseWriter, r *http.Request) 
 		if !studioDateRe.MatchString(d) || !isMarketDayStr(d) {
 			continue // skip malformed / non-market days
 		}
-		jobs = append(jobs, h.dl.enqueue(d, body.Tickers, body.Packages))
+		jobs = append(jobs, h.dl.enqueue(d, tickers, packages))
 	}
 	if len(jobs) == 0 {
 		http.Error(w, `{"error":"no valid market days in request"}`, http.StatusBadRequest)

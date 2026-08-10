@@ -1,10 +1,82 @@
 package downloadjob
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
+
+func writeCat(t *testing.T, root, date, ticker, pkg, cat string) {
+	t.Helper()
+	p := filepath.Join(root, date, ticker, pkg, cat+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(p), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func cfgWith(root, ticker string, pkgCats map[string][]string) *config.Config {
+	c := &config.Config{Tickers: []string{ticker}}
+	c.Output.Directory = root
+	if cats, ok := pkgCats["classic"]; ok {
+		c.Packages.Classic.Enabled = true
+		c.Packages.Classic.Categories = cats
+	}
+	if cats, ok := pkgCats["state"]; ok {
+		c.Packages.State.Enabled = true
+		c.Packages.State.Categories = cats
+	}
+	return c
+}
+
+func manifestPackages(t *testing.T, root, date, ticker string) map[string]bool {
+	t.Helper()
+	data, err := os.ReadFile(eod.ManifestPath(eod.ArchivePath(root, date, ticker)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var man eod.Manifest
+	if err := json.Unmarshal(data, &man); err != nil {
+		t.Fatal(err)
+	}
+	pkgs := map[string]bool{}
+	for _, m := range man.Members {
+		pkgs[m.Package] = true
+	}
+	return pkgs
+}
+
+// TestPackMissingArchivesRebuildsOnAddedPackage covers the review note: after
+// packing a package subset, a later request adding another package must rebuild
+// the archive so the new package reaches the Library.
+func TestPackMissingArchivesRebuildsOnAddedPackage(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+
+	// First request: classic only.
+	writeCat(t, root, date, ticker, "classic", "gex_full")
+	if err := PackMissingArchives(cfgWith(root, ticker, map[string][]string{"classic": {"gex_full"}}), date); err != nil {
+		t.Fatal(err)
+	}
+	if p := manifestPackages(t, root, date, ticker); p["state"] || !p["classic"] {
+		t.Fatalf("after classic pack, manifest packages = %v, want classic only", p)
+	}
+
+	// Second request adds state — the existing archive must be rebuilt to include it.
+	writeCat(t, root, date, ticker, "state", "gex_full")
+	if err := PackMissingArchives(cfgWith(root, ticker, map[string][]string{"classic": {"gex_full"}, "state": {"gex_full"}}), date); err != nil {
+		t.Fatal(err)
+	}
+	if p := manifestPackages(t, root, date, ticker); !p["state"] || !p["classic"] {
+		t.Errorf("after adding state, manifest packages = %v, want classic+state", p)
+	}
+}
 
 func TestGenerateTasksForDate(t *testing.T) {
 	cfg := &config.Config{Tickers: []string{"SPX", "NDX"}}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -21,6 +22,29 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/staging"
 )
+
+// WithDateLock runs fn while holding an exclusive, cross-process advisory lock
+// for date, keyed by a lock file under <dataDir>/.locks. Both the daemon
+// (scheduled/backfill) and the server (Studio Download) share the same data
+// volume and produce a date's staging/.tmp/archive files, so the whole
+// download→commit→pack sequence for a date must be serialized across processes —
+// otherwise one can rename or clean files the other is still writing.
+func WithDateLock(dataDir, date string, fn func() error) error {
+	lockDir := filepath.Join(dataDir, ".locks")
+	if err := os.MkdirAll(lockDir, 0750); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(filepath.Join(lockDir, date+".lock"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return err
+	}
+	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()
+	return fn()
+}
 
 // ExecuteDownload downloads a date via the individual /hist endpoint (works for
 // any past date), commits staging, and optionally converts JSON→JSONL. progress
@@ -156,8 +180,11 @@ func validateEODManifest(cfg *config.Config, ticker string, manifest *eod.Manife
 }
 
 // PackMissingArchives packs individually-downloaded files into EOD archives for
-// tickers lacking a manifest (the fallback that turns ExecuteDownload output into
-// archives the Library can load).
+// tickers whose archive is missing OR incomplete for the currently requested
+// package set. Because the Studio lets users download package subsets, a later
+// request that adds a package must rebuild the archive — an existing manifest
+// that doesn't cover the requested tasks is re-packed (eod.Pack overwrites
+// atomically via tmp+rename), so the new package reaches the Library.
 func PackMissingArchives(cfg *config.Config, date string) error {
 	tickers := cfg.Tickers
 	if len(tickers) == 0 {
@@ -165,8 +192,12 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 	}
 	for _, ticker := range tickers {
 		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
-		if _, err := os.Stat(eod.ManifestPath(archive)); err == nil {
-			continue
+		if data, err := os.ReadFile(eod.ManifestPath(archive)); err == nil {
+			var man eod.Manifest
+			if json.Unmarshal(data, &man) == nil && validateEODManifest(cfg, ticker, &man) == nil {
+				continue // archive already covers the requested task set
+			}
+			// Manifest present but missing a requested package → rebuild below.
 		}
 		if _, err := eod.Pack(cfg.Output.Directory, date, ticker, "individual-fallback"); err != nil {
 			return fmt.Errorf("%s: %w", ticker, err)
