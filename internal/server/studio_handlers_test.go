@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,8 +123,14 @@ func TestStudioKeysMasked(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 key, got %d", len(entries))
 	}
-	if entries[0].Key == "supersecretkey" {
-		t.Error("api key must be masked, not returned raw")
+	if entries[0].Key == "supersecretkey" || strings.Contains(entries[0].Key, "super") {
+		t.Errorf("api key must not be exposed, got %q", entries[0].Key)
+	}
+	if !strings.HasPrefix(entries[0].Key, "client-") {
+		t.Errorf("expected opaque client id, got %q", entries[0].Key)
+	}
+	if entries[0].Key != clientID("supersecretkey") {
+		t.Errorf("client id not stable/deterministic: %q", entries[0].Key)
 	}
 	if len(entries[0].Streams) != 1 || entries[0].Streams[0].DataKey != "SPX/classic/gex_zero" {
 		t.Errorf("stream wrong: %+v", entries[0].Streams)

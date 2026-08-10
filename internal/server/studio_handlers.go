@@ -1,12 +1,16 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io/fs"
 	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -101,7 +105,7 @@ func (h *StudioHandlers) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		CacheMode:         cfg.CacheMode,
 		EndpointCacheMode: cfg.EndpointCacheMode,
 		IsReloading:       isReloading,
-		DiskBytes:         dirSize(cfg.DataDir),
+		DiskBytes:         cachedDiskSize(cfg.DataDir),
 		GroupPrefix:       cfg.WSGroupPrefix,
 		WSEnabled:         cfg.WSEnabled,
 		Port:              cfg.Port,
@@ -232,7 +236,7 @@ func (h *StudioHandlers) handleKeys(w http.ResponseWriter, _ *http.Request) {
 			s = append(s, keyStream{DataKey: dk, Index: idx})
 		}
 		sort.Slice(s, func(i, j int) bool { return s[i].DataKey < s[j].DataKey })
-		entries = append(entries, keyEntry{Key: maskStudioKey(apiKey), Streams: s})
+		entries = append(entries, keyEntry{Key: clientID(apiKey), Streams: s})
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Key < entries[j].Key })
 	writeStudioJSON(w, entries)
@@ -265,17 +269,54 @@ var studioEndpointCatalog = []endpointDoc{
 	{"GET", "/sync/stream", "SSE position broadcast for other services"},
 }
 
-// maskStudioKey shows a short prefix so clients are distinguishable in the local
-// UI without printing the full secret. This is a local admin surface (like the
-// other open control endpoints), not a log sink.
-func maskStudioKey(key string) string {
-	if len(key) <= 4 {
-		return "****"
+// clientID returns a non-reversible, unique-per-key identifier for an API key.
+// The /studio/api endpoints are unauthenticated and the server is often reachable
+// beyond loopback, so no part of the credential is exposed; the hash still lets
+// the UI tell clients apart and gives Svelte a stable, collision-free list key.
+func clientID(apiKey string) string {
+	sum := sha256.Sum256([]byte(apiKey))
+	return "client-" + hex.EncodeToString(sum[:])[:8]
+}
+
+// diskSizeTTL bounds how often the whole data tree is walked for the "on disk"
+// figure. Status is polled every few seconds per open Studio tab, so the walk
+// must not run on the request path each time.
+const diskSizeTTL = 60 * time.Second
+
+var diskCache struct {
+	mu        sync.Mutex
+	root      string
+	bytes     int64
+	at        time.Time
+	computing bool
+}
+
+// cachedDiskSize returns a recent total byte size for root without ever walking
+// the tree on the calling goroutine: on a cache miss it kicks off one background
+// walk and returns the last known value (0 until the first walk finishes). At
+// most one walk runs per diskSizeTTL regardless of how many tabs are polling.
+func cachedDiskSize(root string) int64 {
+	diskCache.mu.Lock()
+	fresh := diskCache.root == root && time.Since(diskCache.at) < diskSizeTTL
+	if fresh || diskCache.computing {
+		v := diskCache.bytes
+		diskCache.mu.Unlock()
+		return v
 	}
-	if len(key) <= 8 {
-		return key[:2] + "****"
-	}
-	return key[:6] + "…"
+	diskCache.computing = true
+	last := diskCache.bytes
+	diskCache.mu.Unlock()
+
+	go func() {
+		v := dirSize(root)
+		diskCache.mu.Lock()
+		diskCache.root = root
+		diskCache.bytes = v
+		diskCache.at = time.Now()
+		diskCache.computing = false
+		diskCache.mu.Unlock()
+	}()
+	return last
 }
 
 // dirSize returns the total byte size of all regular files under root (0 if the

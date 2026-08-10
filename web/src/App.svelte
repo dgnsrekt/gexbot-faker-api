@@ -48,7 +48,10 @@
     }
   }
 
-  const baseUrl = $derived(status ? `http://localhost:${status.port}` : '')
+  // The origin the browser used to reach Studio *is* the API base — this keeps
+  // copied URLs, docs links and cURL commands pointing at the real server
+  // (preserving host, scheme, and any reverse-proxy port) rather than localhost.
+  const baseUrl = window.location.origin
 
   function copyBase() {
     navigator.clipboard?.writeText(baseUrl)
