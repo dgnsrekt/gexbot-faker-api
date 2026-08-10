@@ -52,10 +52,23 @@ type logLine struct {
 	Fields  map[string]any `json:"fields,omitempty"`
 }
 
-// buildLogQuery returns the LogQL selector, adding a case-insensitive substring
-// filter when the user typed a search term.
-func buildLogQuery(search string) string {
+// buildLogQuery assembles the LogQL query. service scopes the label selector
+// (server-side, so a sparse service like the daemon isn't crowded out of the
+// backfill by the chatty api); hideAccess drops the "request completed" access
+// logs; search adds a case-insensitive substring filter. All filtering that
+// changes *which* lines Loki returns lives here so the backfill window is spent
+// on lines the user actually wants.
+func buildLogQuery(service, search string, hideAccess bool) string {
 	q := logsBaseSelector
+	switch service {
+	case "gex-faker-api":
+		q = `{service="gex-faker-api"}`
+	case "gex-daemon":
+		q = `{service="gex-daemon"}`
+	}
+	if hideAccess {
+		q += ` != "request completed"`
+	}
 	if s := strings.TrimSpace(search); s != "" {
 		if len(s) > 200 {
 			s = s[:200]
@@ -89,8 +102,9 @@ func (h *StudioHandlers) handleLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := buildLogQuery(r.URL.Query().Get("search"))
-	window := parseLogRange(r.URL.Query().Get("range"))
+	qp := r.URL.Query()
+	query := buildLogQuery(qp.Get("service"), qp.Get("search"), qp.Get("hide_access") == "1")
+	window := parseLogRange(qp.Get("range"))
 
 	ctx := r.Context()
 	client := &lokiClient{base: base, hc: &http.Client{Timeout: 8 * time.Second}}

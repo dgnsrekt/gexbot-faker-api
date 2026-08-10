@@ -36,13 +36,11 @@
   let es: EventSource | null = null
   let searchTimer: ReturnType<typeof setTimeout> | undefined
 
+  // service + hideAccess are applied server-side (in the Loki query, so a sparse
+  // service like the daemon isn't crowded out of the backfill); only the level
+  // filter is client-side.
   const shown = $derived(
-    rows.filter((r) => {
-      if (level !== 'all' && r.level.toLowerCase() !== level) return false
-      if (service !== 'all' && r.service !== service) return false
-      if (hideAccess && r.msg === 'request completed') return false
-      return true
-    }),
+    level === 'all' ? rows : rows.filter((r) => r.level.toLowerCase() === level),
   )
   const errPerMin = $derived(volume.reduce((a, p) => a + p.v, 0))
 
@@ -51,7 +49,7 @@
     rows = []
     expanded = new Set()
     connected = false
-    const qs = new URLSearchParams({ range, search })
+    const qs = new URLSearchParams({ range, search, service, hide_access: hideAccess ? '1' : '0' })
     es = new EventSource(`/studio/api/logs?${qs}`)
     es.onopen = () => {
       connected = true
@@ -87,6 +85,14 @@
     range = r
     connect()
     fetchVolume()
+  }
+  function setService(s: string) {
+    service = s
+    connect()
+  }
+  function toggleAccess() {
+    hideAccess = !hideAccess
+    connect()
   }
   function onSearch(v: string) {
     search = v
@@ -153,7 +159,7 @@
     <span class="sep"></span>
     <div class="chips">
       {#each SERVICES as s (s.id)}
-        <button class="chip mono" class:on={service === s.id} onclick={() => (service = s.id)}
+        <button class="chip mono" class:on={service === s.id} onclick={() => setService(s.id)}
           >{s.label}</button
         >
       {/each}
@@ -170,7 +176,7 @@
       value={search}
       oninput={(e) => onSearch((e.target as HTMLInputElement).value)}
     />
-    <label class="toggle"><input type="checkbox" bind:checked={hideAccess} /> hide access logs</label>
+    <label class="toggle"><input type="checkbox" checked={hideAccess} onchange={toggleAccess} /> hide access logs</label>
     <div class="flex-1"></div>
     {#if volume.length}
       <div class="spark" title={`${errPerMin} error/warn lines in ${range}`}>

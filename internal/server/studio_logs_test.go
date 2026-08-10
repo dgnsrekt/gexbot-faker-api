@@ -70,12 +70,21 @@ func TestParseLogLinePreservesFields(t *testing.T) {
 }
 
 func TestBuildLogQuery(t *testing.T) {
-	if q := buildLogQuery(""); q != logsBaseSelector {
-		t.Errorf("empty search = %q, want base selector", q)
+	if q := buildLogQuery("all", "", false); q != logsBaseSelector {
+		t.Errorf("defaults = %q, want base selector", q)
 	}
-	q := buildLogQuery(`err"or`)
-	if !strings.Contains(q, "|~") || !strings.Contains(q, "(?i)") {
-		t.Errorf("search query missing case-insensitive filter: %q", q)
+	// Service scopes the selector server-side (so the daemon isn't crowded out).
+	if q := buildLogQuery("gex-daemon", "", false); q != `{service="gex-daemon"}` {
+		t.Errorf("daemon selector = %q", q)
+	}
+	// hide access logs drops request-completed.
+	if q := buildLogQuery("all", "", true); !strings.Contains(q, `!= "request completed"`) {
+		t.Errorf("hideAccess query missing exclusion: %q", q)
+	}
+	q := buildLogQuery("gex-faker-api", `err"or`, true)
+	if !strings.Contains(q, `{service="gex-faker-api"}`) || !strings.Contains(q, "|~") ||
+		!strings.Contains(q, "(?i)") {
+		t.Errorf("combined query wrong: %q", q)
 	}
 	// The user's embedded quote must be backslash-escaped (strconv.Quote), so it
 	// can't break out of the LogQL string literal.
