@@ -62,6 +62,7 @@ func (m *materializeManager) worker() {
 		if err != nil {
 			job.State = "error"
 			job.Error = err.Error()
+			m.logger.Warn("studio materialize failed", zap.String("date", date), zap.Error(err))
 		} else {
 			job.State = "done"
 		}

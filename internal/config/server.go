@@ -23,6 +23,15 @@ type ServerConfig struct {
 	SyncBroadcastSystemEnabled  bool
 	SyncBroadcastSystemID       string
 	SyncBroadcastSystemInterval time.Duration
+	// LokiURL is the base URL of a Loki instance the Studio Logs screen queries
+	// (e.g. http://loki:3100). Empty disables the Logs feed (it degrades with a
+	// "start the observability stack" message).
+	LokiURL string
+	// StudioAuthToken, when set, gates all /studio routes behind HTTP Basic auth
+	// (any username, password = the token). Empty leaves the Studio open (local
+	// dev default). Set it whenever the API port is reachable beyond a trusted
+	// host — the Studio exposes control endpoints and container logs.
+	StudioAuthToken string
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -77,6 +86,8 @@ func LoadServerConfig() (*ServerConfig, error) {
 		SyncBroadcastSystemEnabled:  getEnvOrDefault("SYNC_BROADCAST_SYSTEM_ENABLED", "false") == "true",
 		SyncBroadcastSystemID:       syncBroadcastID,
 		SyncBroadcastSystemInterval: syncInterval,
+		LokiURL:                     getEnvOrDefault("LOKI_URL", ""),
+		StudioAuthToken:             getEnvOrDefault("STUDIO_AUTH_TOKEN", ""),
 	}
 
 	// Validate

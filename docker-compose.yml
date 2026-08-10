@@ -6,7 +6,12 @@ services:
     container_name: gex-faker-api
     user: "${PUID:-1000}:${PGID:-1000}"
     ports:
-      - "${HOST_PORT:-8080}:8080"
+      # Bind to loopback by default so `docker compose up` never exposes the API
+      # (and the Studio control plane + logs) to the LAN unauthenticated. For
+      # remote access set HOST_BIND=0.0.0.0 AND set STUDIO_AUTH_TOKEN — and put it
+      # behind TLS (e.g. a reverse proxy), since Basic/Bearer over plain HTTP is
+      # plaintext.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:8080"
     volumes:
       - ${DATA_HOST_DIR:-./data}:/app/data:rw
     environment:
@@ -19,6 +24,13 @@ services:
       - SYNC_BROADCAST_SYSTEM_ENABLED=${SYNC_BROADCAST_SYSTEM_ENABLED:-false}
       - SYNC_BROADCAST_SYSTEM_ID=${SYNC_BROADCAST_SYSTEM_ID:-}
       - SYNC_BROADCAST_SYSTEM_INTERVAL=${SYNC_BROADCAST_SYSTEM_INTERVAL:-1s}
+      # Studio Logs screen reads logs from Loki over the compose network.
+      - LOKI_URL=${LOKI_URL:-http://loki:3100}
+      # Set to require HTTP Basic auth on /studio (any user, password = token).
+      # Empty = open; set this whenever the API port is reachable beyond a trusted host.
+      - STUDIO_AUTH_TOKEN=${STUDIO_AUTH_TOKEN:-}
+    depends_on:
+      - loki
     labels:
       - observability.logs=true
       - observability.service=gex-faker-api
@@ -85,9 +97,12 @@ services:
       - prometheus_data:/prometheus
     restart: unless-stopped
 
+  # Loki + Alloy run in the DEFAULT stack (not the observability profile): the
+  # Studio Logs screen queries Loki over the compose network. Alloy tails the
+  # observability.logs=true containers and ships their logs. Loki has no host
+  # port — only the API and the opt-in Caddy gateway reach it internally.
   loki:
     image: grafana/loki:latest
-    profiles: [observability]
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ./observability/loki/config.yml:/etc/loki/config.yml:ro
@@ -96,7 +111,6 @@ services:
 
   alloy:
     image: grafana/alloy:latest
-    profiles: [observability]
     command: run /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro

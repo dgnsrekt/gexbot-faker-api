@@ -11,6 +11,8 @@ import (
 
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/redact"
 )
 
 const (
@@ -202,8 +204,8 @@ func (c *HTTPClient) DownloadFile(ctx context.Context, url string, dest io.Write
 	if strings.Contains(url, primaryHistDomain) {
 		fallbackURL := strings.Replace(url, primaryHistDomain, fallbackHistDomain, 1)
 		c.logger.Info("retrying with fallback domain",
-			zap.String("original", url),
-			zap.String("fallback", fallbackURL),
+			zap.String("original", redact.URL(url)),
+			zap.String("fallback", redact.URL(fallbackURL)),
 			zap.Error(lastErr))
 
 		return c.downloadFileOnce(ctx, fallbackURL, dest)

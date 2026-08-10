@@ -47,6 +47,8 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 	r.Get("/studio/api/library", h.handleLibrary)
 	r.Post("/studio/api/materialize", h.handleMaterialize)
 	r.Get("/studio/api/materialize", h.handleMaterializeStatus)
+	r.Get("/studio/api/logs", h.handleLogs)
+	r.Get("/studio/api/logs/volume", h.handleLogsVolume)
 	r.Get("/studio/api/keys", h.handleKeys)
 	r.Get("/studio/api/endpoints", h.handleEndpoints)
 }
