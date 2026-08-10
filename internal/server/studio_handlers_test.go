@@ -35,6 +35,9 @@ func (s stubLoader) Close() error { return nil }
 
 func newStudioTestServer(t *testing.T, dataDir string) http.Handler {
 	t.Helper()
+	// Keep the download manager deterministically disabled (no upstream calls)
+	// regardless of the developer's environment.
+	t.Setenv("GEXBOT_API_KEY", "")
 	cache := data.NewIndexCache(data.CacheModeExhaust)
 	cache.SetIndex(data.CacheKey("SPX", "classic", "gex_zero", "supersecretkey"), 7)
 	srv := &Server{

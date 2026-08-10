@@ -15,11 +15,17 @@ import (
 )
 
 type Manager struct {
-	client  api.Client
-	staging *staging.Manager
-	workers int
-	logger  *zap.Logger
+	client   api.Client
+	staging  *staging.Manager
+	workers  int
+	logger   *zap.Logger
+	progress func(done, total int)
 }
+
+// OnProgress registers a callback invoked once per completed task (from the
+// single collector goroutine, so it's already serialized). Used by the Studio
+// download job for live per-date progress; nil by default (daemon path).
+func (m *Manager) OnProgress(cb func(done, total int)) { m.progress = cb }
 
 type BatchResult struct {
 	Total    int
@@ -78,6 +84,7 @@ func (m *Manager) Execute(ctx context.Context, tasks []Task) (*BatchResult, erro
 	}()
 
 	// Collect results
+	done := 0
 	for r := range results {
 		if r.Skipped {
 			result.Skipped++
@@ -90,6 +97,10 @@ func (m *Manager) Execute(ctx context.Context, tasks []Task) (*BatchResult, erro
 			if r.Error != nil {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", r.Task, r.Error))
 			}
+		}
+		done++
+		if m.progress != nil {
+			m.progress(done, result.Total)
 		}
 	}
 

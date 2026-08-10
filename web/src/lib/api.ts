@@ -59,6 +59,33 @@ export interface MaterializeJob {
   error?: string
 }
 
+export interface CalendarDay {
+  date: string
+  day: number
+  weekday: number // 0=Sun..6=Sat
+  market_day: boolean
+  holiday: boolean
+  state: string // loaded|ready|archived|missing|"" (non-market)
+}
+
+export interface DownloadOptions {
+  enabled: boolean
+  tickers: string[]
+  packages: { name: string; categories: string[] }[]
+}
+
+export interface DownloadJob {
+  date: string
+  state: 'queued' | 'running' | 'done' | 'partial' | 'error'
+  done: number
+  total: number
+  success: number
+  skipped: number
+  failed: number
+  not_found: number
+  error?: string
+}
+
 export interface KeyStream {
   data_key: string
   index: number
@@ -111,6 +138,11 @@ export const api = {
   reloadDate: (date: string) => postJSON<{ new_date: string }>('/reload-date', { date }),
   resetCache: () => postJSON<{ count: number }>('/reset-cache', {}),
   materialize: (date: string) => postJSON<MaterializeJob>('/studio/api/materialize', { date }),
+  downloadOptions: () => getJSON<DownloadOptions>('/studio/api/download/options'),
+  calendar: (month: string) => getJSON<{ month: string; days: CalendarDay[] }>(`/studio/api/calendar?month=${month}`),
+  download: (dates: string[], tickers: string[], packages: string[]) =>
+    postJSON<DownloadJob[]>('/studio/api/download', { dates, tickers, packages }),
+  downloadStatus: () => getJSON<DownloadJob[]>('/studio/api/download'),
 }
 
 export function fmtBytes(n: number): string {

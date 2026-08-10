@@ -32,6 +32,7 @@ type StudioHandlers struct {
 	server *Server
 	hubs   *WebSocketHubs
 	mat    *materializeManager
+	dl     *downloadManager
 }
 
 // RegisterStudioRoutes wires the /studio/api/* JSON endpoints onto r.
@@ -40,6 +41,7 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 		server: s,
 		hubs:   hubs,
 		mat:    newMaterializeManager(s.config.DataDir, s.logger),
+		dl:     newDownloadManager(s.config.DataDir, s.logger),
 	}
 	r.Get("/studio/api/status", h.handleStatus)
 	r.Get("/studio/api/config", h.handleConfig)
@@ -47,6 +49,10 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 	r.Get("/studio/api/library", h.handleLibrary)
 	r.Post("/studio/api/materialize", h.handleMaterialize)
 	r.Get("/studio/api/materialize", h.handleMaterializeStatus)
+	r.Get("/studio/api/calendar", h.handleCalendar)
+	r.Get("/studio/api/download/options", h.handleDownloadOptions)
+	r.Post("/studio/api/download", h.handleDownload)
+	r.Get("/studio/api/download", h.handleDownloadStatus)
 	r.Get("/studio/api/logs", h.handleLogs)
 	r.Get("/studio/api/logs/volume", h.handleLogsVolume)
 	r.Get("/studio/api/keys", h.handleKeys)

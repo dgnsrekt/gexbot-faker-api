@@ -28,3 +28,5 @@ graphify-out/20??-??-??/
 # Config files (keep default.yaml tracked)
 configs/*.yaml
 !configs/default.yaml
+
+todo.md

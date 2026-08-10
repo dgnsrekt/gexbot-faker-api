@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
@@ -80,6 +81,42 @@ func TestDownloadManager(t *testing.T) {
 	stagingPath := filepath.Join(tmpDir, ".staging", "2025-11-14", "SPX", "state", "gex_full.json")
 	if _, err := os.Stat(stagingPath); os.IsNotExist(err) {
 		t.Errorf("expected file in staging directory at %s", stagingPath)
+	}
+}
+
+func TestManagerProgress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "download-progress-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	mgr := NewManager(&mockClient{data: []byte(`{"x":1}`)}, staging.NewManager(tmpDir), 3, zap.NewNop())
+
+	var mu sync.Mutex
+	var calls int
+	var lastDone, lastTotal int
+	mgr.OnProgress(func(done, total int) {
+		mu.Lock()
+		calls++
+		lastDone, lastTotal = done, total
+		mu.Unlock()
+	})
+
+	tasks := []Task{
+		{Ticker: "SPX", Package: "state", Category: "gex_full", Date: "2026-08-07"},
+		{Ticker: "SPX", Package: "state", Category: "gex_zero", Date: "2026-08-07"},
+		{Ticker: "NDX", Package: "classic", Category: "gex_full", Date: "2026-08-07"},
+	}
+	if _, err := mgr.Execute(context.Background(), tasks); err != nil {
+		t.Fatal(err)
+	}
+	// One callback per task, ending at (total, total).
+	if calls != len(tasks) {
+		t.Errorf("progress called %d times, want %d", calls, len(tasks))
+	}
+	if lastDone != len(tasks) || lastTotal != len(tasks) {
+		t.Errorf("final progress = %d/%d, want %d/%[3]d", lastDone, lastTotal, len(tasks))
 	}
 }
 
