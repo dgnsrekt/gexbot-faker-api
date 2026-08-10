@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/downloadjob"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 	"github.com/dgnsrekt/gexbot-downloader/internal/notify"
 	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
@@ -242,7 +243,7 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	// Bound the EOD attempt: a stalled request must fail into the 5-minute retry
 	// loop, not wedge the daemon's single-goroutine ticker indefinitely.
 	eodCtx, eodCancel := context.WithTimeout(ctx, runTimeout)
-	result, err := executeEODDownload(eodCtx, cfg, today, logger)
+	result, err := downloadjob.ExecuteEODDownload(eodCtx, cfg, today, logger)
 	eodCancel()
 	duration := time.Since(start)
 
@@ -251,9 +252,9 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 		// Fresh deadline so an EOD stall that burned the full timeout can't leave
 		// the fallback starting on an already-cancelled context.
 		fbCtx, fbCancel := context.WithTimeout(ctx, runTimeout)
-		result, err = executeDownload(fbCtx, cfg, today, logger)
+		result, err = downloadjob.ExecuteDownload(fbCtx, cfg, today, logger, nil)
 		if err == nil && result.Failed == 0 {
-			err = packMissingArchives(cfg, today)
+			err = downloadjob.PackMissingArchives(cfg, today)
 		}
 		fbCancel()
 	}
@@ -325,9 +326,9 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 
 	for _, date := range missed {
 		runCtx, cancel := context.WithTimeout(ctx, runTimeout)
-		result, err := executeDownload(runCtx, cfg, date, logger)
+		result, err := downloadjob.ExecuteDownload(runCtx, cfg, date, logger, nil)
 		if err == nil && result.Failed == 0 { // executeDownload returns a non-nil error on zero tasks
-			err = packMissingArchives(cfg, date)
+			err = downloadjob.PackMissingArchives(cfg, date)
 		}
 		cancel()
 

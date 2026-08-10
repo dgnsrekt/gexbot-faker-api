@@ -6,7 +6,7 @@
   import Streams from './screens/Streams.svelte'
   import Settings from './screens/Settings.svelte'
   import Logs from './screens/Logs.svelte'
-  import Placeholder from './screens/Placeholder.svelte'
+  import Download from './screens/Download.svelte'
 
   type ScreenId = 'download' | 'library' | 'server' | 'streams' | 'logs' | 'settings'
 
@@ -136,10 +136,7 @@
       {:else if screen === 'settings'}
         <Settings />
       {:else if screen === 'download'}
-        <Placeholder
-          title="Download data — Phase 2"
-          body="Fetch historical market days from GexBot with a calendar + batch queue. The download engine is in place; this screen and its trigger endpoint land in the next iteration. For now, use the CLI/daemon or the Data library to load days already on disk."
-        />
+        <Download onchanged={refreshStatus} />
       {:else if screen === 'logs'}
         <Logs />
       {/if}

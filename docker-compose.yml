@@ -24,6 +24,9 @@ services:
       - SYNC_BROADCAST_SYSTEM_ENABLED=${SYNC_BROADCAST_SYSTEM_ENABLED:-false}
       - SYNC_BROADCAST_SYSTEM_ID=${SYNC_BROADCAST_SYSTEM_ID:-}
       - SYNC_BROADCAST_SYSTEM_INTERVAL=${SYNC_BROADCAST_SYSTEM_INTERVAL:-1s}
+      # Enables the Studio Download screen (fetch market days from GEXbot). Unset
+      # = Download degrades with a "set GEXBOT_API_KEY" message. Never logged.
+      - GEXBOT_API_KEY=${GEXBOT_API_KEY:-}
       # Studio Logs screen reads logs from Loki over the compose network.
       - LOKI_URL=${LOKI_URL:-http://loki:3100}
       # Set to require HTTP Basic auth on /studio (any user, password = token).

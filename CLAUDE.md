@@ -87,9 +87,16 @@ faker without curl/env-vars.
 - Read-only control-plane JSON at `/studio/api/{status,config,hubs,library,keys,endpoints}`
   (`internal/server/studio_handlers.go`); the SPA also calls the existing open
   control endpoints (`/reload-date`, `/reset-cache`, `/current-date`, `/tickers`, ...).
-- Screens: Local server, Data library (Materialize archived dates in the background →
-  Load ready ones), Live streams (hub stats + group-name builder), Settings (effective
-  env vars), Logs (live feed from Loki). Download is the remaining Phase-2 placeholder.
+- Screens: Download data (calendar + batch builder → fetch market days from GEXbot),
+  Local server, Data library (Materialize archived dates in the background → Load ready
+  ones), Live streams (hub stats + group-name builder), Settings (effective env vars),
+  Logs (live feed from Loki). All screens are now live (no placeholders).
+- **Download** (`internal/server/studio_download.go`): needs `GEXBOT_API_KEY` on the
+  server (guarded — Download degrades with a "set GEXBOT_API_KEY" message when unset).
+  The per-date orchestration lives in `internal/downloadjob` (extracted from the daemon,
+  shared by both binaries); `download.Manager.OnProgress` feeds per-task progress.
+  Downloaded dates land as EOD archives → the Library shows them `archived` → Materialize
+  → Load. `/studio/api/calendar` powers the month grid (reuses `isMarketDay`).
 - **Logs** (`internal/server/studio_logs.go`): `GET /studio/api/logs` is an SSE proxy —
   the server queries Loki (`LOKI_URL`, default `http://loki:3100`) over the compose
   network and streams parsed lines, so the browser never talks to Loki. **Loki + Alloy
