@@ -351,6 +351,10 @@ type ArchiveInfo struct {
 	Size     int64    `json:"size_bytes"`
 	Records  int      `json:"records"`
 	Status   string   `json:"status"` // "ok" | "corrupt"
+	// Materialized is how many of this date's archived tickers have their JSONL
+	// materialized on disk (the .eod-materialized marker present). When it equals
+	// len(Tickers) the date can be loaded instantly; when 0 it is archive-only.
+	Materialized int `json:"materialized"`
 }
 
 // ListArchives enumerates the EOD archives under <root>/eod, one ArchiveInfo per
@@ -394,6 +398,9 @@ func ListArchives(root string) ([]ArchiveInfo, error) {
 			hasArchive = true
 			tickerSet[ticker] = true
 			info.Size += stat.Size()
+			if _, err := os.Stat(filepath.Join(root, date, ticker, markerName)); err == nil {
+				info.Materialized++
+			}
 
 			manifestBytes, err := os.ReadFile(ManifestPath(archive))
 			if err != nil {
