@@ -22,6 +22,10 @@ Optional authenticated monitoring is documented in [OBSERVABILITY.md](OBSERVABIL
   `/llms.txt` and `/llms-full.txt`).
 - **API reference** — interactive Swagger UI at **`/docs`** (spec at
   `/openapi.yaml`); AsyncAPI for WebSockets at `/asyncapi`.
+- **Demos** — scriptable terminal demos in [`demos/`](demos/) (charmbracelet VHS
+  `.tape` → committed GIFs; regenerate with `just demos-render`).
+
+![gexfakercli in action: setup, status, two classic pulls where the playback cursor advances, and reset](website/public/demos/gexfakercli.gif)
 
 ## Features
 

@@ -138,6 +138,13 @@ faker without curl/env-vars.
   `.github/workflows/docs.yml`). `just docs-build` builds the embedded variant and
   is folded into `build-gex-faker`.
 
+### Demos (VHS)
+- **`demos/cli/*.tape`** are charmbracelet [VHS](https://github.com/charmbracelet/vhs)
+  scripts that render CLI sessions to GIFs (theme matches the guides brand). Run
+  **`just demos-render`** (needs `vhs` + `ttyd` + `ffmpeg` and a faker on `:8080`)
+  → GIFs land in `website/public/demos/*.gif` (committed), served by the guides at
+  `/guides/demos/` and embedded in the landing + README. See `demos/README.md`.
+
 ### Key Packages
 - `internal/server/` - HTTP router, handlers, Swagger UI, Studio UI + endpoints
 - `internal/ws/` - WebSocket hubs, streamers, negotiate handler, protobuf encoding

@@ -22,6 +22,15 @@ import GuideCard from '../../components/GuideCard.astro';
   </p>
 </div>
 
+<figure class="guide-demo">
+  <img
+    src={import.meta.env.BASE_URL + '/demos/gexfakercli.gif'}
+    alt="gexfakercli in action: setup brings a faker to a verified ready state, then status, two classic pulls where the playback cursor advances, and reset."
+    loading="lazy"
+  />
+  <figcaption>❯ gexfakercli — zero to a verified faker, then pulling snapshots.</figcaption>
+</figure>
+
 {/* Card hrefs are BASE_URL + "/slug/". BASE_URL has no trailing slash in either
     build ("/guides", "/gexbot-faker-api"), so the leading slash is in the literal.
     Glyphs reuse the Studio SPA's nav icon language. */}
