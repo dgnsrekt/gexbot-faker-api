@@ -49,6 +49,20 @@ func TestTickerSnapshots(t *testing.T) {
 	}
 }
 
+func TestTickerSnapshotsIncludesEmptyMember(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-08-07"
+	packTimestamps(t, root, date, "SPX", nil) // empty member → 0 records
+
+	got, err := TickerSnapshots(root, date)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := got["SPX"]; !ok || v != 0 {
+		t.Errorf("an empty-member ticker must be present at 0, got %d (present=%v)", v, ok)
+	}
+}
+
 func TestMemberTimestamps(t *testing.T) {
 	root := t.TempDir()
 	date := "2026-08-07"

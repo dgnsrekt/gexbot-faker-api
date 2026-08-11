@@ -42,9 +42,10 @@ func TickerSnapshots(root, date string) (map[string]int, error) {
 				max = m.Records
 			}
 		}
-		if max > 0 {
-			out[ticker] = max
-		}
+		// Keep manifest-backed tickers even at 0 so an empty member (an extreme
+		// truncation) is still inspected by the deviation and session-shape checks
+		// rather than vanishing from the map.
+		out[ticker] = max
 	}
 	return out, nil
 }

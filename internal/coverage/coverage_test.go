@@ -184,6 +184,24 @@ func TestCheckSparseSession(t *testing.T) {
 	}
 }
 
+func TestCheckEmptySession(t *testing.T) {
+	if _, err := time.LoadLocation("America/New_York"); err != nil {
+		t.Skip("no tzdata for America/New_York")
+	}
+	root := t.TempDir()
+	date := "2026-08-07"
+	// A zero-snapshot archive (empty member) must not vanish from the check.
+	packTs(t, root, date, "SPX", nil)
+
+	rep, err := Check(root, date, zap.NewNop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(rep, "SPX", "sparse-session") {
+		t.Errorf("a 0-snapshot archive must produce a sparse-session finding, got %+v", rep.Findings)
+	}
+}
+
 func TestCheckSessionShapeStateOnlyArchive(t *testing.T) {
 	et, err := time.LoadLocation("America/New_York")
 	if err != nil {
