@@ -1,66 +1,78 @@
-/* LM Studio-flavored theme for the GEX Faker guides.
+/* GEX Faker guides theme — unified with the GEX Faker Studio SPA.
  *
- * Overrides Starlight's CSS custom properties: a violet accent (both themes) and
- * a near-black, low-contrast dark palette that matches LM Studio's docs and the
- * GEX Faker Studio SPA. Structure (grouped sidebar, right TOC, ⌘K search) is
- * Starlight's own and already close. */
+ * Near-black surfaces + the Studio's green accent (#6fcf97), a green square brand
+ * dot, JetBrains Mono for code, and mono-glyph guide cards that reuse the Studio's
+ * own icon language. Structure (grouped sidebar, right TOC, ⌘K search) is
+ * Starlight's; the palette and brand are ours. */
 
 :root {
-  /* Violet accent, tuned to read well on light and dark. */
-  --sl-color-accent-low: #322659;
-  --sl-color-accent: #7c5cff;
-  --sl-color-accent-high: #c9bcff;
+  --guides-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --guides-radius: 8px;
 
-  --sl-color-text-accent: #7c5cff;
+  /* Green accent (Studio --green / --green-2), works on light + dark. */
+  --sl-color-accent-low: #16211b;
+  --sl-color-accent: #35a46a;
+  --sl-color-accent-high: #7fd1a8;
+  --sl-color-text-accent: #2f9c62;
 
-  /* Slightly tighter radius, LM-Studio-ish. */
-  --guides-radius: 7px;
+  --sl-font-mono: var(--guides-mono);
 }
 
-/* Dark theme — near-black background, cool-neutral grays, violet accent. */
+/* Dark theme — the Studio palette verbatim. */
 :root[data-theme='dark'] {
-  --sl-color-accent-low: #241a45;
-  --sl-color-accent: #8b6dff;
-  --sl-color-accent-high: #d3c8ff;
-  --sl-color-text-accent: #b7a4ea;
+  --sl-color-accent-low: #16211b; /* --green-bg */
+  --sl-color-accent: #6fcf97; /* --green */
+  --sl-color-accent-high: #b7e6cd;
+  --sl-color-text-accent: #7fd1a8; /* --green-2 */
 
   --sl-color-white: #f4f5f6;
-  --sl-color-gray-1: #e7e8ea;
-  --sl-color-gray-2: #c2c4c9;
-  --sl-color-gray-3: #9aa0a6;
-  --sl-color-gray-4: #6b7178;
-  --sl-color-gray-5: #33363b;
-  --sl-color-gray-6: #1c1e22;
-  --sl-color-gray-7: #16171a;
+  --sl-color-gray-1: #e7e8ea; /* --text */
+  --sl-color-gray-2: #d6d8db; /* --text-2 */
+  --sl-color-gray-3: #8b8f98; /* --muted */
+  --sl-color-gray-4: #7b808a; /* --muted-2 */
+  --sl-color-gray-5: #2a2d33;
+  --sl-color-gray-6: #17181b;
+  --sl-color-gray-7: #141517;
   --sl-color-black: #0d0e10;
 
-  /* Surfaces: page a touch darker than the chrome, like LM Studio. */
-  --sl-color-bg: #0d0e10;
-  --sl-color-bg-nav: #121317;
+  --sl-color-bg: #0d0e10; /* --bg */
+  --sl-color-bg-nav: #111214; /* --panel */
   --sl-color-bg-sidebar: #0f1013;
-  --sl-color-bg-inline-code: #1b1d21;
-  --sl-color-hairline: #1e2024;
-  --sl-color-hairline-light: #26282d;
+  --sl-color-bg-inline-code: #1a1c20;
+  --sl-color-hairline: #212429; /* --border */
+  --sl-color-hairline-light: #272a30; /* --border-2 */
   --sl-color-hairline-shade: #17181b;
 }
 
-/* Light theme — keep it clean, warm-neutral, same violet accent. */
 :root:not([data-theme='dark']) {
   --sl-color-bg-sidebar: #fbfbfc;
   --sl-color-hairline-shade: #ececef;
 }
 
-/* Active sidebar item: a soft violet pill, the way LM Studio highlights the
- * current page rather than a plain accent-colored label. */
+/* Brand: a green square dot before the wordmark, matching the Studio's brand. */
+a.site-title {
+  gap: 0.55rem;
+}
+a.site-title::before {
+  content: '';
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--sl-color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sl-color-accent) 18%, transparent);
+}
+
+/* Active sidebar item: a soft green pill (our take on LM Studio's current-page). */
 nav.sidebar a[aria-current='page'],
 .sidebar-content a[aria-current='page'] {
-  background: color-mix(in srgb, var(--sl-color-accent) 16%, transparent);
-  color: var(--sl-color-white);
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
   border-radius: var(--guides-radius);
   font-weight: 600;
 }
 
-/* Sidebar group headings: quieter, uppercase, like LM Studio's section labels. */
+/* Sidebar group headings: quiet, uppercase — like the Studio's section labels. */
 .sidebar-content summary,
 .sidebar-content > ul > li > details > summary,
 .sidebar-content h2 {
@@ -70,8 +82,73 @@ nav.sidebar a[aria-current='page'],
   color: var(--sl-color-gray-3);
 }
 
-/* Search box: match the rounded, muted LM Studio field. */
 site-search button[data-open-modal] {
   border-radius: var(--guides-radius);
   border-color: var(--sl-color-hairline);
+}
+
+/* --- Guide cards (our own component, mono-glyph icons) --------------------- */
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+  gap: 14px;
+  margin-top: 1.25rem;
+}
+
+.guide-card {
+  display: block;
+  padding: 15px 16px;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 11px;
+  background: var(--sl-color-bg-nav);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.guide-card:hover {
+  border-color: var(--sl-color-accent);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--sl-color-accent) 30%, transparent),
+    0 10px 26px -14px rgba(0, 0, 0, 0.7);
+}
+
+.guide-card__top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.guide-card__badge {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent);
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 22%, transparent);
+  font-family: var(--guides-mono);
+  font-size: 15px;
+  line-height: 1;
+}
+.guide-card__title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+.guide-card__arrow {
+  color: var(--sl-color-gray-4);
+  font-family: var(--guides-mono);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.guide-card:hover .guide-card__arrow {
+  color: var(--sl-color-accent);
+  transform: translateX(2px);
+}
+.guide-card__desc {
+  margin: 10px 0 0;
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+  line-height: 1.5;
 }

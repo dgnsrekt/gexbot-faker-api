@@ -1,0 +1,21 @@
+---
+// A clickable guide card with a mono-glyph badge — the docs' own icon language,
+// reusing the GEX Faker Studio's nav glyphs so the docs and the app feel like one
+// product. Styled in src/styles/theme.css (.guide-card*).
+interface Props {
+  href: string
+  glyph: string
+  title: string
+  description: string
+}
+const { href, glyph, title, description } = Astro.props
+---
+
+<a class="guide-card" href={href}>
+  <span class="guide-card__top">
+    <span class="guide-card__badge" aria-hidden="true">{glyph}</span>
+    <span class="guide-card__title">{title}</span>
+    <span class="guide-card__arrow" aria-hidden="true">&rarr;</span>
+  </span>
+  <span class="guide-card__desc">{description}</span>
+</a>
