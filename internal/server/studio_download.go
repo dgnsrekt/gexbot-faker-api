@@ -150,22 +150,11 @@ func (m *downloadManager) worker() {
 			if res != nil && res.Failed > 0 {
 				return fmt.Errorf("%d of %d files failed", res.Failed, res.Total)
 			}
-			if e := downloadjob.PackMissingArchives(cfg, req.date); e != nil {
-				return e
-			}
-			// The download already produced the JSONL (auto-convert) and packed
-			// it, so the date is materialized — mark each ticker so the Library
-			// shows it "ready" immediately instead of prompting a redundant
-			// re-unpack. The archive stays as the TTL re-materialize backup.
-			// MarkMaterialized is a no-op for a ticker with no data dir (e.g. an
-			// all-404 ticker); a real write failure must fail the job so the
-			// Library doesn't report "ready" for an unmarked date.
-			for _, tk := range req.tickers {
-				if e := eod.MarkMaterialized(m.dataDir, req.date, tk); e != nil {
-					return fmt.Errorf("mark %s materialized: %w", tk, e)
-				}
-			}
-			return nil
+			// Pack the archive and mark each ticker materialized: the download's
+			// auto-convert already left the JSONL on disk, so the date is "ready"
+			// immediately (no redundant re-unpack). Shared with the daemon so the
+			// two individual-download paths can't drift.
+			return downloadjob.PackAndMark(cfg, req.date)
 		})
 
 		m.mu.Lock()

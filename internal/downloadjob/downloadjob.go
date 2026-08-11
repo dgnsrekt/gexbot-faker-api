@@ -194,13 +194,49 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
 		if data, err := os.ReadFile(eod.ManifestPath(archive)); err == nil {
 			var man eod.Manifest
+			// Skip re-packing only when the manifest covers the on-disk JSONL AND
+			// the archive it describes is present and non-empty — a proactive
+			// repair that repacks an orphan manifest (ZIP deleted/zero-byte) on the
+			// next download instead of letting it linger. This is a cheap hot-path
+			// guard, NOT the safety invariant: the authoritative recoverability
+			// check (ZIP exists AND SHA matches the manifest) lives in
+			// eod.CleanupStale via eod.ArchiveRecoverable, which refuses to evict
+			// JSONL unless a valid archive can restore it.
 			if json.Unmarshal(data, &man) == nil && manifestCoversJSONL(cfg.Output.Directory, date, ticker, &man) {
-				continue // archive already covers everything on disk
+				if fi, statErr := os.Stat(archive); statErr == nil && fi.Size() > 0 {
+					continue // manifest covers on-disk JSONL and the ZIP exists
+				}
+				// Archive missing/empty → fall through and repack below.
 			}
-			// Manifest present but new JSONL appeared → rebuild below.
+			// Manifest present but new JSONL appeared (or ZIP gone) → rebuild below.
 		}
 		if _, err := eod.Pack(cfg.Output.Directory, date, ticker, "individual-fallback"); err != nil {
 			return fmt.Errorf("%s: %w", ticker, err)
+		}
+	}
+	return nil
+}
+
+// PackAndMark packs any missing/stale archives for date (see PackMissingArchives)
+// and then marks each ticker materialized. Use it after an individual /hist
+// download, whose auto-convert leaves the JSONL tree on disk: without the marker
+// the date would show "archived"/Materialize in the Library even though its data
+// is already present (and re-materializing would be a no-op that never writes the
+// marker). eod.MarkMaterialized no-ops for a ticker with no data dir (e.g. an
+// all-404 ticker); a real write failure is surfaced so a caller never reports a
+// date "ready" that isn't marked. This is the single shared path for both the
+// Studio download worker and the daemon's fallback/backfill runs.
+func PackAndMark(cfg *config.Config, date string) error {
+	if err := PackMissingArchives(cfg, date); err != nil {
+		return err
+	}
+	tickers := cfg.Tickers
+	if len(tickers) == 0 {
+		tickers = config.DefaultTickers()
+	}
+	for _, ticker := range tickers {
+		if err := eod.MarkMaterialized(cfg.Output.Directory, date, ticker); err != nil {
+			return fmt.Errorf("mark %s materialized: %w", ticker, err)
 		}
 	}
 	return nil

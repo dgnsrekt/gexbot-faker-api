@@ -498,6 +498,29 @@ func TouchLoaded(root, date string) error {
 // keep (e.g. the newest archive) are always retained; the actively-served date is
 // retained because the server keeps its .last-loaded mtime fresh. Returns the
 // dates removed.
+// ArchiveRecoverable reports whether the EOD archive for date/ticker can restore
+// the ticker's JSONL: the sidecar manifest parses, the ZIP exists and is
+// non-empty, and its SHA-256 matches the archive_sha256 recorded at pack time.
+// CleanupStale uses this so materialized JSONL is never evicted unless a valid
+// archive can bring it back — a missing, truncated, or byte-corrupted ZIP keeps
+// the JSONL, which is then the only surviving copy.
+func ArchiveRecoverable(root, date, ticker string) bool {
+	archive := ArchivePath(root, date, ticker)
+	data, err := os.ReadFile(ManifestPath(archive))
+	if err != nil {
+		return false
+	}
+	var man Manifest
+	if json.Unmarshal(data, &man) != nil || man.ArchiveSHA256 == "" {
+		return false
+	}
+	if fi, err := os.Stat(archive); err != nil || fi.Size() == 0 {
+		return false
+	}
+	sum, err := fileSHA256(archive)
+	return err == nil && sum == man.ArchiveSHA256
+}
+
 func CleanupStale(root string, ttl time.Duration, logger *zap.Logger, keep ...string) ([]string, error) {
 	if logger == nil {
 		logger = zap.NewNop()
@@ -548,6 +571,26 @@ func CleanupStale(root string, ttl time.Duration, logger *zap.Logger, keep ...st
 		}
 		if mtime.After(cutoff) {
 			continue // loaded recently — keep
+		}
+		// Recoverability gate: never evict JSONL unless every ticker has a
+		// restorable archive (exists + SHA matches its manifest). A materialized
+		// date whose ZIP was lost or byte-corrupted must keep its JSONL — it is
+		// the only remaining copy. Runs only for otherwise-evictable dates, so the
+		// per-archive SHA cost stays off the hot path.
+		recoverable := true
+		for _, ticker := range tickers {
+			if !ticker.IsDir() {
+				continue
+			}
+			if !ArchiveRecoverable(root, date, ticker.Name()) {
+				logger.Warn("keeping materialized date: archive not recoverable",
+					zap.String("date", date), zap.String("ticker", ticker.Name()))
+				recoverable = false
+				break
+			}
+		}
+		if !recoverable {
+			continue
 		}
 		if err := os.RemoveAll(dateDir); err != nil {
 			return removed, err
