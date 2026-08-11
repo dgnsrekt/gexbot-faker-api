@@ -13,6 +13,8 @@ import (
 	"sort"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
@@ -47,12 +49,9 @@ const (
 	minBaseline = 5
 	// maxGapSec: alert when the largest intraday gap exceeds this.
 	maxGapSec = 120
-	// openTol/closeTol: tolerance around the 09:30–16:00 ET regular session.
+	// openTol/closeTol: tolerance around the scheduled session bounds (ET).
 	openTol  = 5 * time.Minute
 	closeTol = 5 * time.Minute
-
-	sessionPkg = "classic"
-	sessionCat = "gex_full"
 )
 
 // Finding is one coverage problem for one ticker.
@@ -75,7 +74,12 @@ func (r Report) Empty() bool { return len(r.Findings) == 0 }
 // It reads manifests for the snapshot-deviation check (cheap) and one member per
 // ticker for the session-shape check. A thin baseline (fewer than minBaseline
 // prior days) skips the deviation check for that ticker rather than guessing.
-func Check(dataDir, date string) (Report, error) {
+// logger (may be nil) records when a session-shape check could not run, so a
+// skipped check is never silent.
+func Check(dataDir, date string, logger *zap.Logger) (Report, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	rep := Report{Date: date}
 	cur, err := eod.TickerSnapshots(dataDir, date)
 	if err != nil {
@@ -94,6 +98,9 @@ func Check(dataDir, date string) (Report, error) {
 	sort.Strings(tickers)
 
 	et, etErr := time.LoadLocation("America/New_York")
+	if etErr != nil {
+		logger.Warn("coverage: session-shape checks skipped (no America/New_York tzdata)", zap.Error(etErr))
+	}
 	for _, tk := range tickers {
 		if hist := baseline[tk]; len(hist) >= minBaseline {
 			if med := median(hist); med > 0 {
@@ -108,7 +115,7 @@ func Check(dataDir, date string) (Report, error) {
 			}
 		}
 		if etErr == nil {
-			rep.Findings = append(rep.Findings, sessionShape(dataDir, date, tk, et)...)
+			rep.Findings = append(rep.Findings, sessionShape(dataDir, date, tk, et, logger)...)
 		}
 	}
 	return rep, nil
@@ -131,18 +138,36 @@ func gatherBaseline(dataDir, date string) map[string][]int {
 }
 
 // sessionShape reads one representative member's timestamps and flags a late
-// open, early close, or oversized intraday gap. Best-effort: a read error (or a
-// member with too few points) yields no findings.
-func sessionShape(dataDir, date, ticker string, et *time.Location) []Finding {
-	ts, err := eod.MemberTimestamps(dataDir, date, ticker, sessionPkg, sessionCat)
-	if err != nil || len(ts) < 2 {
+// open, early close, or oversized intraday gap. The expected close is date-aware
+// (13:00 ET on NYSE half-days, else 16:00) so legitimate early-close sessions
+// don't false-alarm. When no member can be read, it logs rather than silently
+// passing.
+func sessionShape(dataDir, date, ticker string, et *time.Location, logger *zap.Logger) []Finding {
+	pkg, cat, ok := eod.RepresentativeMember(dataDir, date, ticker)
+	if !ok {
+		logger.Warn("coverage: session-shape skipped, no readable member",
+			zap.String("date", date), zap.String("ticker", ticker))
+		return nil
+	}
+	ts, err := eod.MemberTimestamps(dataDir, date, ticker, pkg, cat)
+	if err != nil {
+		logger.Warn("coverage: session-shape skipped, member unreadable",
+			zap.String("date", date), zap.String("ticker", ticker),
+			zap.String("member", pkg+"/"+cat), zap.Error(err))
+		return nil
+	}
+	if len(ts) < 2 {
 		return nil
 	}
 	sort.Slice(ts, func(i, j int) bool { return ts[i] < ts[j] })
 	first := time.Unix(ts[0], 0).In(et)
 	last := time.Unix(ts[len(ts)-1], 0).In(et)
 	open := time.Date(first.Year(), first.Month(), first.Day(), 9, 30, 0, 0, et)
-	close := time.Date(first.Year(), first.Month(), first.Day(), 16, 0, 0, 0, et)
+	closeH, closeM := 16, 0
+	if earlyClose(first) {
+		closeH = 13 // NYSE half-day close is 13:00 ET
+	}
+	close := time.Date(first.Year(), first.Month(), first.Day(), closeH, closeM, 0, 0, et)
 
 	var out []Finding
 	if first.After(open.Add(openTol)) {
@@ -151,7 +176,7 @@ func sessionShape(dataDir, date, ticker string, et *time.Location) []Finding {
 	}
 	if last.Before(close.Add(-closeTol)) {
 		out = append(out, Finding{ticker, "early-close",
-			fmt.Sprintf("last snapshot %s ET (expected ~16:00)", last.Format("15:04:05"))})
+			fmt.Sprintf("last snapshot %s ET (expected ~%s)", last.Format("15:04:05"), close.Format("15:04"))})
 	}
 	var maxGap int64
 	for i := 1; i < len(ts); i++ {
@@ -164,6 +189,41 @@ func sessionShape(dataDir, date, ticker string, et *time.Location) []Finding {
 			fmt.Sprintf("largest intraday gap %ds (threshold %ds)", maxGap, maxGapSec)})
 	}
 	return out
+}
+
+// earlyClose reports whether d is a NYSE half-day (13:00 ET close): the day
+// after Thanksgiving, July 3, and December 24 when each is a weekday. These are
+// the recurring 1:00 PM ET early closes; the exact-date rules avoid a false
+// early-close finding on legitimately short sessions.
+func earlyClose(d time.Time) bool {
+	if wd := d.Weekday(); wd == time.Saturday || wd == time.Sunday {
+		return false
+	}
+	// Day after Thanksgiving (4th Thursday of November + 1 day).
+	thanksgiving := nthWeekday(d.Year(), time.November, time.Thursday, 4)
+	if sameYMD(d, thanksgiving.AddDate(0, 0, 1)) {
+		return true
+	}
+	if d.Month() == time.July && d.Day() == 3 {
+		return true
+	}
+	if d.Month() == time.December && d.Day() == 24 {
+		return true
+	}
+	return false
+}
+
+// nthWeekday returns the date of the nth given weekday in month/year.
+func nthWeekday(year int, month time.Month, wd time.Weekday, n int) time.Time {
+	first := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	offset := (int(wd) - int(first.Weekday()) + 7) % 7
+	return first.AddDate(0, 0, offset+(n-1)*7)
+}
+
+func sameYMD(a, b time.Time) bool {
+	ay, am, ad := a.Date()
+	by, bm, bd := b.Date()
+	return ay == by && am == bm && ad == bd
 }
 
 func median(xs []int) int {

@@ -49,6 +49,33 @@ func TickerSnapshots(root, date string) (map[string]int, error) {
 	return out, nil
 }
 
+// RepresentativeMember picks a member of date/ticker's archive to read session
+// timestamps from, preferring classic/gex_full (the canonical full-session
+// series) but falling back to any available member so a package-subset archive
+// (state-only, orderflow-only) is still checkable. Returns ok=false only when
+// the manifest is unreadable or empty.
+func RepresentativeMember(root, date, ticker string) (pkg, category string, ok bool) {
+	data, err := os.ReadFile(ManifestPath(ArchivePath(root, date, ticker)))
+	if err != nil {
+		return "", "", false
+	}
+	var man Manifest
+	if json.Unmarshal(data, &man) != nil || len(man.Members) == 0 {
+		return "", "", false
+	}
+	// Preference order, then first available.
+	prefer := [][2]string{{"classic", "gex_full"}, {"classic", "gex_zero"}}
+	for _, p := range prefer {
+		for _, m := range man.Members {
+			if m.Package == p[0] && m.Category == p[1] {
+				return m.Package, m.Category, true
+			}
+		}
+	}
+	m := man.Members[0]
+	return m.Package, m.Category, true
+}
+
 // MemberTimestamps streams the "timestamp" of every record in the given archive
 // member (e.g. classic/gex_full) for date/ticker, in file order. It decodes one
 // element at a time so a large member (SPX gex_full carries hundreds of strikes

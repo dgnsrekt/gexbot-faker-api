@@ -315,7 +315,7 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 // any are found. Always logs findings so they're visible even when ntfy is off;
 // never fails the run — a coverage warning is advisory, not a download failure.
 func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.Notifier, logger *zap.Logger) {
-	rep, err := coverage.Check(dataDir, date)
+	rep, err := coverage.Check(dataDir, date, logger)
 	if err != nil {
 		logger.Warn("coverage check failed", zap.String("date", date), zap.Error(err))
 		return
