@@ -42,11 +42,11 @@
       const oks = promScalar(ok)
       const fails = promScalar(fail)
       tiles = [
-        {
-          label: 'Last successful download',
-          value: age === null ? 'no data yet' : fmtAge(age),
-          tone: age !== null && age > 26 * 3600 ? 'warn' : 'ok',
-        },
+        // Shown informationally (no health tone): a wall-clock threshold would
+        // false-alarm over weekends/holidays when no market-day download is due.
+        // A market-schedule-aware "download overdue" signal belongs server-side
+        // (the daemon knows its schedule + the market calendar) — a later slice.
+        { label: 'Last successful download', value: age === null ? 'no data yet' : fmtAge(age), tone: '' },
         { label: 'Next scheduled run', value: nxt === null ? '—' : fmtIn(nxt), tone: '' },
         { label: 'Successful runs', value: oks === null ? '—' : String(oks), tone: '' },
         {
