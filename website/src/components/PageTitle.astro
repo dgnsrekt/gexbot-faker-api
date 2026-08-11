@@ -1,0 +1,24 @@
+---
+// Override of Starlight's PageTitle: prepend the per-topic mono glyph (from the
+// synced `glyph` frontmatter) as a green badge, matching the landing cards and
+// the Studio's nav icon language. Falls back to the plain title when no glyph.
+// id="_top" mirrors Starlight's PAGE_TITLE_ID (not a public export).
+const { title, glyph } = Astro.locals.starlightRoute.entry.data
+---
+
+<h1 id="_top" class="guide-page-title">
+  {glyph && <span class="guide-page-title__glyph" aria-hidden="true">{glyph}</span>}
+  <span>{title}</span>
+</h1>
+
+<style>
+  @layer starlight.core {
+    h1 {
+      margin-top: 1rem;
+      font-size: var(--sl-text-h1);
+      line-height: var(--sl-line-height-headings);
+      font-weight: 600;
+      color: var(--sl-color-white);
+    }
+  }
+</style>

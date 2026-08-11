@@ -14,6 +14,9 @@ export const collections = {
         type: z.string().optional(),
         tags: z.array(z.string()).optional(),
         timestamp: z.string().optional(),
+        // A mono glyph shown before the page title (injected per slug by
+        // scripts/sync-knowledge.mjs; reuses the Studio's nav icon language).
+        glyph: z.string().optional(),
       }),
     }),
   }),
