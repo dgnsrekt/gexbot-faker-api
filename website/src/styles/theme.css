@@ -236,6 +236,25 @@ site-search button[data-open-modal] {
   color: var(--sl-color-gray-3);
 }
 
+/* CLI demo GIF (rendered by VHS, served from public/demos). */
+.guide-demo {
+  margin: 0 0 2.25rem;
+}
+.guide-demo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 12px;
+}
+.guide-demo figcaption {
+  margin-top: 8px;
+  font-family: var(--guides-mono);
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+  text-align: center;
+}
+
 /* --- Custom 404 (splash) --------------------------------------------------- */
 
 .guide-404 {

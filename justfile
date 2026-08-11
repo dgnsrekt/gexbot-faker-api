@@ -20,6 +20,7 @@ help:
     @echo "  just studio-build                 Build the GEX Faker Studio web UI (/studio)"
     @echo "  just docs-build                   Build the guides docs site (/guides, from knowledge/)"
     @echo "  just docs-dev                     Run the guides docs site in dev mode"
+    @echo "  just demos-render                 Render CLI demo GIFs (VHS) into website/public/demos"
     @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
     @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
     @echo "  just generate-protos              Generate protobuf code for WebSocket"
@@ -89,6 +90,15 @@ docs-build:
 # Run the docs site in dev mode (hot-reloads knowledge/ edits via the sync step).
 docs-dev:
     cd website && npm ci && npm run dev
+
+# Render the CLI demo GIFs from demos/cli/*.tape (charmbracelet VHS). Needs vhs +
+# ttyd + ffmpeg (see demos/README.md) and a running faker on :8080. GIFs land in
+# website/public/demos/ (committed, served by the guides at /guides/demos/).
+demos-render:
+    @curl -sf -m2 http://127.0.0.1:8080/health >/dev/null || (echo "start a faker on :8080 first (just serve-gex-faker)" && exit 1)
+    @command -v vhs >/dev/null || (echo "vhs not installed — see demos/README.md" && exit 1)
+    mkdir -p website/public/demos
+    for tape in demos/cli/*.tape; do echo "rendering $tape"; vhs "$tape"; done
 
 # Build the GEX Faker server binary (embeds the Studio UI and the docs site)
 build-gex-faker: generate-gex-faker-api-spec studio-build docs-build
