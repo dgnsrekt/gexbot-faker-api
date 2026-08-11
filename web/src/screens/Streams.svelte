@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api, type Status, type HubStat } from '../lib/api'
+  import { copyText } from '../lib/clipboard'
 
   let { status }: { status: Status | null } = $props()
 
@@ -64,10 +65,11 @@
     `${prefix}_${pickTicker}_${feeds[pickFeed].hub}_${feeds[pickFeed].cat}`,
   )
 
-  function copyGroup() {
-    navigator.clipboard?.writeText(groupName)
-    copied = true
-    setTimeout(() => (copied = false), 1400)
+  async function copyGroup() {
+    if (await copyText(groupName)) {
+      copied = true
+      setTimeout(() => (copied = false), 1400)
+    }
   }
 
   const wsFacts = $derived([

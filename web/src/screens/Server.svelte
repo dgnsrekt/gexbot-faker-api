@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api, fmtInt, type Status, type EndpointDoc, type KeyEntry } from '../lib/api'
+  import { copyText } from '../lib/clipboard'
 
   let { status, baseUrl }: { status: Status | null; baseUrl: string } = $props()
 
@@ -48,19 +49,21 @@
       : `curl ${baseUrl}${path}`
   }
 
-  function copyCurl(e: EndpointDoc) {
-    navigator.clipboard?.writeText(curlFor(e))
-    copiedPath = e.path
-    setTimeout(() => (copiedPath = null), 1400)
+  async function copyCurl(e: EndpointDoc) {
+    if (await copyText(curlFor(e))) {
+      copiedPath = e.path
+      setTimeout(() => (copiedPath = null), 1400)
+    }
   }
 
   const snippet = $derived(
     `export GEXBOT_API_KEY=${devKey}\nBASE_URL="${baseUrl}"\n\ncurl -H "Authorization: Bearer $GEXBOT_API_KEY" \\\n  $BASE_URL/SPX/state/gex_zero`,
   )
-  function copySnippet() {
-    navigator.clipboard?.writeText(snippet)
-    copiedSnippet = true
-    setTimeout(() => (copiedSnippet = false), 1400)
+  async function copySnippet() {
+    if (await copyText(snippet)) {
+      copiedSnippet = true
+      setTimeout(() => (copiedSnippet = false), 1400)
+    }
   }
 
   async function resetAll() {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api, fmtBytes, type Status } from './lib/api'
+  import { copyText } from './lib/clipboard'
   import Server from './screens/Server.svelte'
   import Library from './screens/Library.svelte'
   import Streams from './screens/Streams.svelte'
@@ -57,10 +58,11 @@
   // (preserving host, scheme, and any reverse-proxy port) rather than localhost.
   const baseUrl = window.location.origin
 
-  function copyBase() {
-    navigator.clipboard?.writeText(baseUrl)
-    copied = true
-    setTimeout(() => (copied = false), 1400)
+  async function copyBase() {
+    if (await copyText(baseUrl)) {
+      copied = true
+      setTimeout(() => (copied = false), 1400)
+    }
   }
 
   onMount(() => {
