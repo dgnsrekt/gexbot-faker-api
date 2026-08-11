@@ -62,6 +62,65 @@
     if (!r.total) return '0%'
     return Math.round((r.materialized / r.total) * 100) + '%'
   }
+
+  // --- Coverage: the server sends a composition-stable index per date (~1.0 =
+  // every ticker at its own snapshot norm; <1 = a real per-ticker drop). It is
+  // already normalized per ticker, so changing the ticker set doesn't move it —
+  // the deviation is simply (index − 1).
+  const covRows = $derived(rows.filter((r) => r.coverage > 0))
+  const haveCoverage = $derived(covRows.length >= 3)
+  function dev(r: LibraryRow): number {
+    return r.coverage > 0 ? r.coverage - 1 : 0
+  }
+  function devClass(r: LibraryRow): string {
+    if (r.coverage <= 0) return ''
+    const d = dev(r)
+    if (Math.abs(d) < 0.08) return ''
+    if (d <= -0.2) return 'dev big'
+    return d < 0 ? 'dev' : 'dev up'
+  }
+  function devText(r: LibraryRow): string {
+    const d = Math.round(dev(r) * 100)
+    return (d > 0 ? '+' : '') + d + '%'
+  }
+  function covTitle(r: LibraryRow): string {
+    const byTk = r.snapshots_by_ticker
+    const parts = byTk
+      ? Object.keys(byTk)
+          .sort()
+          .map((tk) => `${tk} ${fmtInt(byTk[tk])}`)
+      : []
+    return `coverage ${Math.round(r.coverage * 100)}% of each ticker's norm` +
+      (parts.length ? ` · ${parts.join(', ')}` : '')
+  }
+  // Sparkline (chronological: oldest → newest) of the coverage index, scaled
+  // around 1.0 so the baseline sits mid-height.
+  const SPARK_W = 240
+  const SPARK_H = 30
+  const sparkPoints = $derived.by(() => {
+    const s = rows.map((r) => r.coverage).reverse()
+    if (s.filter((v) => v > 0).length < 2) return ''
+    const vals = s.filter((v) => v > 0)
+    const lo = Math.min(...vals, 0.9)
+    const hi = Math.max(...vals, 1.1)
+    const span = hi - lo || 1
+    const pts: string[] = []
+    s.forEach((v, i) => {
+      if (v <= 0) return
+      const x = (i / (s.length - 1)) * SPARK_W
+      const y = SPARK_H - ((v - lo) / span) * (SPARK_H - 4) - 2
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+    })
+    return pts.join(' ')
+  })
+  const baseY = $derived.by(() => {
+    const vals = rows.map((r) => r.coverage).filter((v) => v > 0)
+    if (!vals.length) return SPARK_H / 2
+    const lo = Math.min(...vals, 0.9)
+    const hi = Math.max(...vals, 1.1)
+    const span = hi - lo || 1
+    return SPARK_H - ((1 - lo) / span) * (SPARK_H - 4) - 2 // baseline at index 1.0
+  })
 </script>
 
 <div class="wrap">
@@ -84,6 +143,19 @@
     <b>Materialize</b> unpacks one to JSONL, then <b>Load</b> serves it. Dates fetched from the
     <b>Download</b> screen are materialized already and show <b>Load</b> directly.
   </div>
+
+  {#if haveCoverage}
+    <div class="coverage">
+      <div class="cov-head mono">
+        COVERAGE
+        <span class="dim">each ticker vs its own median · 100% = normal</span>
+      </div>
+      <svg class="spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
+        <line class="base" x1="0" x2={SPARK_W} y1={baseY} y2={baseY} />
+        <polyline points={sparkPoints} />
+      </svg>
+    </div>
+  {/if}
 
   <div class="card table">
     <div class="thead mono">
@@ -110,7 +182,12 @@
             {#each r.packages as p (p)}<span class="pill">{p}</span>{/each}
           </div>
           <div class="mono dim">{fmtBytes(r.size_bytes)}</div>
-          <div class="mono dim">{fmtInt(r.records)}</div>
+          <div class="mono dim records">
+            {fmtInt(r.records)}
+            {#if devClass(r)}
+              <span class={devClass(r)} title={covTitle(r)}>{devText(r)}</span>
+            {/if}
+          </div>
           <div class="actions">
             {#if r.status === 'corrupt'}
               <span class="badge corrupt">corrupt</span>
@@ -167,6 +244,63 @@
     color: var(--text-2);
     border-left: 2px solid var(--border);
     padding: 2px 0 2px 10px;
+  }
+  .coverage {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel, #111214);
+  }
+  .cov-head {
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-1);
+    white-space: nowrap;
+  }
+  .cov-head .dim {
+    margin-left: 8px;
+    color: var(--muted-2);
+    letter-spacing: 0;
+  }
+  .spark {
+    flex: 1;
+    height: 30px;
+    min-width: 120px;
+  }
+  .spark polyline {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 1.4;
+    vector-effect: non-scaling-stroke;
+  }
+  .spark .base {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .records {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dev {
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    color: var(--amber, #e0b164);
+    background: color-mix(in srgb, var(--amber, #e0b164) 14%, transparent);
+  }
+  .dev.up {
+    color: var(--muted-2);
+    background: color-mix(in srgb, var(--muted-2, #888) 14%, transparent);
+  }
+  .dev.big {
+    color: var(--red, #e08080);
+    background: color-mix(in srgb, var(--red, #e08080) 16%, transparent);
   }
   .legend b {
     color: var(--text-1);

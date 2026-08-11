@@ -355,6 +355,13 @@ type ArchiveInfo struct {
 	// materialized on disk (the .eod-materialized marker present). When it equals
 	// len(Tickers) the date can be loaded instantly; when 0 it is archive-only.
 	Materialized int `json:"materialized"`
+	// SnapshotsByTicker is each ticker's intraday snapshot count for the date.
+	// Each category has one row per snapshot, so a ticker's count is its max
+	// member record count (~23,400 ≈ a full 1/sec session). Kept per-ticker rather
+	// than averaged so coverage can be judged against each ticker's own history —
+	// an unweighted cross-ticker average shifts when the ticker set changes even
+	// if every ticker is individually healthy. See CoverageIndices.
+	SnapshotsByTicker map[string]int `json:"snapshots_by_ticker,omitempty"`
 }
 
 // HasArchive reports whether date has at least one completed EOD archive zip on
@@ -407,6 +414,7 @@ func ListArchives(root string) ([]ArchiveInfo, error) {
 		tickerSet := map[string]bool{}
 		pkgSet := map[string]bool{}
 		hasArchive := false
+		snaps := map[string]int{} // per-ticker snapshot counts
 		for _, te := range tickerEntries {
 			if !te.IsDir() {
 				continue
@@ -434,15 +442,25 @@ func ListArchives(root string) ([]ArchiveInfo, error) {
 				info.Status = "corrupt"
 				continue
 			}
+			tickerMax := 0
 			for _, m := range man.Members {
 				info.Records += m.Records
+				if m.Records > tickerMax {
+					tickerMax = m.Records // all categories share timestamps → max = snapshot count
+				}
 				if m.Package != "" {
 					pkgSet[m.Package] = true
 				}
 			}
+			if tickerMax > 0 {
+				snaps[ticker] = tickerMax
+			}
 		}
 		if !hasArchive {
 			continue
+		}
+		if len(snaps) > 0 {
+			info.SnapshotsByTicker = snaps
 		}
 		info.Tickers = sortedKeys(tickerSet)
 		info.Packages = sortedKeys(pkgSet)
@@ -459,6 +477,54 @@ func sortedKeys(set map[string]bool) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// CoverageIndices returns, per archive (aligned to the input slice), a
+// composition-stable coverage index: the mean over that date's tickers of each
+// ticker's snapshots divided by that ticker's median across all the archives.
+// ~1.0 means every ticker is at its own norm; well below 1 flags a real
+// per-ticker collection drop. Because each ticker is compared only to itself,
+// adding or removing tickers from the set does not move the index (unlike an
+// unweighted cross-ticker average). A date with no usable per-ticker data gets 0.
+func CoverageIndices(archives []ArchiveInfo) []float64 {
+	hist := map[string][]int{}
+	for _, a := range archives {
+		for tk, n := range a.SnapshotsByTicker {
+			hist[tk] = append(hist[tk], n)
+		}
+	}
+	med := make(map[string]int, len(hist))
+	for tk, xs := range hist {
+		med[tk] = medianInt(xs)
+	}
+	out := make([]float64, len(archives))
+	for i, a := range archives {
+		var sum float64
+		var n int
+		for tk, v := range a.SnapshotsByTicker {
+			if m := med[tk]; m > 0 {
+				sum += float64(v) / float64(m)
+				n++
+			}
+		}
+		if n > 0 {
+			out[i] = sum / float64(n)
+		}
+	}
+	return out
+}
+
+func medianInt(xs []int) int {
+	v := append([]int(nil), xs...)
+	sort.Ints(v)
+	n := len(v)
+	if n == 0 {
+		return 0
+	}
+	if n%2 == 1 {
+		return v[n/2]
+	}
+	return (v[n/2-1] + v[n/2]) / 2
 }
 
 // MarkMaterialized records that a ticker's JSONL is already on disk (e.g.

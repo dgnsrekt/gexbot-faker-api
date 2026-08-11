@@ -56,6 +56,10 @@ func TestListArchives(t *testing.T) {
 	if newest.Records != 6 { // 2 + 4
 		t.Errorf("2026-08-07 records = %d, want 6", newest.Records)
 	}
+	// Per-ticker snapshots = max member records: SPX 2, NDX 4.
+	if newest.SnapshotsByTicker["SPX"] != 2 || newest.SnapshotsByTicker["NDX"] != 4 {
+		t.Errorf("2026-08-07 snapshots_by_ticker = %v, want SPX:2 NDX:4", newest.SnapshotsByTicker)
+	}
 	if len(newest.Packages) != 1 || newest.Packages[0] != "classic" {
 		t.Errorf("2026-08-07 packages = %v, want [classic]", newest.Packages)
 	}
@@ -134,6 +138,30 @@ func writeCatFixture(t *testing.T, root, date, ticker, pkg, cat string) {
 	}
 	if err := os.WriteFile(p, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestCoverageIndicesStableUnderComposition is the #42 regression: when the
+// ticker set changes but each ticker keeps a constant cadence, the coverage
+// index must stay ~1.0 (no artificial steps). A real per-ticker drop moves it.
+func TestCoverageIndicesStableUnderComposition(t *testing.T) {
+	archives := []ArchiveInfo{
+		{Date: "2026-08-05", SnapshotsByTicker: map[string]int{"SPX": 1000, "NDX": 1000, "SPY": 1000}},
+		{Date: "2026-08-04", SnapshotsByTicker: map[string]int{"SPX": 1000}},                 // only SPX
+		{Date: "2026-08-03", SnapshotsByTicker: map[string]int{"SPX": 1000, "NDX": 1000}},    // no SPY
+		{Date: "2026-08-02", SnapshotsByTicker: map[string]int{"SPX": 700, "NDX": 1000}},     // SPX drop
+	}
+	idx := CoverageIndices(archives)
+	// Composition changes (SPY added/removed, SPX-only) but each ticker constant → ~1.0.
+	for i := 0; i < 3; i++ {
+		if idx[i] < 0.99 || idx[i] > 1.01 {
+			t.Errorf("index[%d] (%s) = %.3f, want ~1.0 despite composition change", i, archives[i].Date, idx[i])
+		}
+	}
+	// The real SPX drop (700 vs 1000 median) pulls its date below 1.
+	// mean(700/1000, 1000/1000) = 0.85.
+	if idx[3] < 0.84 || idx[3] > 0.86 {
+		t.Errorf("index[3] (SPX drop) = %.3f, want ~0.85", idx[3])
 	}
 }
 

@@ -225,6 +225,10 @@ type libRow struct {
 	Total    int    `json:"total"`               // archived tickers for the date
 	State    string `json:"state"`               // loaded | ready | archived | materializing
 	JobError string `json:"job_error,omitempty"` // last background-materialize failure, if any
+	// Coverage is a composition-stable coverage index (~1.0 = every ticker at its
+	// own snapshot norm; well below 1 = a real per-ticker collection drop). 0 when
+	// unknown. See eod.CoverageIndices.
+	Coverage float64 `json:"coverage"`
 }
 
 func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
@@ -234,11 +238,12 @@ func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	loaded := h.currentDate()
+	coverage := eod.CoverageIndices(archives) // per-ticker-normalized, composition-stable
 	rows := make([]libRow, 0, len(archives))
-	for _, a := range archives {
+	for i, a := range archives {
 		total := len(a.Tickers)
 		state := studioLibraryState(a.Date == loaded, h.mat.inProgress(a.Date), a.Materialized, total)
-		row := libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state}
+		row := libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state, Coverage: coverage[i]}
 		// Surface a terminal background failure so the UI doesn't silently revert
 		// to a Materialize button and drop the error.
 		if job, ok := h.mat.status(a.Date); ok && job.State == "error" {
