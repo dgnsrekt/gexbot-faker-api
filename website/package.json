@@ -1,0 +1,22 @@
+{
+  "name": "gex-faker-guides",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Astro Starlight docs site for the GEX Faker API, rendered from the knowledge/ OKF bundle.",
+  "scripts": {
+    "gen": "node scripts/sync-knowledge.mjs && node scripts/gen-llms.mjs",
+    "dev": "npm run gen && astro dev",
+    "build:embed": "npm run gen && DOCS_BASE=/guides astro build --outDir dist",
+    "build:pages": "npm run gen && DOCS_BASE=/gexbot-faker-api DOCS_SITE=https://dgnsrekt.github.io astro build --outDir dist-pages",
+    "build": "npm run build:embed",
+    "preview": "astro preview",
+    "check": "npm run gen && astro check"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/starlight": "^0.41.0",
+    "astro": "^7.2.0",
+    "typescript": "^5.7.3"
+  }
+}
