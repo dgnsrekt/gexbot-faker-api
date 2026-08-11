@@ -79,6 +79,12 @@
     <div class="error">{error}</div>
   {/if}
 
+  <div class="legend">
+    Daily downloads arrive as compressed <b>EOD archives</b> (<span class="mono">archived</span>):
+    <b>Materialize</b> unpacks one to JSONL, then <b>Load</b> serves it. Dates fetched from the
+    <b>Download</b> screen are materialized already and show <b>Load</b> directly.
+  </div>
+
   <div class="card table">
     <div class="thead mono">
       <div>DATE</div>
@@ -154,6 +160,21 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+  .legend {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-2);
+    border-left: 2px solid var(--border);
+    padding: 2px 0 2px 10px;
+  }
+  .legend b {
+    color: var(--text-1);
+    font-weight: 600;
+  }
+  .legend .mono {
+    font-size: 11px;
+    color: var(--amber, #e0b164);
   }
   .banner {
     border: 1px solid var(--green-border);

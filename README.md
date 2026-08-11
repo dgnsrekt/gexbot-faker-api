@@ -281,6 +281,56 @@ five minutes; after 8:00 PM ET the daemon falls back to individual downloads.
 | `DAEMON_TIMEZONE`        | America/New_York | Timezone                |
 | `DAEMON_RUN_ON_STARTUP`  | true             | Check/download on start |
 
+### Download paths & the data lifecycle
+
+Data reaches the replayer two different ways, and they land in **different
+states** in the Studio Data Library. Understanding this explains why a date you
+just downloaded may show **Materialize** instead of **Load**:
+
+1. **EOD report** — the daemon's default, and the CLI. GexBot serves a
+   pre-packed, per-ticker zip (`GET /v2/hist/eod/{ticker}`) whose members are the
+   gzipped per-category datasets. It is stored as-is as the **canonical
+   compressed archive** under `data/eod/YYYY-MM-DD/TICKER/`, and the downloader
+   generates a `…zip.manifest.json` sidecar **locally** when it verifies the
+   archive (`eod.Verify`) — the manifest is ours, not part of GexBot's ZIP.
+   Because it is archive-only (no JSONL yet), a freshly EOD-downloaded date shows
+   **`archived`** and must be **Materialized** (unpacked to JSONL) before it can
+   be **Loaded**. This keeps disk usage lean.
+
+2. **Individual `/hist` download** — the Studio "Download" screen. Fetches
+   per-category JSON from `GET /v2/hist/{ticker}/{package}/{category}/{date}`,
+   auto-converts it to JSONL (`auto_convert_to_jsonl`), then packs the same
+   archive. The Studio worker also writes the `.eod-materialized` marker, so the
+   date shows **`ready` / Load** immediately — no separate Materialize step.
+
+   > The daemon's after-hours fallback uses this **same** `/hist` path, but it
+   > does **not** yet write the marker — so a daemon fallback leaves JSONL on
+   > disk while still showing **`archived` / Materialize** (tracked in
+   > [#38](https://github.com/dgnsrekt/gexbot-faker-api/issues/38)). Only the
+   > Studio download currently becomes `ready` automatically.
+
+**Materialize** unpacks an archive's gzipped members back into
+`data/YYYY-MM-DD/TICKER/PACKAGE/CATEGORY.jsonl` and writes an
+`.eod-materialized` marker. The server materializes on demand when it loads a
+date. If TTL cleanup is enabled (`GEXBOT_OUTPUT_AUTO_CLEANUP=true`, window
+`GEXBOT_OUTPUT_CLEANUP_AFTER_DAYS`; **disabled by default**), the daemon later
+evicts idle materialized JSONL back to archive-only. The archive is always the
+durable source of truth.
+
+| Library state | Button | Meaning |
+| ------------- | ------ | ------- |
+| `archived`    | **Materialize** | Only the EOD archive is on disk (typical for daemon downloads) — unpack it first |
+| `ready`       | **Load**        | JSONL is materialized on disk — loading is instant |
+| `loaded`      | *Loaded*        | Currently being served by the API |
+
+> **`/hist` gzip transition:** GexBot is moving the historical endpoint to serve
+> **only** gzip-compressed payloads (`Content-Encoding: gzip`). This is
+> transport compression of the *same* per-category JSON — **not** a new pack
+> format, and unrelated to the EOD zip above. The downloader is already
+> compatible: it leaves Go's transparent gzip on and never sets `Accept-Encoding`
+> itself, so responses are negotiated and decompressed automatically
+> (`internal/api/client.go`).
+
 ### Push Notifications (ntfy)
 
 Both the daemon and CLI downloader support push notifications via [ntfy.sh](https://ntfy.sh) when downloads complete or fail.
