@@ -16,6 +16,7 @@
   let latency = $state<Series[]>([])
   let wsConns = $state<Series[]>([])
   let alerts = $state<PromAlert[]>([])
+  let alertsErr = $state(false) // alerts endpoint failed → unknown, not "all clear"
 
   const fmtPerSec = (v: number) => v.toFixed(2) + '/s'
   const fmtMs = (v: number) => Math.round(v * 1000) + 'ms'
@@ -102,10 +103,16 @@
         chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
         chart('faker_ws_connections', 60, 60, (s) => (wsConns = s), 'hub'),
         // Active alerts from the Prometheus rule set — isolated like the charts.
+        // A fetch failure is "unknown", NOT "no alerts": don't paint a false
+        // all-clear when the alerts endpoint alone is unavailable.
         api
           .metricsAlerts()
-          .then((r) => (alerts = activeAlerts(r)))
-          .catch(() => (alerts = [])),
+          .then((r) => {
+            if (r.status === 'error') throw new Error(r.error || 'alerts unavailable')
+            alerts = activeAlerts(r)
+            alertsErr = false
+          })
+          .catch(() => (alertsErr = true)),
       ])
     } catch (e) {
       degraded = String(e)
@@ -140,7 +147,11 @@
     </div>
   {:else}
     <div class="section mono">ALERTS</div>
-    {#if alerts.length === 0}
+    {#if alertsErr}
+      <div class="warn-banner">
+        <span class="dot"></span> Alert state unavailable — the Prometheus alerts endpoint didn't respond.
+      </div>
+    {:else if alerts.length === 0}
       <div class="ok-banner">
         <span class="dot"></span> No active alerts.
       </div>
@@ -244,6 +255,24 @@
     height: 8px;
     border-radius: 50%;
     background: var(--green);
+  }
+  .warn-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber, #e0b164);
+    border-radius: 8px;
+    background: var(--panel, #111214);
+    padding: 12px 14px;
+  }
+  .warn-banner .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--amber, #e0b164);
   }
   .alerts {
     display: flex;
