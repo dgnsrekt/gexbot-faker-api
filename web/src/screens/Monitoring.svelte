@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, promScalar, promToSeries, type Series } from '../lib/api'
+  import { api, promScalar, promToSeries, activeAlerts, type Series, type PromAlert } from '../lib/api'
   import MetricChart from '../lib/MetricChart.svelte'
 
   type Tone = 'ok' | 'warn' | 'bad' | ''
@@ -15,10 +15,23 @@
   let reqRate = $state<Series[]>([])
   let latency = $state<Series[]>([])
   let wsConns = $state<Series[]>([])
+  let alerts = $state<PromAlert[]>([])
 
   const fmtPerSec = (v: number) => v.toFixed(2) + '/s'
   const fmtMs = (v: number) => Math.round(v * 1000) + 'ms'
   const fmtInt = (v: number) => String(Math.round(v))
+
+  const alertName = (a: PromAlert) => a.labels.alertname || 'alert'
+  const alertSummary = (a: PromAlert) => a.annotations.summary || alertName(a)
+  const alertSeverity = (a: PromAlert) => a.labels.severity || 'warning'
+  function alertSince(a: PromAlert): string {
+    if (!a.activeAt) return ''
+    const s = (Date.now() - new Date(a.activeAt).getTime()) / 1000
+    if (s < 90) return 'just now'
+    if (s < 5400) return `${Math.round(s / 60)}m`
+    if (s < 172800) return `${(s / 3600).toFixed(1)}h`
+    return `${Math.round(s / 86400)}d`
+  }
 
   function fmtAge(s: number): string {
     if (s < 0) return '—'
@@ -88,6 +101,11 @@
         chart('sum(rate(faker_http_requests_total[5m]))', 60, 60, (s) => (reqRate = s), undefined, 'requests'),
         chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
         chart('faker_ws_connections', 60, 60, (s) => (wsConns = s), 'hub'),
+        // Active alerts from the Prometheus rule set — isolated like the charts.
+        api
+          .metricsAlerts()
+          .then((r) => (alerts = activeAlerts(r)))
+          .catch(() => (alerts = [])),
       ])
     } catch (e) {
       degraded = String(e)
@@ -121,6 +139,26 @@
       </div>
     </div>
   {:else}
+    <div class="section mono">ALERTS</div>
+    {#if alerts.length === 0}
+      <div class="ok-banner">
+        <span class="dot"></span> No active alerts.
+      </div>
+    {:else}
+      <div class="alerts">
+        {#each alerts as a (alertName(a) + JSON.stringify(a.labels))}
+          <div class="alert {a.state === 'firing' ? alertSeverity(a) : 'pending'}">
+            <div class="a-top">
+              <span class="a-state mono">{a.state === 'firing' ? alertSeverity(a).toUpperCase() : 'PENDING'}</span>
+              <span class="a-name mono">{alertName(a)}</span>
+              {#if alertSince(a)}<span class="a-since">for {alertSince(a)}</span>{/if}
+            </div>
+            <div class="a-summary">{alertSummary(a)}</div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <div class="section mono">DAEMON</div>
     <div class="tiles">
       {#each tiles as t (t.label)}
@@ -189,6 +227,76 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 12px;
+  }
+  .ok-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel, #111214);
+    padding: 12px 14px;
+  }
+  .ok-banner .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .alert {
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: 8px;
+    background: var(--panel, #111214);
+    padding: 10px 14px;
+  }
+  .alert.critical {
+    border-left-color: var(--red, #e08080);
+  }
+  .alert.warning {
+    border-left-color: var(--amber, #e0b164);
+  }
+  .alert.pending {
+    border-left-color: var(--muted-2);
+  }
+  .a-top {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .a-state {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .alert.critical .a-state {
+    color: var(--red, #e08080);
+  }
+  .alert.warning .a-state {
+    color: var(--amber, #e0b164);
+  }
+  .alert.pending .a-state {
+    color: var(--muted-2);
+  }
+  .a-name {
+    font-size: 12px;
+    color: var(--text-1);
+  }
+  .a-since {
+    font-size: 11px;
+    color: var(--muted-2);
+    margin-left: auto;
+  }
+  .a-summary {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--text-2);
   }
   .tile {
     border: 1px solid var(--border);
