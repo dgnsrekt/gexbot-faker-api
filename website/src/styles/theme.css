@@ -55,7 +55,14 @@
 /* Brand lockup: the Reflection mark + the "GEX Faker Studio" wordmark (see
  * SiteTitle.astro). Strokes use theme vars so the mark reads on light + dark. */
 .guide-lockup {
+  /* Carry Starlight's stock .site-title layout, since overriding the component
+   * drops its scoped styles (keeps the lockup aligned, unwrapped, undecorated). */
+  display: flex;
+  align-items: center;
   gap: 0.6rem;
+  white-space: nowrap;
+  min-width: 0;
+  text-decoration: none;
   color: var(--sl-color-white);
 }
 .guide-mark {
