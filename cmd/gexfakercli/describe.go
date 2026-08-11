@@ -55,15 +55,17 @@ func buildDescribe() describeDoc {
 		BaseURL:     newClient().base,
 		Key:         flagKey,
 		Auth: map[string]string{
-			"model":     "Only data routes require an Authorization header. Any non-empty token authenticates; it is never validated.",
-			"purpose":   "The token seeds a per-key sequential playback cursor — pick a stable key per agent session.",
-			"discovery": "tickers/categories/dates/available/status/reset/seek/load need no auth.",
+			"model":     "Data routes require an Authorization header (any non-empty --key; never validated, seeds the cursor).",
+			"purpose":   "The data key seeds a per-key sequential playback cursor — pick a stable key per agent session.",
+			"discovery": "Read-only routes (tickers/categories/dates/available/status/current-range/coverage/seek/load-range status) need no auth.",
+			"control":   "When the faker sets STUDIO_AUTH_TOKEN, the MUTATING control routes (load, reset, load-range) require it — pass --token or set GEXFAKER_TOKEN (Basic or Bearer). Empty = open (local dev).",
 		},
 		Cursor: map[string]string{
 			"advance":  "Each successful data pull returns the current row then advances this key's cursor by one.",
 			"exhaust":  "cache_mode=exhaust: after the last row, data pulls return HTTP 404 {\"error\":\"No more data available\"}.",
 			"rotation": "cache_mode=rotation: the cursor wraps to the start instead of 404. Check `status` for the mode.",
 			"control":  "`reset` rewinds to index 0; `seek <ts>` jumps to the first row at/after a unix timestamp.",
+			"multiday": "`load-range` loads a contiguous span; then the cursor rolls from one day's last row into the next and `seek` resolves across the whole span. A seek into an inter-session gap clamps to the next open (in_gap); before/after the span clamp (clamped=start|end) per RANGE_END_POLICY (clamp|error).",
 		},
 		Output: map[string]string{
 			"stdout":   "A single JSON document per command. Parse this.",
@@ -87,9 +89,12 @@ func buildDescribe() describeDoc {
 			{Command: "conversion", Endpoint: "/futures/conversion", Method: "GET", Auth: true, Flags: []string{"--ticker", "--future", "--model"}, Summary: "Futures->index affine conversion."},
 		},
 		Control: []cmdDoc{
-			{Command: "reset", Endpoint: "/reset-cache", Method: "POST", Flags: []string{"--all"}, Summary: "Rewind the active --key's cursor to index 0 (--all resets every key)."},
-			{Command: "seek <ts>", Endpoint: "/seek-to-timestamp", Method: "POST", Args: []string{"unix-timestamp"}, Flags: []string{"--key"}, Summary: "Seek a key's cursor to a timestamp."},
-			{Command: "load <date>", Endpoint: "/reload-date", Method: "POST", Args: []string{"date"}, Summary: "Load a date; materializes its EOD archive if needed."},
+			{Command: "reset", Endpoint: "/reset-cache", Method: "POST", Flags: []string{"--all"}, Summary: "Rewind the active --key's cursor to index 0 (--all resets every key). Mutating: presents --token when set."},
+			{Command: "seek <ts>", Endpoint: "/seek-to-timestamp", Method: "POST", Args: []string{"unix-timestamp"}, Flags: []string{"--key"}, Summary: "Seek a key's cursor to the first row at/after a timestamp. Response adds resolved_ts/day/in_gap/clamped and per-stream details[] (range mode)."},
+			{Command: "load <date>", Endpoint: "/reload-date", Method: "POST", Args: []string{"date"}, Summary: "Load a single date; materializes its EOD archive if needed. Mutating: presents --token when set."},
+			{Command: "load-range", Endpoint: "/load-range (+ /load-range/status/{jobId})", Method: "POST", Flags: []string{"--from", "--to", "--dates", "--no-wait", "--timeout"}, Summary: "Load a contiguous span of days as one continuous dataset so seek/replay crosses day boundaries. Async; polls to done unless --no-wait. Mutating: presents --token when set."},
+			{Command: "current-range", Endpoint: "/current-range", Method: "GET", Summary: "The currently loaded span (dates, from/to, files_loaded)."},
+			{Command: "coverage", Endpoint: "/range-coverage", Method: "GET", Flags: []string{"--from", "--to"}, Summary: "Pre-load ticker coverage across a span: per-day tickers + union + intersection (from the archive inventory)."},
 		},
 		Meta: []cmdDoc{
 			{Command: "setup", Summary: "Zero->ready bootstrap: find/start a faker, load a date, verify a pull, print ready state."},
@@ -112,6 +117,11 @@ func buildDescribe() describeDoc {
 			"gexfakercli status           # confirm it is up and which date is loaded",
 			"gexfakercli classic SPX gex_zero --fields timestamp,spot,zero_gamma",
 			"gexfakercli reset            # rewind to replay the day from the start",
+			"gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # which tickers cover the span",
+			"gexfakercli load-range --from 2026-08-06 --to 2026-08-10  # load a span (waits to done)",
+			"gexfakercli current-range    # confirm the loaded span",
+			"gexfakercli seek 1786370149 --key sess1                   # cross-day seek (resolved_ts/day/in_gap/clamped)",
+			"gexfakercli load-range --dates 2026-08-06,2026-08-07 --token $TOKEN   # gated faker",
 		},
 	}
 }

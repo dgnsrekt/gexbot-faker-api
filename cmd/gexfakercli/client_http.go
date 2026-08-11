@@ -19,16 +19,18 @@ import (
 // reach the agent without a client rebuild. The generated models in
 // internal/api/generated document the shapes (surfaced via `describe`).
 type apiClient struct {
-	base string
-	key  string
-	http *http.Client
+	base         string
+	key          string
+	controlToken string
+	http         *http.Client
 }
 
 func newClient() *apiClient {
 	return &apiClient{
-		base: strings.TrimRight(flagURL, "/"),
-		key:  flagKey,
-		http: &http.Client{Timeout: 30 * time.Second},
+		base:         strings.TrimRight(flagURL, "/"),
+		key:          flagKey,
+		controlToken: flagToken,
+		http:         &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -84,6 +86,31 @@ func (c *apiClient) postJSON(ctx context.Context, path string, auth bool, body a
 	return c.do(req)
 }
 
+// postControlJSON issues a POST to a mutating control route (load-range, reload-date,
+// reset-cache). It presents the control token as Bearer when one is configured so the CLI works
+// against a token-gated faker (Part B); with no token it sends no auth header, matching an open
+// (local dev) faker.
+func (c *apiClient) postControlJSON(ctx context.Context, path string, body any) (json.RawMessage, error) {
+	u := c.base + path
+	var buf io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return nil, &apiError{Msg: err.Error(), URL: u}
+		}
+		buf = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, buf)
+	if err != nil {
+		return nil, &apiError{Msg: err.Error(), URL: u}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.controlToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.controlToken)
+	}
+	return c.do(req)
+}
+
 func (c *apiClient) do(req *http.Request) (json.RawMessage, error) {
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -123,6 +150,8 @@ func httpError(req *http.Request, status int, body []byte) *apiError {
 		ae.Hint = "this key's cursor reached the end (cache_mode=exhaust) — run `gexfakercli reset` to replay"
 	case status == http.StatusConflict:
 		ae.Hint = "a reload is already in progress — retry shortly"
+	case status == http.StatusUnauthorized:
+		ae.Hint = "this control route requires the faker's Studio auth token — pass --token or set GEXFAKER_TOKEN"
 	}
 	return ae
 }
