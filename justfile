@@ -9,6 +9,7 @@ help:
     @echo "Downloader Commands"
     @echo ""
     @echo "  just build               Build the downloader binary"
+    @echo "  just build-gexfakercli   Build the gexfakercli client (LLM CLI + skill + setup)"
     @echo "  just download            Download data for GEXBOT_DOWNLOADER_DATE"
     @echo "  just download-lookback N Download last N days of data (max 90)"
     @echo "  just convert-to-jsonl    Convert JSON files to JSONL format"
@@ -50,6 +51,10 @@ help:
 # Build the downloader binary
 build:
     go build -o bin/gexbot-downloader ./cmd/downloader
+
+# Build the gexfakercli binary (LLM-first REST client + skill + auto-setup)
+build-gexfakercli:
+    go build -o bin/gexfakercli ./cmd/gexfakercli
 
 # --- Server Commands ---
 
