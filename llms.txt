@@ -1,0 +1,26 @@
+# GEX Faker API
+
+> Mock server that replays historical GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio) and an agent CLI (gexfakercli). Point an agent at this map — or at knowledge/index.md — to answer setup, usage, and integration questions from the source.
+
+## Use it
+- [What the GEX Faker is](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/overview.md): A Go server that replays historical GexBot options/GEX market data over REST and WebSocket, mirroring the real API's primary data routes, plus a downloader, a scheduling daemon, a web UI, and an agent CLI.
+- [Quick start — from clone to a live stream](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/quick-start.md): The golden path to a running faker; clone, add a GexBot key, download a day with Docker, open the Studio, load the date, and watch a live WebSocket stream.
+- [The GEX Faker Studio](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/studio.md): A tour of the embedded web UI at /studio and its seven screens — Server, Download, Data library, Live streams, Logs, Monitoring, and Settings.
+- [Downloading data](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/download-data.md): The two ways market data reaches the faker — the EOD archive path (daemon and CLI) and the individual /hist path (Studio) — plus the GexBot API key they require.
+- [The materialize and load lifecycle](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/materialize-load.md): Why a date you just downloaded shows Materialize instead of Load — the archived to ready to loaded lifecycle, the three Library states, and why the compressed archive is the durable source of truth.
+- [Docker and observability](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/docker-observability.md): The default docker compose stack (API, daemon, Prometheus, Loki, Alloy), how port binding and Studio auth work, and how the Studio Logs and Monitoring screens query Loki and Prometheus server-side.
+
+## Build with it
+- [Point a client at the faker](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/point-a-client.md): How to repoint an existing GexBot client at the faker — the base URL, the header auth model where any non-empty token works, and per-API-key sequential playback.
+- [The gexfakercli agent CLI](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/gexfakercli.md): A JSON-first command-line client over the faker made for LLM agents — the setup bootstrap, the describe capability dump, data pulls, the playback cursor, and installing it as a Claude/Codex skill.
+- [REST API reference](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/rest-api.md): The faker's REST endpoint surface — market-data pulls, discovery, control, and health — plus the interactive Swagger UI at /docs and the OpenAPI spec at /openapi.yaml.
+- [WebSocket streaming](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/websockets.md): The faker's five WebSocket hubs, the /negotiate handshake, the group-naming convention, the Azure Web PubSub protobuf/zstd frame format, and how to connect a client.
+- [Configuration](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/configuration.md): The environment variables that configure the faker — the server (port, data, cache, WebSocket, sync, auth, observability), Docker/compose, the daemon, ntfy push, TTL cleanup, and the downloader YAML config.
+- [The download daemon](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/daemon.md): The long-running scheduler that downloads each market day automatically, its EOD-with-hist-fallback strategy, the coverage-regression alerts it emits, and ntfy push notifications.
+
+## Troubleshooting
+- [Troubleshooting](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/troubleshooting.md): Fixes for the common faker snags — no data for a ticker, a date stuck on archived vs ready, a 400 missing-auth error, an exhausted playback cursor, a disabled Download screen, and agent-sandbox localhost blocks.
+
+## Optional
+- [OpenAPI spec](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/api/openapi.yaml): the REST surface (served live at /openapi.yaml, Swagger UI at /docs)
+- [Full knowledge base](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/llms-full.txt): every topic concatenated for direct ingestion

@@ -1,0 +1,70 @@
+# Build the Starlight docs site (Pages variant, base=/gexbot-faker-api) from the
+# knowledge/ bundle and deploy it to GitHub Pages on push to main. The same site
+# is also embedded in the server binary at /guides (built via `just docs-build`);
+# this workflow only publishes the public copy.
+#
+# On pull requests it runs build-only (no deploy) and fails if the committed
+# root llms.txt / llms-full.txt are stale, so a knowledge-only change can't merge
+# with out-of-date agent files.
+name: docs
+on:
+  push:
+    branches: [main]
+    paths:
+      - "knowledge/**"
+      - "website/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "knowledge/**"
+      - "website/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch: {}
+
+# Least privilege for a Pages deploy.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One in-flight Pages deploy at a time; let a newer push cancel an older run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Build docs (Pages base)
+        working-directory: website
+        run: |
+          npm ci
+          npm run build:pages
+      # build:pages regenerates the committed root llms files; if they drift from
+      # what's checked in, fail so the author runs `just docs-llms` and commits.
+      - name: Verify committed llms.txt / llms-full.txt are up to date
+        run: |
+          git diff --exit-code -- llms.txt llms-full.txt \
+            || { echo "::error::llms.txt/llms-full.txt are stale — run 'just docs-llms' and commit the result"; exit 1; }
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist-pages
+
+  deploy:
+    needs: build
+    # Publish only on push to main / manual dispatch — never for pull requests.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

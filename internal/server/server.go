@@ -56,6 +56,13 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	r.Get("/asyncapi.yaml", asyncapiHandler)
 	r.Get("/asyncapi", asyncapiUIHandler)
 
+	// Guides: the embedded Starlight docs site at /guides + the root
+	// llms.txt/llms-full.txt agent files. Public (no secrets), so it sits outside
+	// the Studio auth group and next to the other static docs handlers.
+	if err := registerGuidesUI(r); err != nil {
+		return nil, err
+	}
+
 	// GEX Faker Studio: embedded SPA at /studio + its control-plane JSON endpoints
 	// at /studio/api/*. Registered before the API group so it skips the OpenAPI
 	// auth/validation/compression (assets must not be compressed). Optionally gated
