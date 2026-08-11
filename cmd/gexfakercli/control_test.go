@@ -68,3 +68,35 @@ func TestSetupFailsWhenVerifyFails(t *testing.T) {
 		t.Fatal("expected setup to fail when the verification pull fails")
 	}
 }
+
+// setup must also fail when the post-verify cursor rewind fails, so a reported
+// ready state always leaves the playback key at index 0.
+func TestSetupFailsWhenRewindFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/health":
+			_, _ = w.Write([]byte(`{"status":"ok","data_date":"2026-08-10","cache_mode":"exhaust","data_mode":"stream"}`))
+		case r.URL.Path == "/current-date":
+			_, _ = w.Write([]byte(`{"current_date":"2026-08-10"}`))
+		case r.URL.Path == "/tickers":
+			_, _ = w.Write([]byte(`{"stocks":["QQQ"]}`))
+		case strings.HasSuffix(r.URL.Path, "/classic/gex_zero"):
+			_, _ = w.Write([]byte(`{"timestamp":1,"ticker":"QQQ"}`)) // pull succeeds
+		case r.URL.Path == "/reset-cache":
+			w.WriteHeader(http.StatusInternalServerError) // rewind fails
+			_, _ = w.Write([]byte(`{"error":"reset failed"}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer srv.Close()
+
+	flagURL, flagKey = srv.URL, "k"
+	prevQuiet := flagQuiet
+	flagQuiet = true
+	t.Cleanup(func() { flagQuiet = prevQuiet })
+
+	if err := runSetup(context.Background(), setupOpts{dataDir: t.TempDir()}); err == nil {
+		t.Fatal("expected setup to fail when the post-verify rewind fails")
+	}
+}

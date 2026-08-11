@@ -272,8 +272,19 @@ func verifyPull(ctx context.Context, c *apiClient) ([]string, error) {
 		}
 		return tickers, ae
 	}
-	// Rewind just this key so the agent replays from the start.
-	_, _ = c.postJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), false, nil)
+	// The sample pull advanced this key's cursor; rewind it so the agent really
+	// starts at index 0. If the rewind fails we must not report a clean ready
+	// state — propagate the error.
+	if _, err := c.postJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), false, nil); err != nil {
+		var ae *apiError
+		if !errors.As(err, &ae) {
+			ae = &apiError{Msg: err.Error()}
+		}
+		if ae.Hint == "" {
+			ae.Hint = "sample pull succeeded but the cursor rewind failed — run `gexfakercli reset` before pulling"
+		}
+		return tickers, ae
+	}
 	return tickers, nil
 }
 
