@@ -46,6 +46,7 @@ export default defineConfig({
         // The Reflection mark + wordmark lockup, and per-topic title glyphs.
         SiteTitle: './src/components/SiteTitle.astro',
         PageTitle: './src/components/PageTitle.astro',
+        Footer: './src/components/Footer.astro',
       },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/dgnsrekt/gexbot-faker-api' },

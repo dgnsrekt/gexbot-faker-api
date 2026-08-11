@@ -119,6 +119,37 @@ site-search button[data-open-modal] {
   border-color: var(--sl-color-hairline);
 }
 
+/* --- "Help improve this translation" notice (es topic pages) -------------- */
+
+.guide-tx-help {
+  margin-top: 2.5rem;
+  padding: 10px 14px;
+  border: 1px solid var(--sl-color-accent-low);
+  border-radius: var(--guides-radius);
+  background: color-mix(in srgb, var(--sl-color-accent) 6%, transparent);
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.guide-tx-help__glyph {
+  font-family: var(--guides-mono);
+  color: var(--sl-color-accent);
+}
+.guide-tx-help a {
+  color: var(--sl-color-text-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.guide-tx-help a:hover {
+  text-decoration: underline;
+}
+.guide-tx-help__sep {
+  color: var(--sl-color-gray-5);
+}
+
 /* --- Per-topic hero glyph on the page title ------------------------------- */
 
 .guide-page-title {
