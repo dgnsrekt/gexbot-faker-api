@@ -55,6 +55,8 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 	r.Get("/studio/api/download", h.handleDownloadStatus)
 	r.Get("/studio/api/logs", h.handleLogs)
 	r.Get("/studio/api/logs/volume", h.handleLogsVolume)
+	r.Get("/studio/api/metrics/query", h.handleMetricsQuery)
+	r.Get("/studio/api/metrics/range", h.handleMetricsRange)
 	r.Get("/studio/api/keys", h.handleKeys)
 	r.Get("/studio/api/endpoints", h.handleEndpoints)
 }

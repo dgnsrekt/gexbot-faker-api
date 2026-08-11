@@ -347,8 +347,9 @@ Findings are always logged; the ntfy alert only fires when notifications are
 enabled. The same snapshot metric is surfaced visually in the Studio Data
 Library (coverage sparkline + per-row deviation badge) and exported to
 Prometheus by the daemon — `faker_daemon_snapshots{ticker}` (latest per-ticker
-snapshot count) and `faker_daemon_coverage_findings_total{kind}` — both charted
-on the "Faker API Observability" Grafana dashboard.
+snapshot count) and `faker_daemon_coverage_findings_total{kind}`. The Studio
+**Monitoring** screen queries Prometheus server-side (`PROMETHEUS_URL`) and
+renders the panels natively — no Grafana needed.
 
 ### Push Notifications (ntfy)
 

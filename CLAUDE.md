@@ -99,10 +99,15 @@ faker without curl/env-vars.
   → Load. `/studio/api/calendar` powers the month grid (reuses `isMarketDay`).
 - **Logs** (`internal/server/studio_logs.go`): `GET /studio/api/logs` is an SSE proxy —
   the server queries Loki (`LOKI_URL`, default `http://loki:3100`) over the compose
-  network and streams parsed lines, so the browser never talks to Loki. **Loki + Alloy
-  run in the DEFAULT compose stack** (not the `observability` profile); Grafana/
-  Prometheus/Uptime-Kuma/Caddy stay opt-in. If `LOKI_URL` is unset (e.g. `go run`), Logs
-  shows a "start the observability stack" message.
+  network and streams parsed lines, so the browser never talks to Loki. If `LOKI_URL`
+  is unset (e.g. `go run`), Logs shows a degrade message.
+- **Monitoring** (`internal/server/studio_metrics.go`): `GET /studio/api/metrics/{query,range}`
+  proxy PromQL to Prometheus (`PROMETHEUS_URL`, default `http://prometheus:9090`) — same
+  server-side model as Logs; the browser never talks to Prometheus. The Monitoring screen
+  renders panels natively (no Grafana). Degrades when `PROMETHEUS_URL` is unset/unreachable.
+- **Observability stack**: **Prometheus + Loki + Alloy run in the DEFAULT compose stack**;
+  Studio queries both server-side. Grafana, Uptime-Kuma, and the Caddy gateway were removed
+  (issue #46) — Studio is the single pane; uptime monitoring is a fleet-level concern.
 - **Auth / exposure**: Compose binds the API port to `127.0.0.1` by default
   (`HOST_BIND`), so `docker compose up` never exposes the Studio to the LAN. For
   remote access set `HOST_BIND=0.0.0.0` **and** `STUDIO_AUTH_TOKEN` (and front it

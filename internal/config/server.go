@@ -27,6 +27,11 @@ type ServerConfig struct {
 	// (e.g. http://loki:3100). Empty disables the Logs feed (it degrades with a
 	// "start the observability stack" message).
 	LokiURL string
+	// PrometheusURL is the base URL of a Prometheus instance the Studio Monitoring
+	// screen queries via a server-side PromQL proxy (e.g. http://prometheus:9090).
+	// Empty disables the metrics feed (it degrades with a "start Prometheus"
+	// message), mirroring LokiURL.
+	PrometheusURL string
 	// StudioAuthToken, when set, gates all /studio routes behind HTTP Basic auth
 	// (any username, password = the token). Empty leaves the Studio open (local
 	// dev default). Set it whenever the API port is reachable beyond a trusted
@@ -87,6 +92,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 		SyncBroadcastSystemID:       syncBroadcastID,
 		SyncBroadcastSystemInterval: syncInterval,
 		LokiURL:                     getEnvOrDefault("LOKI_URL", ""),
+		PrometheusURL:               getEnvOrDefault("PROMETHEUS_URL", ""),
 		StudioAuthToken:             getEnvOrDefault("STUDIO_AUTH_TOKEN", ""),
 	}
 
