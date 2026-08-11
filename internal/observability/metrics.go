@@ -106,6 +106,17 @@ var (
 	registerDaemonOnce sync.Once
 )
 
+// SetDaemonSnapshots publishes the latest download's per-ticker snapshot counts,
+// first resetting the vector so a ticker that left the set (e.g. removed from the
+// config) stops exporting its stale value — otherwise the dashboard would keep
+// presenting it as part of the current run.
+func SetDaemonSnapshots(snaps map[string]int) {
+	DaemonSnapshots.Reset()
+	for ticker, n := range snaps {
+		DaemonSnapshots.WithLabelValues(ticker).Set(float64(n))
+	}
+}
+
 // RegisterServer registers only the metrics the API/server binary emits. Metrics
 // are registered per binary (rather than a package init) so the daemon does not
 // export server-only series as phantom zeros and vice versa — a bare `time() -
