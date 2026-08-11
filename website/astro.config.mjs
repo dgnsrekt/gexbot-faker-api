@@ -21,6 +21,13 @@ export default defineConfig({
       title: 'GEX Faker',
       description:
         'Mock server that replays historical GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio) and an agent CLI (gexfakercli).',
+      // English (root) + Spanish. Untranslated pages fall back to English with a
+      // notice; the header gets a language switcher automatically.
+      defaultLocale: 'root',
+      locales: {
+        root: { label: 'English', lang: 'en' },
+        es: { label: 'Español', lang: 'es' },
+      },
       // GEX Faker Studio brand system: the Reflection mark + Space Grotesk
       // wordmark, green accent on the near-black Studio palette, the stripe
       // texture, JetBrains Mono, mono-glyph cards. Fonts are self-hosted
@@ -46,13 +53,13 @@ export default defineConfig({
       // IA mirrors knowledge/index.md: Use it (GUI / getting data flowing) vs
       // Build with it (clients / API / streaming). Slugs map to knowledge/<slug>.md.
       sidebar: [
-        { label: 'Use it', items: [
+        { label: 'Use it', translations: { es: 'Úsalo' }, items: [
           'overview', 'quick-start', 'studio', 'download-data', 'materialize-load', 'docker-observability',
         ] },
-        { label: 'Build with it', items: [
+        { label: 'Build with it', translations: { es: 'Desarrolla con él' }, items: [
           'point-a-client', 'gexfakercli', 'rest-api', 'websockets', 'configuration', 'daemon',
         ] },
-        { label: 'Help', items: ['troubleshooting'] },
+        { label: 'Help', translations: { es: 'Ayuda' }, items: ['troubleshooting'] },
       ],
     }),
   ],

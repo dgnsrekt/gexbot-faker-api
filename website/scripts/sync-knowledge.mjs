@@ -51,28 +51,39 @@ function stripLeadingH1(body) {
   return body.replace(/^\s*#\s+.+\n+/, '')
 }
 
-await mkdir(OUT, { recursive: true })
-for (const f of await readdir(OUT).catch(() => [])) {
-  if (f.endsWith('.md')) await rm(path.join(OUT, f))
+// Transform one knowledge/*.md into a Starlight doc: keep title/description,
+// strip the body H1, inject the per-slug glyph, and make sibling .md links
+// relative. index.md is the OKF hub / hand-authored landing, so it is skipped.
+async function syncDir(srcDir, outDir) {
+  await mkdir(outDir, { recursive: true })
+  for (const f of await readdir(outDir).catch(() => [])) {
+    if (f.endsWith('.md')) await rm(path.join(outDir, f))
+  }
+  const files = (await readdir(srcDir))
+    .filter((f) => f.endsWith('.md') && f !== 'index.md')
+  for (const f of files) {
+    const raw = await readFile(path.join(srcDir, f), 'utf8')
+    const { fm, body } = splitFrontmatter(raw)
+    const title = fmField(fm, 'title') || firstH1(body) || f.replace(/\.md$/, '')
+    const description = fmField(fm, 'description')
+
+    let out = stripLeadingH1(body).trimStart()
+    out = out.replace(/\]\(([a-z0-9][a-z0-9-]*\.md)\)/g, '](./$1)')
+
+    const front = [`title: ${JSON.stringify(title)}`]
+    if (description) front.push(`description: ${JSON.stringify(description)}`)
+    const glyph = GLYPHS[f.replace(/\.md$/, '')]
+    if (glyph) front.push(`glyph: ${JSON.stringify(glyph)}`)
+    await writeFile(path.join(outDir, f), `---\n${front.join('\n')}\n---\n\n${out}`)
+  }
+  return files.length
 }
 
-// knowledge/index.md is the OKF hub for agents/llms; the site home is instead a
-// hand-authored card-grid landing (src/content/docs/index.mdx), so skip it here.
-const files = (await readdir(SRC)).filter((f) => f.endsWith('.md') && f !== 'index.md')
-for (const f of files) {
-  const raw = await readFile(path.join(SRC, f), 'utf8')
-  const { fm, body } = splitFrontmatter(raw)
-  const title = fmField(fm, 'title') || firstH1(body) || f.replace(/\.md$/, '')
-  const description = fmField(fm, 'description')
-
-  let out = stripLeadingH1(body).trimStart()
-  // sibling `](name.md)` -> `](./name.md)` so Astro rewrites to the final URL.
-  out = out.replace(/\]\(([a-z0-9][a-z0-9-]*\.md)\)/g, '](./$1)')
-
-  const front = [`title: ${JSON.stringify(title)}`]
-  if (description) front.push(`description: ${JSON.stringify(description)}`)
-  const glyph = GLYPHS[f.replace(/\.md$/, '')]
-  if (glyph) front.push(`glyph: ${JSON.stringify(glyph)}`)
-  await writeFile(path.join(OUT, f), `---\n${front.join('\n')}\n---\n\n${out}`)
+// English (root) + the Spanish locale (knowledge/es/ -> src/content/docs/es/).
+// The es slugs match the English ones, so Starlight pairs them across locales.
+const enCount = await syncDir(SRC, OUT)
+let esCount = 0
+if (await readdir(path.join(SRC, 'es')).then(() => true, () => false)) {
+  esCount = await syncDir(path.join(SRC, 'es'), path.join(OUT, 'es'))
 }
-console.log(`synced ${files.length} docs -> src/content/docs`)
+console.log(`synced ${enCount} en + ${esCount} es docs -> src/content/docs`)

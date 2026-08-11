@@ -1,18 +1,26 @@
 ---
-title: Page not found
+title: Page not found · Página no encontrada
 description: That page isn't here.
 template: splash
 editUrl: false
 pagefind: false
 ---
 
+{/* One root 404.html serves every miss on both targets (the faker's /guides
+    handler and GitHub Pages), which have no locale-aware 404. So it's bilingual
+    and links to both language homes. */}
+
 <div class="guide-404">
   <div class="guide-404__glyph" aria-hidden="true">⬡</div>
   <div class="guide-404__code">404</div>
-  <p class="guide-404__msg">That page isn't here — it may have moved or never existed.</p>
+  <p class="guide-404__msg">
+    That page isn't here — it may have moved or never existed.<br />
+    <span lang="es">Esa página no está aquí — pudo haberse movido o nunca existió.</span>
+  </p>
   <div class="guide-404__ctas">
-    <a class="guide-hero__cta guide-hero__cta--primary" href={import.meta.env.BASE_URL + '/'}>Back to the guides</a>
-    <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/quick-start/'}>Quick start</a>
+    <a class="guide-hero__cta guide-hero__cta--primary" href={import.meta.env.BASE_URL + '/'}>Guides</a>
+    <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/es/'}>Guías</a>
     <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/troubleshooting/'}>Troubleshooting</a>
+    <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/es/troubleshooting/'}>Solución de problemas</a>
   </div>
 </div>
