@@ -135,7 +135,9 @@ const authKeyCtxKey ctxKey = "authKey"
 // authMiddleware mirrors the real GexBot API: market-data routes authenticate via
 // the Authorization header (Basic or Bearer). The parsed token is stashed in the
 // request context for the handlers; an absent header on a data route is rejected
-// with the exact upstream error body. Faker control/metadata routes stay open.
+// with the exact upstream error body. This middleware leaves faker
+// control/metadata routes open (no market-data header); the mutating control
+// routes are separately gated by controlAuthMiddleware (STUDIO_AUTH_TOKEN).
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := parseAuthToken(r.Header.Get("Authorization"))
@@ -201,8 +203,9 @@ func parseAuthToken(header string) string {
 // off the route SHAPE, not a ticker regex: /{ticker}/{classic|state|orderflow}/...
 // and /hist/... require auth for any ticker (including underscore/futures tickers
 // like ES_SPX). Faker extensions — /tickers, /tickers/quant, /{package}/categories,
-// /health, /download/..., control routes — stay open (their 2nd segment is never
-// classic/state/orderflow, and /download carries a date there).
+// /health, /download/..., control routes — need no market-data header (their 2nd
+// segment is never classic/state/orderflow, and /download carries a date there).
+// The mutating control routes are still gated by controlAuthMiddleware.
 func requiresAuth(path string) bool {
 	seg := strings.Split(strings.Trim(path, "/"), "/")
 	if len(seg) == 0 {

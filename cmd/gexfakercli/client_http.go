@@ -63,8 +63,9 @@ func (c *apiClient) get(ctx context.Context, path string, auth bool, q url.Value
 	return c.do(req)
 }
 
-// postJSON issues a POST with a JSON body. Control routes are unauthenticated;
-// pass auth=false.
+// postJSON issues a POST with a JSON body and no Studio-token auth. Mutating
+// control routes that may require the token (load-range/reload-date/reset-cache
+// on a gated faker) use postControlJSON instead.
 func (c *apiClient) postJSON(ctx context.Context, path string, auth bool, body any) (json.RawMessage, error) {
 	u := c.base + path
 	var buf io.Reader
