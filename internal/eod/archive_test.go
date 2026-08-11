@@ -66,6 +66,42 @@ func TestTouchLoaded(t *testing.T) {
 	}
 }
 
+// TestCleanupStaleKeepsCorruptArchive is the #40 re-review regression: a stale,
+// materialized date whose ZIP is non-empty but no longer matches its manifest
+// (truncated/byte-corrupted) must NOT be evicted — its JSONL is the only copy
+// that can still restore the data.
+func TestCleanupStaleKeepsCorruptArchive(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-06"
+	materializeFixture(t, root, date, "SPY")
+	if err := TouchLoaded(root, date); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-10 * 24 * time.Hour)
+	if err := os.Chtimes(filepath.Join(root, date, loadedMarker), old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	// Corrupt the ZIP: non-empty, so a size-only guard would still evict — but
+	// the bytes no longer hash to the manifest's archive_sha256.
+	archive := ArchivePath(root, date, "SPY")
+	if err := os.WriteFile(archive, []byte("non-empty but not the real zip"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := CleanupStale(root, 7*24*time.Hour, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 0 {
+		t.Errorf("date with a corrupt archive must not be evicted, got %v", removed)
+	}
+	jsonl := filepath.Join(root, date, "SPY", "classic", "gex_full.jsonl")
+	if _, err := os.Stat(jsonl); err != nil {
+		t.Errorf("JSONL must be kept when the archive can't restore it: %v", err)
+	}
+}
+
 func TestCleanupStale(t *testing.T) {
 	root := t.TempDir()
 	stale, fresh, keep := "2026-07-06", "2026-07-17", "2026-07-31"

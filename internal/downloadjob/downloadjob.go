@@ -195,12 +195,13 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 		if data, err := os.ReadFile(eod.ManifestPath(archive)); err == nil {
 			var man eod.Manifest
 			// Skip re-packing only when the manifest covers the on-disk JSONL AND
-			// the archive it describes is actually present and non-empty. A
-			// leftover manifest whose ZIP was deleted/truncated must NOT count as
-			// covered: PackAndMark would then mark the date materialized and
-			// CleanupStale could delete the JSONL with no durable ZIP to restore
-			// from. (Existence + non-empty is the cheap hot-path guard; full
-			// SHA-256 verification is available out-of-band via `eod verify`.)
+			// the archive it describes is present and non-empty — a proactive
+			// repair that repacks an orphan manifest (ZIP deleted/zero-byte) on the
+			// next download instead of letting it linger. This is a cheap hot-path
+			// guard, NOT the safety invariant: the authoritative recoverability
+			// check (ZIP exists AND SHA matches the manifest) lives in
+			// eod.CleanupStale via eod.ArchiveRecoverable, which refuses to evict
+			// JSONL unless a valid archive can restore it.
 			if json.Unmarshal(data, &man) == nil && manifestCoversJSONL(cfg.Output.Directory, date, ticker, &man) {
 				if fi, statErr := os.Stat(archive); statErr == nil && fi.Size() > 0 {
 					continue // manifest covers on-disk JSONL and the ZIP exists
