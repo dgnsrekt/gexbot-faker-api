@@ -68,21 +68,16 @@
       ]
 
       // Charts (range queries). Snapshots trend over a week; the API/WS series
-      // over the last hour. Best-effort — a failed range leaves its chart empty.
-      const [snap, rate, p95, ws] = await Promise.all([
-        api.metricsRange('faker_daemon_snapshots', 7 * 24 * 60, 3600),
-        api.metricsRange('sum(rate(faker_http_requests_total[5m]))', 60, 60),
-        api.metricsRange(
-          'histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))',
-          60,
-          60,
-        ),
-        api.metricsRange('faker_ws_connections', 60, 60),
+      // over the last hour. Each is isolated: one failing range query must only
+      // empty its own panel, not blank the daemon tiles or the other charts.
+      await Promise.allSettled([
+        api.metricsRange('faker_daemon_snapshots', 7 * 24 * 60, 3600).then((r) => (snapshots = promToSeries(r, 'ticker'))),
+        api.metricsRange('sum(rate(faker_http_requests_total[5m]))', 60, 60).then((r) => (reqRate = promToSeries(r, undefined, 'requests'))),
+        api
+          .metricsRange('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60)
+          .then((r) => (latency = promToSeries(r, undefined, 'p95'))),
+        api.metricsRange('faker_ws_connections', 60, 60).then((r) => (wsConns = promToSeries(r, 'hub'))),
       ])
-      snapshots = promToSeries(snap, 'ticker')
-      reqRate = promToSeries(rate, undefined, 'requests')
-      latency = promToSeries(p95, undefined, 'p95')
-      wsConns = promToSeries(ws, 'hub')
     } catch (e) {
       degraded = String(e)
     } finally {

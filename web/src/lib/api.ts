@@ -182,12 +182,19 @@ export interface Series {
 
 // promToSeries turns a range-query response into chart series, labeling each by
 // the given metric label (e.g. "ticker") or falling back to a static name.
+// Prometheus serializes gaps as "NaN"/"+Inf" strings (e.g. histogram_quantile
+// over an idle window); those are dropped so one bad point can't poison the
+// chart's min/max scaling, and a series left with no finite points is omitted.
 export function promToSeries(r: PromResponse, label?: string, fallback = ''): Series[] {
   if (r.status !== 'success' || !r.data?.result) return []
-  return r.data.result.map((s) => ({
-    name: (label && s.metric[label]) || fallback || Object.values(s.metric).join(' ') || 'value',
-    points: (s.values || []).map(([t, v]) => [t, Number(v)] as [number, number]),
-  }))
+  return r.data.result
+    .map((s) => ({
+      name: (label && s.metric[label]) || fallback || Object.values(s.metric).join(' ') || 'value',
+      points: (s.values || [])
+        .map(([t, v]) => [t, Number(v)] as [number, number])
+        .filter((p) => Number.isFinite(p[1])),
+    }))
+    .filter((s) => s.points.length > 0)
 }
 
 export function fmtBytes(n: number): string {
