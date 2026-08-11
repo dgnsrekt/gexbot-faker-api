@@ -25,7 +25,9 @@ Optional authenticated monitoring is documented in [OBSERVABILITY.md](OBSERVABIL
 - **Demos** — scriptable terminal demos in [`demos/`](demos/) (charmbracelet VHS
   `.tape` → committed GIFs; regenerate with `just demos-render`).
 
-![gexfakercli in action: setup, status, two classic pulls where the playback cursor advances, and reset](website/public/demos/gexfakercli.gif)
+![gexfakercli: setup, status, two classic pulls where the playback cursor advances, and reset](website/public/demos/gexfakercli.gif)
+
+![gexfakercli: discovery and switching days — dates, load a different day, available, then a state and orderflow pull](website/public/demos/gexfakercli-discovery.gif)
 
 ## Features
 
