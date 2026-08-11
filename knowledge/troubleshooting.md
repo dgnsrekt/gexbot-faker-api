@@ -11,7 +11,7 @@ timestamp: 2026-08-11T00:00:00Z
 ## "Data not found for TICKER/…"
 
 The loaded date doesn't have that ticker/package/category. Check what's actually
-loaded with `gexfakercli available <date>` (or `GET /available-data/{date}`). A
+loaded with `gexfakercli available <date>` (or `GET /available/{date}`). A
 loaded day only contains the tickers you downloaded — e.g. it may have QQQ but not
 SPX. Download the ticker you want, then reload.
 
@@ -39,7 +39,7 @@ token — the faker doesn't validate it (`export GEXBOT_API_KEY=test123`, or
 ## `404 {"error":"No more data available"}`
 
 The key's playback cursor reached the end of the day in `exhaust` mode. Rewind it
-with `gexfakercli reset` (or `POST /reset-cache`), or run the server with
+with `gexfakercli reset` (or `POST /reset`), or run the server with
 `CACHE_MODE=rotation` to loop instead of 404.
 
 ## The Download screen says "set GEXBOT_API_KEY"

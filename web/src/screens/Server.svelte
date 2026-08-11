@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, fmtInt, type Status, type EndpointDoc, type KeyEntry } from '../lib/api'
+  import { api, fmtInt, fmtLoadedSpan, type Status, type EndpointDoc, type KeyEntry } from '../lib/api'
   import { copyText } from '../lib/clipboard'
 
   let { status, baseUrl }: { status: Status | null; baseUrl: string } = $props()
@@ -68,7 +68,7 @@
 
   async function resetAll() {
     try {
-      const r = await api.resetCache()
+      const r = await api.reset()
       resetMsg = `reset ${r.count}`
       refreshKeys()
     } catch (e) {
@@ -94,7 +94,7 @@
     <div class="serving-info">
       <div class="lbl">Serving</div>
       <div class="mono val">
-        {status?.loaded_date ?? '—'} · {status?.cache_mode ?? ''} mode · {status?.data_mode ?? ''}
+        {fmtLoadedSpan(status)} · {status?.cache_mode ?? ''} mode · {status?.data_mode ?? ''}
         {#if status?.is_reloading}<span class="reloading">· reloading…</span>{/if}
       </div>
     </div>

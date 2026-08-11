@@ -44,7 +44,7 @@ marker for you (see [download data](download-data.md)).
 
 You don't always have to click Materialize. The server **materializes a date on
 demand** when it loads one that isn't unpacked yet — including via
-`POST /reload-date` and `gexfakercli load <date>`. Materialize in the Library is
+`POST /load` and `gexfakercli load <date>`. Materialize in the Library is
 just a way to do the unpack ahead of time (and in the background) so a later Load
 is instant.
 
@@ -58,8 +58,9 @@ This is **disabled by default**.
 ## Multi-day range
 
 Loading isn't limited to one day. A **span** of contiguous days can be loaded as one
-cross-day dataset (`POST /load-range`, or `gexfakercli load-range` — it materializes
-any archived days in the span first, then loads them together). The playback cursor
+cross-day dataset (`POST /load` with `{from,to}`, or `gexfakercli load --from/--to` —
+it materializes any archived days in the span first, then loads them together). The
+playback cursor
 then rolls from one day's last snapshot straight into the next, and `seek` resolves
 anywhere in the span. See [gexfakercli](gexfakercli.md) and
 [point a client](point-a-client.md).

@@ -45,7 +45,7 @@ ruta escribe el marker por ti (ver [download data](download-data.md)).
 
 No siempre tienes que hacer clic en Materialize. El servidor **materializa una
 fecha bajo demanda** cuando carga una que aún no está descomprimida — incluyendo
-vía `POST /reload-date` y `gexfakercli load <date>`. Materialize en la Data
+vía `POST /load` y `gexfakercli load <date>`. Materialize en la Data
 library es simplemente una forma de hacer la descompresión con anticipación (y en
 segundo plano) para que un Load posterior sea instantáneo.
 
@@ -59,10 +59,11 @@ siempre se puede volver a materializar. Esto está **desactivado por defecto**.
 ## Rango multi-día
 
 Cargar no se limita a un solo día. Un **span** de días contiguos puede cargarse
-como un único dataset entre días (`POST /load-range`, o `gexfakercli load-range` —
-materializa primero los días archivados del span y luego los carga juntos). El
-cursor de reproducción pasa entonces del último snapshot de un día directo al
-siguiente, y `seek` resuelve en cualquier punto del span. Ver
+como un único dataset entre días (`POST /load` con `{from,to}`, o
+`gexfakercli load --from/--to` — materializa primero los días archivados del span y
+luego los carga juntos). El cursor de reproducción pasa entonces del último
+snapshot de un día directo al siguiente, y `seek` resuelve en cualquier punto del
+span. Ver
 [gexfakercli](gexfakercli.md) y [apunta un cliente](point-a-client.md).
 
 ## Por qué el archive es la fuente de verdad

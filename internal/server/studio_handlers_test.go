@@ -86,6 +86,70 @@ func TestStudioStatus(t *testing.T) {
 	}
 }
 
+// With a multi-day span loaded, status reports the whole span in loaded_dates while loaded_date stays
+// the anchor day, and the "Date loaded" settings row renders the span (issue #66).
+func TestStudioStatusShowsLoadedSpan(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "")
+	cache := data.NewIndexCache(data.CacheModeExhaust)
+	srv := &Server{
+		loader:        stubLoader{keys: []string{"SPX/classic/gex_zero"}},
+		cache:         cache,
+		config:        &config.ServerConfig{DataDate: "2026-08-06", DataDir: t.TempDir(), DataMode: "memory", CacheMode: "exhaust", EndpointCacheMode: "shared", WSGroupPrefix: "blue", WSStreamInterval: time.Second, WSEnabled: true, Port: "8080"},
+		logger:        zap.NewNop(),
+		loadedAt:      time.Now(),
+		reloadManager: &ReloadManager{currentDate: "2026-08-06", loadedDates: []string{"2026-08-06", "2026-08-07", "2026-08-10"}},
+	}
+	r := chi.NewRouter()
+	RegisterStudioRoutes(r, srv, nil)
+
+	var st struct {
+		LoadedDate  string   `json:"loaded_date"`
+		LoadedDates []string `json:"loaded_dates"`
+	}
+	if err := json.Unmarshal(getStudio(t, r, "/studio/api/status"), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.LoadedDate != "2026-08-06" {
+		t.Errorf("loaded_date = %q, want the span anchor 2026-08-06", st.LoadedDate)
+	}
+	if len(st.LoadedDates) != 3 || st.LoadedDates[0] != "2026-08-06" || st.LoadedDates[2] != "2026-08-10" {
+		t.Errorf("loaded_dates = %v, want the full span [08-06 08-07 08-10]", st.LoadedDates)
+	}
+
+	// The "Date loaded" settings row shows the span, not just the anchor.
+	var groups []settingGroup
+	if err := json.Unmarshal(getStudio(t, r, "/studio/api/config"), &groups); err != nil {
+		t.Fatal(err)
+	}
+	var dateRow string
+	for _, g := range groups {
+		for _, row := range g.Rows {
+			if row.Env == "DATA_DATE" {
+				dateRow = row.Value
+			}
+		}
+	}
+	if dateRow != "2026-08-06 → 2026-08-10" {
+		t.Errorf("Date loaded row = %q, want the span 2026-08-06 → 2026-08-10", dateRow)
+	}
+}
+
+func TestFmtLoadedSpan(t *testing.T) {
+	cases := []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"2026-08-07"}, "2026-08-07"},
+		{[]string{"2026-08-06", "2026-08-07", "2026-08-10"}, "2026-08-06 → 2026-08-10"},
+	}
+	for _, c := range cases {
+		if got := fmtLoadedSpan(c.in); got != c.want {
+			t.Errorf("fmtLoadedSpan(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestStudioConfigGroups(t *testing.T) {
 	h := newStudioTestServer(t, t.TempDir())
 	var groups []settingGroup

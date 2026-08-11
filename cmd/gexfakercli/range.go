@@ -9,37 +9,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Multi-day range replay commands. load-range materializes + loads a span so seek/replay crosses
-// day boundaries; current-range and coverage are read-only (no token needed).
+// Load commands. `load` materializes (if needed) and loads one day or a contiguous span as a single
+// continuous dataset so seek/replay crosses day boundaries — it drives the async POST /load job and
+// polls it to done. current-load and coverage are read-only (no token needed).
 
-func loadRangeCmd() *cobra.Command {
+func loadCmd() *cobra.Command {
 	var from, to, dates string
 	var noWait bool
 	var timeoutSec int
 	cmd := &cobra.Command{
-		Use:   "load-range",
-		Short: "Load a span of days for continuous cross-day replay (async; waits by default)",
-		Long: "Provide --from and --to (inclusive; the archived days in that span are loaded) or an\n" +
-			"explicit --dates list. Materializes any missing day, then serves the span as one\n" +
-			"continuous dataset so seek/replay crosses day boundaries. Kicks off an async job and\n" +
-			"polls it to completion unless --no-wait. Mutating: presents --token when set.",
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Use:   "load [date]",
+		Short: "Load a day or a span for replay (async; waits by default)",
+		Long: "Load one day or a contiguous span as a single continuous dataset so seek/replay crosses\n" +
+			"day boundaries. Give a positional YYYY-MM-DD date, or --from and --to (inclusive; the\n" +
+			"archived days in that span are loaded), or an explicit --dates list. Materializes any\n" +
+			"missing day, then kicks off an async job and polls it to completion unless --no-wait.\n" +
+			"Mutating: presents --token when set.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			body := map[string]any{}
 			switch {
+			case len(args) == 1:
+				body["date"] = args[0]
 			case dates != "":
 				body["dates"] = splitCSV(dates)
 			case from != "" && to != "":
 				body["from"], body["to"] = from, to
 			default:
-				return fail(&apiError{Msg: "provide --from and --to, or --dates"})
+				return fail(&apiError{Msg: "provide a date, --from and --to, or --dates"})
 			}
 			if !noWait && timeoutSec <= 0 {
 				return fail(&apiError{Msg: "--timeout must be a positive number of seconds"})
 			}
 
 			c := newClient()
-			raw, err := c.postControlJSON(cmd.Context(), "/load-range", body)
+			raw, err := c.postControlJSON(cmd.Context(), "/load", body)
 			if err != nil {
 				return fail(err)
 			}
@@ -53,46 +57,16 @@ func loadRangeCmd() *cobra.Command {
 
 			// Bound the WHOLE polling phase (including any in-flight status GET) by --timeout, so a
 			// small --timeout can't be swallowed by the HTTP client's own longer timeout.
-			timedOut := func() error {
-				return fail(&apiError{Msg: "load-range did not finish before --timeout", Hint: "increase --timeout or check the faker logs; the job keeps running server-side"})
-			}
 			pollCtx, cancel := context.WithTimeout(cmd.Context(), time.Duration(timeoutSec)*time.Second)
 			defer cancel()
-			for {
-				st, err := c.get(pollCtx, "/load-range/status/"+job.JobID, false, nil)
-				if err != nil {
-					if cmd.Context().Err() == nil && pollCtx.Err() != nil {
-						return timedOut() // our --timeout fired (not a parent cancel)
-					}
-					return fail(err)
+			st, err := pollLoad(pollCtx, c, job.JobID)
+			if err != nil {
+				if cmd.Context().Err() == nil && pollCtx.Err() != nil {
+					return fail(&apiError{Msg: "load did not finish before --timeout", Hint: "increase --timeout or check the faker logs; the job keeps running server-side"})
 				}
-				var s struct {
-					State string `json:"state"`
-					Done  int    `json:"done"`
-					Total int    `json:"total"`
-					Error string `json:"error"`
-				}
-				_ = json.Unmarshal(st, &s)
-				progress("load-range", "loading span", "state", s.State, "done", s.Done, "total", s.Total)
-				switch s.State {
-				case "done":
-					return emit(st)
-				case "error":
-					msg := s.Error
-					if msg == "" {
-						msg = "load-range job failed"
-					}
-					return fail(&apiError{Msg: msg, Hint: "check the faker logs; the requested day(s) may not be archived"})
-				}
-				select {
-				case <-pollCtx.Done():
-					if cmd.Context().Err() != nil {
-						return fail(&apiError{Msg: cmd.Context().Err().Error()})
-					}
-					return timedOut()
-				case <-time.After(500 * time.Millisecond):
-				}
+				return fail(err)
 			}
+			return emit(st)
 		},
 	}
 	cmd.Flags().StringVar(&from, "from", "", "span start YYYY-MM-DD (with --to)")
@@ -103,13 +77,64 @@ func loadRangeCmd() *cobra.Command {
 	return cmd
 }
 
-func currentRangeCmd() *cobra.Command {
+// pollLoad polls GET /load/status/{jobId} until the job is done or errors, emitting progress lines to
+// stderr. Returns the final status JSON on success. Honors ctx cancellation/timeout.
+func pollLoad(ctx context.Context, c *apiClient, jobID string) ([]byte, error) {
+	for {
+		st, err := c.get(ctx, "/load/status/"+jobID, false, nil)
+		if err != nil {
+			return nil, err
+		}
+		var s struct {
+			State string `json:"state"`
+			Done  int    `json:"done"`
+			Total int    `json:"total"`
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(st, &s)
+		progress("load", "loading", "state", s.State, "done", s.Done, "total", s.Total)
+		switch s.State {
+		case "done":
+			return st, nil
+		case "error":
+			msg := s.Error
+			if msg == "" {
+				msg = "load job failed"
+			}
+			return nil, &apiError{Msg: msg, Hint: "check the faker logs; the requested day(s) may not be archived"}
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// loadAndWait POSTs /load and polls it to completion, returning the final status JSON. Used by setup
+// where the load must finish before the next step. Bounded by ctx.
+func loadAndWait(ctx context.Context, c *apiClient, body map[string]any) ([]byte, error) {
+	raw, err := c.postControlJSON(ctx, "/load", body)
+	if err != nil {
+		return nil, err
+	}
+	var job struct {
+		JobID string `json:"job_id"`
+	}
+	_ = json.Unmarshal(raw, &job)
+	if job.JobID == "" {
+		return raw, nil
+	}
+	return pollLoad(ctx, c, job.JobID)
+}
+
+func currentLoadCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "current-range",
-		Short: "Show the currently loaded span (dates, from/to, files loaded)",
+		Use:   "current-load",
+		Short: "Show what's currently loaded (dates, from/to, files loaded)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			raw, err := newClient().get(cmd.Context(), "/current-range", false, nil)
+			raw, err := newClient().get(cmd.Context(), "/current-load", false, nil)
 			if err != nil {
 				return fail(err)
 			}
@@ -132,7 +157,7 @@ func coverageCmd() *cobra.Command {
 				return fail(&apiError{Msg: "provide --from and --to"})
 			}
 			q := url.Values{"from": {from}, "to": {to}}
-			raw, err := newClient().get(cmd.Context(), "/range-coverage", false, q)
+			raw, err := newClient().get(cmd.Context(), "/coverage", false, q)
 			if err != nil {
 				return fail(err)
 			}

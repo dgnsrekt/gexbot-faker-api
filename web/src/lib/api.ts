@@ -1,10 +1,11 @@
 // Typed fetch wrappers for the GEX Faker Studio control-plane. Paths are absolute
 // from the server root (the SPA is served at /studio but the API lives at the
-// root, e.g. /studio/api/* and /reload-date).
+// root, e.g. /studio/api/* and /load).
 
 export interface Status {
   running: boolean
-  loaded_date: string
+  loaded_date: string // span anchor day (single day for a single-day load)
+  loaded_dates: string[] // the full loaded span, chronological (issue #66)
   loaded_at: string
   files_loaded: number
   tickers: string[]
@@ -58,6 +59,16 @@ export interface LibraryRow {
 export interface MaterializeJob {
   date: string
   state: 'running' | 'done' | 'error'
+  error?: string
+}
+
+// LoadJob is the async POST /load response, polled via GET /load/status/{job_id}.
+export interface LoadJob {
+  job_id: string
+  dates?: string[]
+  state: 'queued' | 'running' | 'done' | 'error'
+  done?: number
+  total?: number
   error?: string
 }
 
@@ -137,8 +148,19 @@ export const api = {
   endpoints: () => getJSON<EndpointDoc[]>('/studio/api/endpoints'),
   tickers: () => getJSON<TickersResp>('/tickers'),
   categories: (pkg: string) => getJSON<string[]>(`/${pkg}/categories`),
-  reloadDate: (date: string) => postJSON<{ new_date: string }>('/reload-date', { date }),
-  resetCache: () => postJSON<{ count: number }>('/reset-cache', {}),
+  // load kicks off the async POST /load and polls /load/status to completion, so the
+  // Library "Load" button behaves synchronously (a single-day load finishes fast).
+  load: async (date: string): Promise<LoadJob> => {
+    const job = await postJSON<LoadJob>('/load', { date })
+    let j = job
+    for (let i = 0; i < 240 && j.state !== 'done' && j.state !== 'error'; i++) {
+      await new Promise((r) => setTimeout(r, 500))
+      j = await getJSON<LoadJob>(`/load/status/${job.job_id}`)
+    }
+    if (j.state === 'error') throw new Error(j.error || 'load failed')
+    return j
+  },
+  reset: () => postJSON<{ count: number }>('/reset', {}),
   materialize: (date: string) => postJSON<MaterializeJob>('/studio/api/materialize', { date }),
   downloadOptions: () => getJSON<DownloadOptions>('/studio/api/download/options'),
   calendar: (month: string) => getJSON<{ month: string; days: CalendarDay[] }>(`/studio/api/calendar?month=${month}`),
@@ -234,4 +256,15 @@ export function fmtBytes(n: number): string {
 
 export function fmtInt(n: number): string {
   return n.toLocaleString('en-US')
+}
+
+// fmtLoadedSpan renders what's loaded: a single day as itself, a multi-day span as
+// "first → last". Prefers loaded_dates (the full span, issue #66), falling back to the
+// scalar loaded_date for older servers.
+export function fmtLoadedSpan(s: Status | null | undefined): string {
+  const dates = s?.loaded_dates
+  if (dates && dates.length > 0) {
+    return dates.length === 1 ? dates[0] : `${dates[0]} → ${dates[dates.length - 1]}`
+  }
+  return s?.loaded_date ?? '—'
 }

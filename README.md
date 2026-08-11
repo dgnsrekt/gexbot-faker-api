@@ -105,55 +105,61 @@ open http://localhost:8080/docs   # Access API docs
 
 REST API serving historical GEX data with sequential playback per API key.
 
-**Endpoints** (see `/docs` for full reference):
+**Endpoints** (see `/docs` for full reference). Swagger tags each as **GexBot parity**
+(behaves like the real API — a GexBot client works unchanged) or **Faker control plane**
+(faker-only; drives the mock):
 
+*GexBot parity:*
 - `/{ticker}/classic/{aggregation}` - Classic GEX chain data
 - `/{ticker}/state/{type}` - State GEX profiles and Greeks
 - `/{ticker}/orderflow/orderflow` - Orderflow metrics
-- `/available-data/{date}` - Discover available data for a date
-- `/download/{date}/{ticker}/links` - Get all download links for a date/ticker
-- `/download/{date}/{ticker}/classic/{aggregation}` - Download classic data
-- `/download/{date}/{ticker}/state/{type}` - Download state data
-- `/download/{date}/{ticker}/orderflow` - Download orderflow data
-- `/negotiate` - WebSocket connection URLs
-- `/health`, `/tickers`, `/available-dates` - Server info
-- `/reload-date` - Hot reload data for a different date
-- `/load-range` - Load a span of days as one cross-day dataset (multi-day replay)
-- `/current-range`, `/range-coverage` - Loaded span + per-day ticker coverage
-- `/reset-cache` - Reset playback positions
-- `/seek-to-timestamp` - Seek positions to a timestamp (range-aware in multi-day mode)
+- `/tickers`, `/tickers/quant`, `/{package}/categories` - Discovery
+- `/options/{ticker}/expiries`, `/futures/conversion` - Expiries + conversion
+- `/hist/...`, `/download/{date}/{ticker}/...` - Historical snapshots + bulk download
+- `/negotiate` + `/ws/*` - WebSocket connection URLs and hubs
+
+*Faker control plane (faker-only):*
+- `/load` - Load a day or a span as one cross-day dataset (async job → `job_id`; poll `/load/status/{id}`)
+- `/current-load` - What's loaded (dates, from/to, files_loaded)
+- `/dates` - Dates available to load
+- `/available/{date}` - Discover available data for a date
+- `/coverage?from=&to=` - Per-day ticker coverage across a span (pre-load)
+- `/reset` - Rewind playback positions
+- `/seek` - Seek positions to a timestamp (range-aware in multi-day mode)
+- `/health` - Server info (status, loaded date, mode)
 
 **Key behavior**: Each API key maintains independent playback position. Data advances on each request.
 
-**Control-plane auth**: the mutating control routes (`/reload-date`, `/reset-cache`, `/load-range`) are gated behind `STUDIO_AUTH_TOKEN` when it is set (401 otherwise); reads and `/seek-to-timestamp` stay open. Empty token = open (local dev).
+**Control-plane auth**: the mutating control routes (`/load`, `/reset`) are gated behind `STUDIO_AUTH_TOKEN` when it is set (401 otherwise); reads and `/seek` stay open. Empty token = open (local dev).
 
-### Hot Reload
+### Load data (single day or span)
 
-Switch data dates at runtime without restarting the server:
+Switch what's loaded at runtime without restarting the server. `POST /load` is
+async-uniform: it always returns a `job_id`; poll `GET /load/status/{id}` until
+`state=done` (a single-day load just completes fast).
 
 ```bash
-# Reload to a different date
-curl -X POST http://localhost:8080/reload-date \
+# Load a single day
+curl -X POST http://localhost:8080/load \
   -H "Content-Type: application/json" \
   -d '{"date": "2025-12-04"}'
+
+# Load a contiguous span as one cross-day dataset
+curl -X POST http://localhost:8080/load \
+  -H "Content-Type: application/json" \
+  -d '{"from": "2026-08-06", "to": "2026-08-10"}'
 ```
 
-**Response:**
+**Response (202):**
 ```json
-{
-  "status": "success",
-  "previous_date": "2025-11-28",
-  "new_date": "2025-12-04",
-  "loaded_at": "2025-12-27T15:30:00Z",
-  "files_loaded": 45
-}
+{ "job_id": "range-1", "state": "queued", "dates": ["2025-12-04"], "total": 1 }
 ```
 
 **Behavior:**
-- Validates the date exists before unloading current data
-- Pauses WebSocket streaming during reload
-- Resets all cache positions to 0 for clean playback
-- Returns 400 for invalid/missing dates, 409 if reload already in progress
+- Materializes any archived day that isn't unpacked yet, then loads them together
+- Pauses WebSocket streaming during the swap; resets cache positions to 0
+- A single-day load honors `DATA_MODE`; a multi-day span always streams (bounded RAM)
+- `GET /current-load` reports the loaded span (`dates`, `from`, `to`, `files_loaded`)
 
 ### Cache Management
 
@@ -162,16 +168,16 @@ Control playback positions for testing and synchronization.
 **Reset positions:**
 ```bash
 # Reset all positions for an API key
-curl -X POST "http://localhost:8080/reset-cache?key=mykey"
+curl -X POST "http://localhost:8080/reset?key=mykey"
 
 # Reset ALL positions (all keys)
-curl -X POST http://localhost:8080/reset-cache
+curl -X POST http://localhost:8080/reset
 ```
 
 **Seek to timestamp:**
 ```bash
 # Seek all positions for an API key to a specific timestamp
-curl -X POST http://localhost:8080/seek-to-timestamp \
+curl -X POST http://localhost:8080/seek \
   -H "Content-Type: application/json" \
   -d '{"timestamp": 1767191500, "key": "mykey"}'
 ```
@@ -304,7 +310,7 @@ just build-gexfakercli
 gexfakercli setup                       # discover/bring up a faker, load a date, verify, print ready state
 gexfakercli status                      # is it up + which date is loaded
 gexfakercli classic QQQ gex_zero --fields timestamp,spot,zero_gamma
-gexfakercli load-range --from 2026-08-06 --to 2026-08-10   # multi-day span
+gexfakercli load --from 2026-08-06 --to 2026-08-10         # multi-day span
 gexfakercli skill install               # install the embedded SKILL.md into ~/.claude, ~/.codex
 ```
 

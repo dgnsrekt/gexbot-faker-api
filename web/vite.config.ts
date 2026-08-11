@@ -14,13 +14,13 @@ export default defineConfig({
     proxy: {
       '/studio/api': 'http://localhost:8080',
       // Control-plane + market-data endpoints the SPA calls directly.
-      '/current-date': 'http://localhost:8080',
-      '/available-dates': 'http://localhost:8080',
-      '/available-data': 'http://localhost:8080',
+      '/current-load': 'http://localhost:8080',
+      '/dates': 'http://localhost:8080',
+      '/available': 'http://localhost:8080',
       '/tickers': 'http://localhost:8080',
-      '/reload-date': 'http://localhost:8080',
-      '/reset-cache': 'http://localhost:8080',
-      '/seek-to-timestamp': 'http://localhost:8080',
+      '/load': 'http://localhost:8080',
+      '/reset': 'http://localhost:8080',
+      '/seek': 'http://localhost:8080',
     },
   },
 })

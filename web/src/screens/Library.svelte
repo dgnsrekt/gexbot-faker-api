@@ -45,7 +45,7 @@
     busyDate = date
     error = ''
     try {
-      await api.reloadDate(date) // fast: only offered on ready dates
+      await api.load(date) // async /load, polled to done; fast since only offered on ready dates
       await refresh()
       onchanged()
     } catch (e) {
@@ -56,7 +56,14 @@
   }
 
   const totalSize = $derived(rows.reduce((a, r) => a + r.size_bytes, 0))
-  const loadedRow = $derived(rows.find((r) => r.loaded))
+  // Every loaded date badges (issue #66); the banner summarizes the whole loaded span.
+  const loadedRows = $derived(rows.filter((r) => r.loaded))
+  const loadedSpanLabel = $derived(
+    loadedRows.length <= 1
+      ? (loadedRows[0]?.date ?? '')
+      : `${loadedRows[0].date} → ${loadedRows[loadedRows.length - 1].date} (${loadedRows.length} days)`,
+  )
+  const loadedTickers = $derived([...new Set(loadedRows.flatMap((r) => r.tickers))].sort())
 
   function pct(r: LibraryRow): string {
     if (!r.total) return '0%'
@@ -124,12 +131,12 @@
 </script>
 
 <div class="wrap">
-  {#if loadedRow}
+  {#if loadedRows.length > 0}
     <div class="banner">
       <span class="dot"></span>
       <div class="banner-text">
-        Currently loaded: <span class="mono">{loadedRow.date}</span> ·
-        {loadedRow.tickers.join(', ')} · {status?.files_loaded ?? 0} files
+        Currently loaded: <span class="mono">{loadedSpanLabel}</span> ·
+        {loadedTickers.join(', ')} · {status?.files_loaded ?? 0} files
       </div>
     </div>
   {/if}

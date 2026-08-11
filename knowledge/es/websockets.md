@@ -14,6 +14,13 @@ protocolo que producción. El detalle completo del protocolo (esquemas de mensaj
 pipeline de codificación) está en el `WEBSOCKET.md` del repo; esta es la
 referencia de trabajo.
 
+> **Paridad con GexBot.** El handshake `/negotiate`, las rutas de los hubs, los
+> subprotocolos, el formato de frames y la convención de nombres de grupos
+> replican todos la API real de GexBot — un cliente WebSocket de producción se
+> conecta sin cambios. Los únicos knobs exclusivos del faker son el `prefix` de
+> grupo (`WS_GROUP_PREFIX`, por defecto `blue`) y la cadencia de broadcast
+> (`WS_STREAM_INTERVAL`); ver [configuración](configuration.md).
+
 ## Los cinco hubs
 
 | Hub | Route | Datos |

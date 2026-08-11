@@ -11,20 +11,17 @@ servers:
     description: Current server
 
 tags:
-  - name: classic
-    description: Classic GEX data endpoints
-  - name: state
-    description: State GEX data endpoints (orderflow-based)
-  - name: orderflow
-    description: Orderflow data endpoints
-  - name: download
-    description: Bulk data download endpoints
-  - name: info
-    description: Server information endpoints
-  - name: websocket
-    description: WebSocket real-time feed endpoints
-  - name: admin
-    description: Administrative endpoints
+  - name: GexBot parity
+    description: >
+      Behaves like the real GexBot API — a client written against GexBot works
+      against the faker unchanged. Market-data pulls, discovery (tickers,
+      categories, expiries, conversion), historical snapshots, and bulk
+      downloads all mirror the production API's shapes and auth.
+  - name: Faker control plane
+    description: >
+      Faker-only. Drives the mock — load data for a day or span, move the
+      replay cursor, and inspect what's loaded. None of these exist on the real
+      GexBot API; they're how you operate the faker.
 
 paths:
   /{ticker}/classic/{aggregation}/majors:
@@ -35,7 +32,7 @@ paths:
         Provides the key GEX levels (Zero Gamma, Major Positive/Negative GEX by OI
         and Volume) from the classic GEX model. This is a slimmed-down version of
         the main GEX chain endpoint.
-      tags: [classic]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -86,7 +83,7 @@ paths:
       description: |
         Contains the strikes with the most significant GEX change over various
         lookback periods (current, 1, 5, 10, 15, and 30 minutes). Also known as "max priors".
-      tags: [classic]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -138,7 +135,7 @@ paths:
         Provides a ladder-style histogram of GEX by Open Interest and Volume.
         Call GEX is netted against Put GEX for each strike.
         Includes historical "lookback" data points and major calculated levels.
-      tags: [classic]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -191,7 +188,7 @@ paths:
         with the largest positive (call) and negative (put) GEX imbalances.
         This is a slimmed-down version of the main GEX profile endpoint.
         Only supports aggregation types (full, zero, one), not greek types.
-      tags: [state]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -244,7 +241,7 @@ paths:
         over various lookback periods (current, 1, 5, 10, 15, and 30 minutes).
         Also known as "max priors" for the GEX Profile.
         Only supports aggregation types (full, zero, one), not greek types.
-      tags: [state]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -302,7 +299,7 @@ paths:
         When type is a greek (delta_zero, gamma_zero, etc.):
           Returns Greek profile data - shows net imbalance of transactions for the
           specified Greek, allowing analysis of customer long vs. short positioning.
-      tags: [state]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -356,7 +353,7 @@ paths:
         Provides a real-time snapshot of key orderflow metrics for the nearest
         and next expiries. Includes aggregated and net dealer exposure (DEX),
         GEX, convexity, vanna, and charm, as well as orderflow indicators.
-      tags: [orderflow]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -390,7 +387,7 @@ paths:
     get:
       operationId: getTickers
       summary: List available tickers
-      tags: [info]
+      tags: [GexBot parity]
       responses:
         '200':
           description: Available tickers
@@ -404,7 +401,7 @@ paths:
       operationId: getTickersQuant
       summary: List quant-supported tickers
       description: Stocks and indexes available for quant endpoints (no futures).
-      tags: [info]
+      tags: [GexBot parity]
       responses:
         '200':
           description: Quant-supported tickers
@@ -418,7 +415,7 @@ paths:
       operationId: getPackageCategories
       summary: List categories for a package
       description: "Returns the category names supported by a data package."
-      tags: [info]
+      tags: [GexBot parity]
       parameters:
         - name: package
           in: path
@@ -449,7 +446,7 @@ paths:
       operationId: getHistEod
       summary: Download the latest end-of-day archive
       description: Returns the most recent EOD report archive (zip) for a ticker.
-      tags: [hist]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -481,7 +478,7 @@ paths:
       description: |
         Returns a URL to the historical snapshot for a ticker/package/category on
         a given date. Mirrors the live API's URL-indirection response.
-      tags: [hist]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -553,7 +550,7 @@ paths:
         follow the options calendar (daily near-term for index/major-ETF tickers,
         then weekly). Remove dashes to form explicit-expiry WebSocket group
         suffixes (2026-07-17 -> 20260717).
-      tags: [options]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: path
@@ -592,7 +589,7 @@ paths:
         parameters (spot ~= multiplier * future + additive) for an index/future
         pair. The faker derives the contract code from the loaded date and uses a
         fixed per-pair basis; multiplier/additive are synthesized (no futures feed).
-      tags: [futures]
+      tags: [GexBot parity]
       parameters:
         - name: ticker
           in: query
@@ -637,7 +634,8 @@ paths:
     get:
       operationId: getHealth
       summary: Health check
-      tags: [info]
+      description: "**Faker-only.** Liveness plus the faker's currently loaded date and data/cache mode."
+      tags: [Faker control plane]
       responses:
         '200':
           description: Server is healthy
@@ -646,79 +644,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
-  /reset-cache:
+  /load:
     post:
-      operationId: resetCache
-      summary: Reset playback positions
-      description: Reset all or specific API key playback positions to index 0
-      tags: [admin]
-      parameters:
-        - name: key
-          in: query
-          required: false
-          description: Reset only this API key (omit for all)
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Cache reset successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResetCacheResponse'
-
-  /seek-to-timestamp:
-    post:
-      operationId: seekToTimestamp
-      summary: Seek playback positions to timestamp
+      operationId: load
+      summary: Load a day or a span of trading days for replay
       description: |
-        Sets all cache positions for the given API key to the index
-        where data timestamp >= the given timestamp. This allows
-        seeking to a specific point in the historical data playback.
-      tags: [admin]
+        **Faker-only.** Materializes (if needed) and loads one day or a contiguous span as a single
+        continuous dataset, so seek/replay can cross day boundaries. Asynchronous: returns a job id
+        immediately; poll GET /load/status/{jobId} until state=done. Provide exactly one of: `date`
+        (a single day), `from`+`to` (the archived days within the inclusive span), or an explicit
+        `dates` list. Gated by STUDIO_AUTH_TOKEN when the server has one set.
+      tags: [Faker control plane]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SeekToTimestampRequest'
-      responses:
-        '200':
-          description: Seek successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SeekToTimestampResponse'
-        '400':
-          description: Invalid request or timestamp out of range
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /load-range:
-    post:
-      operationId: loadRange
-      summary: Load a contiguous span of trading days for continuous replay
-      description: |
-        Materializes (if needed) and loads a range of days as one continuous dataset so seek/replay
-        can cross day boundaries. Asynchronous: returns a job id immediately; poll
-        GET /load-range/status/{jobId} until state=done. Provide either from+to (the available
-        archived days within the span are loaded) or an explicit dates list.
-      tags: [admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoadRangeRequest'
+              $ref: '#/components/schemas/LoadRequest'
       responses:
         '202':
-          description: Load-range job accepted
+          description: Load job accepted
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoadRangeStatus'
+                $ref: '#/components/schemas/LoadStatus'
         '400':
           description: Invalid request or no archived dates in range
           content:
@@ -726,11 +675,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /load-range/status/{jobId}:
+  /load/status/{jobId}:
     get:
-      operationId: getLoadRangeStatus
-      summary: Poll a load-range job
-      tags: [admin]
+      operationId: getLoadStatus
+      summary: Poll a load job
+      description: "**Faker-only.** Progress of an asynchronous POST /load job."
+      tags: [Faker control plane]
       parameters:
         - name: jobId
           in: path
@@ -743,7 +693,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoadRangeStatus'
+                $ref: '#/components/schemas/LoadStatus'
         '404':
           description: Unknown job id
           content:
@@ -751,130 +701,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /range-coverage:
+  /current-load:
     get:
-      operationId: getRangeCoverage
-      summary: Ticker coverage across a date span (pre-load)
-      description: |
-        Reports, from the archive inventory (no load required), which tickers each day in [from, to]
-        covers, plus the union and intersection across the span — so a client can warn before loading
-        that a ticker isn't present on every day.
-      tags: [admin]
-      parameters:
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
+      operationId: getCurrentLoad
+      summary: The currently loaded day(s)
+      description: "**Faker-only.** The loaded span — dates in chronological order, from/to bounds, files loaded, and when. A single-day load returns a one-element span."
+      tags: [Faker control plane]
       responses:
         '200':
-          description: Coverage across the span
+          description: Currently loaded span
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RangeCoverageResponse'
-        '400':
-          description: Invalid date range
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/CurrentLoadResponse'
 
-  /current-range:
+  /dates:
     get:
-      operationId: getCurrentRange
-      summary: The currently loaded span
-      tags: [admin]
-      responses:
-        '200':
-          description: Currently loaded range
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CurrentRangeResponse'
-
-  /reload-date:
-    post:
-      operationId: reloadDate
-      summary: Hot reload data for a different date
-      description: |
-        Unloads current data and loads data for the specified date.
-        WebSocket streaming is paused during reload.
-        All cache positions are reset to 0 after reload.
-      tags: [admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReloadDateRequest'
-      responses:
-        '200':
-          description: Reload successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReloadDateResponse'
-        '400':
-          description: Invalid date format or date not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Reload already in progress
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Reload failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /available-dates:
-    get:
-      operationId: getAvailableDates
-      summary: List available dates
-      description: Returns sorted list of available date directories in data/ folder (YYYY-MM-DD format, excludes .staging)
-      tags: [info]
+      operationId: getDates
+      summary: List loadable dates
+      description: "**Faker-only.** Sorted list of date directories available to load (YYYY-MM-DD; excludes .staging)."
+      tags: [Faker control plane]
       responses:
         '200':
           description: Available dates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AvailableDatesResponse'
+                $ref: '#/components/schemas/DatesResponse'
 
-  /current-date:
+  /available/{date}:
     get:
-      operationId: getCurrentDate
-      summary: Get current date
-      description: Returns the currently loaded date, load timestamp, and number of files loaded
-      tags: [info]
-      responses:
-        '200':
-          description: Current date info
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CurrentDateResponse'
-
-  /available-data/{date}:
-    get:
-      operationId: getAvailableData
-      summary: Get available data for a date
+      operationId: getAvailable
+      summary: What data exists for a date
       description: |
-        Returns hierarchical listing of available data for a specific date.
-        Shows tickers, packages, and categories that exist in the data directory.
-      tags: [info]
+        **Faker-only.** Hierarchical listing of the data available for a date —
+        tickers, packages, and categories present in the data directory.
+      tags: [Faker control plane]
       parameters:
         - name: date
           in: path
@@ -898,14 +760,98 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AvailableDataResponse'
+                $ref: '#/components/schemas/AvailableResponse'
+
+  /coverage:
+    get:
+      operationId: getCoverage
+      summary: Ticker coverage across a date span (pre-load)
+      description: |
+        **Faker-only.** Reports, from the archive inventory (no load required), which tickers each day
+        in [from, to] covers, plus the union and intersection across the span — so a client can warn
+        before loading that a ticker isn't present on every day.
+      tags: [Faker control plane]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Coverage across the span
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageResponse'
+        '400':
+          description: Invalid date range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reset:
+    post:
+      operationId: reset
+      summary: Rewind playback positions
+      description: "**Faker-only.** Rewinds all or one API key's replay cursor to the first snapshot. Gated by STUDIO_AUTH_TOKEN when the server has one set."
+      tags: [Faker control plane]
+      parameters:
+        - name: key
+          in: query
+          required: false
+          description: Reset only this API key (omit for all)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Positions reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetResponse'
+
+  /seek:
+    post:
+      operationId: seek
+      summary: Seek playback positions to a timestamp
+      description: |
+        **Faker-only.** Sets a key's cursor to the first snapshot at or after the given unix timestamp.
+        In range mode it resolves across the whole loaded span (resolved_ts, day, in_gap, clamped).
+        Per-client — never token-gated.
+      tags: [Faker control plane]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeekRequest'
+      responses:
+        '200':
+          description: Seek successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeekResponse'
+        '400':
+          description: Invalid request or timestamp out of range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /download/{date}/{ticker}/links:
     get:
       operationId: getDownloadLinks
       summary: Get available download links for a date/ticker
       description: Returns all available download links grouped by package (classic, state, orderflow)
-      tags: [download]
+      tags: [GexBot parity]
       parameters:
         - name: date
           in: path
@@ -942,7 +888,7 @@ paths:
       operationId: downloadClassicGex
       summary: Download classic GEX dataset
       description: Downloads the complete JSONL data file for classic GEX data for a specific date
-      tags: [download]
+      tags: [GexBot parity]
       parameters:
         - name: date
           in: path
@@ -988,7 +934,7 @@ paths:
       operationId: downloadStateData
       summary: Download state dataset
       description: Downloads the complete JSONL data file for state GEX or greek data for a specific date
-      tags: [download]
+      tags: [GexBot parity]
       parameters:
         - name: date
           in: path
@@ -1034,7 +980,7 @@ paths:
       operationId: downloadOrderflow
       summary: Download orderflow dataset
       description: Downloads the complete JSONL data file for orderflow data for a specific date
-      tags: [download]
+      tags: [GexBot parity]
       parameters:
         - name: date
           in: path
@@ -1240,7 +1186,7 @@ components:
           enum: [exhaust, rotation]
           example: exhaust
 
-    ResetCacheResponse:
+    ResetResponse:
       type: object
       properties:
         status:
@@ -1254,7 +1200,7 @@ components:
           description: Number of positions reset
           example: 12
 
-    SeekToTimestampRequest:
+    SeekRequest:
       type: object
       required:
         - timestamp
@@ -1271,7 +1217,7 @@ components:
           minLength: 1
           example: test1234
 
-    SeekToTimestampResponse:
+    SeekResponse:
       type: object
       properties:
         status:
@@ -1342,10 +1288,17 @@ components:
           description: Whether this stream's seek was clamped to the span bounds
           example: none
 
-    LoadRangeRequest:
+    LoadRequest:
       type: object
-      description: Provide from+to (inclusive span; the available archived days are loaded) or an explicit dates list.
+      description: >
+        Provide exactly one of: date (a single day); from+to (inclusive span — the available archived
+        days within it are loaded); or an explicit dates list.
       properties:
+        date:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          description: Load a single day.
+          example: '2026-08-07'
         from:
           type: string
           example: '2026-08-06'
@@ -1370,7 +1323,7 @@ components:
           items:
             type: string
 
-    LoadRangeStatus:
+    LoadStatus:
       type: object
       properties:
         job_id:
@@ -1394,7 +1347,7 @@ components:
         error:
           type: string
 
-    RangeCoverageDay:
+    CoverageDay:
       type: object
       properties:
         date:
@@ -1404,7 +1357,7 @@ components:
           items:
             type: string
 
-    RangeCoverageResponse:
+    CoverageResponse:
       type: object
       properties:
         from:
@@ -1414,7 +1367,7 @@ components:
         days:
           type: array
           items:
-            $ref: '#/components/schemas/RangeCoverageDay'
+            $ref: '#/components/schemas/CoverageDay'
         union:
           type: array
           items:
@@ -1424,7 +1377,7 @@ components:
           items:
             type: string
 
-    CurrentRangeResponse:
+    CurrentLoadResponse:
       type: object
       properties:
         dates:
@@ -1675,7 +1628,7 @@ components:
           type: string
           example: Invalid ticker symbol
 
-    AvailableDatesResponse:
+    DatesResponse:
       type: object
       properties:
         dates:
@@ -1689,24 +1642,7 @@ components:
           description: Number of available dates
           example: 2
 
-    CurrentDateResponse:
-      type: object
-      properties:
-        current_date:
-          type: string
-          description: Currently loaded data date
-          example: "2025-11-28"
-        loaded_at:
-          type: string
-          format: date-time
-          description: Timestamp when data was loaded
-          example: "2025-11-29T18:15:00Z"
-        files_loaded:
-          type: integer
-          description: Number of data files loaded
-          example: 12
-
-    AvailableDataResponse:
+    AvailableResponse:
       type: object
       properties:
         date:
@@ -1801,39 +1737,3 @@ components:
           type: integer
           description: Total number of download links
           example: 15
-
-    ReloadDateRequest:
-      type: object
-      required:
-        - date
-      properties:
-        date:
-          type: string
-          pattern: '^\d{4}-\d{2}-\d{2}$'
-          description: New date to load (YYYY-MM-DD format)
-          example: "2025-12-04"
-
-    ReloadDateResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          description: Result status
-          example: success
-        previous_date:
-          type: string
-          description: Previously loaded date
-          example: "2025-11-28"
-        new_date:
-          type: string
-          description: Newly loaded date
-          example: "2025-12-04"
-        loaded_at:
-          type: string
-          format: date-time
-          description: Timestamp when new data was loaded
-          example: "2025-12-27T15:30:00Z"
-        files_loaded:
-          type: integer
-          description: Number of data files loaded
-          example: 45

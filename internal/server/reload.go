@@ -94,123 +94,6 @@ type ReloadResult struct {
 	FilesLoaded  int
 }
 
-// Reload validates the new date, loads new data, swaps the loader, and resets the cache.
-// Returns error if reload fails (original data remains intact in that case).
-func (rm *ReloadManager) Reload(ctx context.Context, newDate string) (*ReloadResult, error) {
-	started := time.Now()
-	result := "failed"
-	defer func() {
-		observability.ReloadDuration.Observe(time.Since(started).Seconds())
-		observability.Reloads.WithLabelValues(result).Inc()
-	}()
-	// Prevent concurrent reloads
-	if !rm.reloadMu.TryLock() {
-		return nil, fmt.Errorf("reload already in progress")
-	}
-	defer rm.reloadMu.Unlock()
-	observability.ReloadInProgress.Set(1)
-	defer observability.ReloadInProgress.Set(0)
-
-	previousDate := rm.CurrentDate()
-
-	rm.logger.Info("starting hot reload",
-		zap.String("previousDate", previousDate),
-		zap.String("newDate", newDate),
-	)
-
-	// Validate date format
-	if !isValidDateFormat(newDate) {
-		return nil, fmt.Errorf("invalid date format: %s (expected YYYY-MM-DD)", newDate)
-	}
-
-	// Check if date directory exists
-	datePath := filepath.Join(rm.config.DataDir, newDate)
-	if _, err := os.Stat(datePath); os.IsNotExist(err) {
-		if err := eod.MaterializeDate(rm.config.DataDir, newDate, rm.logger); err != nil {
-			return nil, fmt.Errorf("date not found: %s", newDate)
-		}
-	}
-	info, err := os.Stat(datePath)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("date not found: %s", newDate)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to check date directory: %w", err)
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("date path is not a directory: %s", newDate)
-	}
-
-	// Create new loader for the new date
-	newLoader, err := rm.createLoader(newDate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load data for %s: %w", newDate, err)
-	}
-
-	// Check if we actually loaded any data
-	loadedKeys := newLoader.GetLoadedKeys()
-	if len(loadedKeys) == 0 {
-		if closeErr := newLoader.Close(); closeErr != nil {
-			rm.logger.Warn("failed to close new loader after empty load", zap.Error(closeErr))
-		}
-		return nil, fmt.Errorf("no data files found for date: %s", newDate)
-	}
-
-	// Signal streamers to pause
-	rm.isReloading.Store(true)
-
-	// Give streamers time to finish current broadcast cycle
-	time.Sleep(100 * time.Millisecond)
-
-	// Swap the loader atomically
-	oldLoader := rm.loader.Swap(newLoader)
-
-	// Reset all cache positions
-	resetCount := rm.cache.Reset("")
-
-	// Update current state
-	rm.stateMu.Lock()
-	rm.currentDate = newDate
-	rm.loadedDates = []string{newDate}
-	rm.loadedAt = time.Now()
-	rm.config.DataDate = newDate
-	loadedAt := rm.loadedAt
-	rm.stateMu.Unlock()
-
-	// Resume streamers
-	rm.isReloading.Store(false)
-	result = "success"
-	observability.DataLoadedTimestamp.SetToCurrentTime()
-	if date, err := time.Parse("2006-01-02", newDate); err == nil {
-		observability.DataDateTimestamp.Set(float64(date.Unix()))
-	}
-
-	// Close old loader (release resources)
-	if err := oldLoader.Close(); err != nil {
-		rm.logger.Warn("failed to close old loader", zap.Error(err))
-	}
-	// Record the load so the daemon's TTL cleanup keeps this date warm. Proactive
-	// cleanup is now owned by the daemon (see internal/eod.CleanupStale).
-	if err := eod.TouchLoaded(rm.config.DataDir, newDate); err != nil {
-		rm.logger.Warn("failed to mark loaded date", zap.Error(err))
-	}
-
-	rm.logger.Info("hot reload complete",
-		zap.String("previousDate", previousDate),
-		zap.String("newDate", newDate),
-		zap.Time("loadedAt", loadedAt),
-		zap.Int("filesLoaded", len(loadedKeys)),
-		zap.Int("cachePositionsReset", resetCount),
-	)
-
-	return &ReloadResult{
-		PreviousDate: previousDate,
-		NewDate:      newDate,
-		LoadedAt:     loadedAt,
-		FilesLoaded:  len(loadedKeys),
-	}, nil
-}
-
 // createLoader creates a new DataLoader based on the configured data mode.
 func (rm *ReloadManager) createLoader(date string) (data.DataLoader, error) {
 	switch rm.config.DataMode {
@@ -226,15 +109,15 @@ func (rm *ReloadManager) createLoader(date string) (data.DataLoader, error) {
 // createRangeLoader builds a cross-day RangeLoader over the given dates. Range loads always use
 // stream mode regardless of DATA_MODE: a multi-day span in memory mode would hold every day's JSONL
 // in RAM (200-540 MB/day), defeating the bounded-RAM property multi-day replay depends on. Stream
-// mode holds only per-day offset slices + file handles. Single-day /reload-date still honors
-// DATA_MODE via createLoader.
+// mode holds only per-day offset slices + file handles. A single-day load still honors DATA_MODE
+// via createLoader (see ReloadRange).
 func (rm *ReloadManager) createRangeLoader(dates []string) (data.DataLoader, error) {
 	return data.NewRangeLoader(rm.config.DataDir, dates, "stream", rm.logger)
 }
 
 // ReloadRange loads a contiguous span of dates as one continuous dataset (materializing any missing
 // day on demand), swaps it in atomically, and resets cursors — the multi-day sibling of Reload. The
-// span start becomes currentDate so /current-date stays populated. On any failure the existing data
+// span start becomes currentDate so /current-load stays populated. On any failure the existing data
 // stays intact. Dates are deduped + sorted chronologically here.
 func (rm *ReloadManager) ReloadRange(ctx context.Context, dates []string) (*ReloadResult, error) {
 	started := time.Now()
@@ -281,7 +164,15 @@ func (rm *ReloadManager) ReloadRange(ctx context.Context, dates []string) (*Relo
 		}
 	}
 
-	newLoader, err := rm.createRangeLoader(norm)
+	// A single-day load honors DATA_MODE (so memory mode stays the fast in-memory path); only a
+	// genuine multi-day span forces stream mode for bounded RAM.
+	var newLoader data.DataLoader
+	var err error
+	if len(norm) == 1 {
+		newLoader, err = rm.createLoader(norm[0])
+	} else {
+		newLoader, err = rm.createRangeLoader(norm)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load range %v: %w", norm, err)
 	}

@@ -27,7 +27,7 @@ var studioDateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 // endpoints under /studio/api. They aggregate state the Server already holds
 // (config, loader, cache, reload manager) plus the WebSocket hubs, so the SPA can
 // render its screens in a few calls. All are unauthenticated, matching the other
-// open control endpoints (/current-date, /available-dates, ...).
+// open control endpoints (/current-load, /dates, ...).
 type StudioHandlers struct {
 	server *Server
 	hubs   *WebSocketHubs
@@ -67,8 +67,9 @@ func writeStudioJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// currentDate returns the authoritative loaded date (reload manager if wired,
-// else the startup config).
+// currentDate returns the authoritative loaded date — the span's anchor day when a
+// range is loaded (reload manager if wired, else the startup config). Use it only
+// where a single day is genuinely wanted (the replay playhead's day).
 func (h *StudioHandlers) currentDate() string {
 	if h.server.reloadManager != nil {
 		if d := h.server.reloadManager.CurrentDate(); d != "" {
@@ -78,9 +79,35 @@ func (h *StudioHandlers) currentDate() string {
 	return h.server.config.DataDate
 }
 
+// loadedDates returns the full loaded span in chronological order (one element for a
+// single-day load). This is the span-aware source the "what's loaded" UI reads, so a
+// multi-day /load lights up every loaded date, not just the span start (issue #66).
+func (h *StudioHandlers) loadedDates() []string {
+	if h.server.reloadManager != nil {
+		if d := h.server.reloadManager.LoadedDates(); len(d) > 0 {
+			return d
+		}
+	}
+	return []string{h.server.config.DataDate}
+}
+
+// fmtLoadedSpan renders a loaded span for display: a single day as itself, a
+// multi-day span as "first → last".
+func fmtLoadedSpan(dates []string) string {
+	switch len(dates) {
+	case 0:
+		return ""
+	case 1:
+		return dates[0]
+	default:
+		return dates[0] + " → " + dates[len(dates)-1]
+	}
+}
+
 type studioStatus struct {
 	Running           bool     `json:"running"`
-	LoadedDate        string   `json:"loaded_date"`
+	LoadedDate        string   `json:"loaded_date"`  // span anchor day (single day for a single-day load)
+	LoadedDates       []string `json:"loaded_dates"` // the full loaded span, chronological (issue #66)
 	LoadedAt          string   `json:"loaded_at"`
 	FilesLoaded       int      `json:"files_loaded"`
 	Tickers           []string `json:"tickers"`
@@ -121,6 +148,7 @@ func (h *StudioHandlers) handleStatus(w http.ResponseWriter, _ *http.Request) {
 	writeStudioJSON(w, studioStatus{
 		Running:           true,
 		LoadedDate:        h.currentDate(),
+		LoadedDates:       h.loadedDates(),
 		LoadedAt:          loadedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		FilesLoaded:       len(keys),
 		Tickers:           tickers,
@@ -168,12 +196,12 @@ func (h *StudioHandlers) handleConfig(w http.ResponseWriter, _ *http.Request) {
 			{Label: "When seeking past a loaded range", Help: "Clamp to the last row (clamp), or return timestamp-out-of-range (error). Multi-day only.", Env: "RANGE_END_POLICY", Value: cfg.RangeEndPolicy},
 			{Label: "Positions across endpoints", Help: "Share one position, or track each endpoint separately.", Env: "ENDPOINT_CACHE_MODE", Value: cfg.EndpointCacheMode},
 			{Label: "Memory use", Help: "Load the whole day into RAM, or read from disk as you go.", Env: "DATA_MODE", Value: cfg.DataMode},
-			{Label: "Date loaded", Help: "The market day currently being replayed.", Env: "DATA_DATE", Value: h.currentDate()},
+			{Label: "Date loaded", Help: "The market day(s) currently being replayed (a span in multi-day range mode).", Env: "DATA_DATE", Value: fmtLoadedSpan(h.loadedDates())},
 		}},
 		{Title: "Server", Sub: "Where clients reach it", Rows: []settingRow{
 			{Label: "Port", Help: "", Env: "PORT", Value: cfg.Port},
 			{Label: "Data folder", Help: "Where EOD archives and materialized JSONL live.", Env: "DATA_DIR", Value: cfg.DataDir},
-			{Label: "Studio & control auth", Help: "When set, /studio and the mutating control routes (load-range, reload-date, reset-cache) require this token via Basic or Bearer. Present it from clients like gexsync.", Env: "STUDIO_AUTH_TOKEN", Value: controlAuth},
+			{Label: "Studio & control auth", Help: "When set, /studio and the mutating control routes (load, reset) require this token via Basic or Bearer. Present it from clients like gexsync.", Env: "STUDIO_AUTH_TOKEN", Value: controlAuth},
 		}},
 		{Title: "Streaming", Sub: "WebSocket hubs", Rows: []settingRow{
 			{Label: "WebSocket streaming", Help: "Turn the five hubs on or off.", Env: "WS_ENABLED", Value: onOff(cfg.WSEnabled)},
@@ -248,13 +276,18 @@ func (h *StudioHandlers) handleLibrary(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, `{"error":"failed to list archives"}`, http.StatusInternalServerError)
 		return
 	}
-	loaded := h.currentDate()
+	// Badge EVERY loaded date, not just the span start — a multi-day /load lights up all its
+	// days in the library (issue #66), matching /current-load rather than the legacy scalar.
+	loadedSet := make(map[string]bool)
+	for _, d := range h.loadedDates() {
+		loadedSet[d] = true
+	}
 	coverage := eod.CoverageIndices(archives) // per-ticker-normalized, composition-stable
 	rows := make([]libRow, 0, len(archives))
 	for i, a := range archives {
 		total := len(a.Tickers)
-		state := studioLibraryState(a.Date == loaded, h.mat.inProgress(a.Date), a.Materialized, total)
-		row := libRow{ArchiveInfo: a, Loaded: a.Date == loaded, Total: total, State: state, Coverage: coverage[i]}
+		state := studioLibraryState(loadedSet[a.Date], h.mat.inProgress(a.Date), a.Materialized, total)
+		row := libRow{ArchiveInfo: a, Loaded: loadedSet[a.Date], Total: total, State: state, Coverage: coverage[i]}
 		// Surface a terminal background failure so the UI doesn't silently revert
 		// to a Materialize button and drop the error.
 		if job, ok := h.mat.status(a.Date); ok && job.State == "error" {
@@ -369,10 +402,10 @@ var studioEndpointCatalog = []endpointDoc{
 	{"GET", "/{ticker}/orderflow/orderflow", "Latest orderflow metrics"},
 	{"GET", "/options/{ticker}/expiries", "Option expiries over the loaded-date horizon"},
 	{"GET", "/futures/conversion", "Front-month contract + conversion params"},
-	{"GET", "/available-data/{date}", "What exists for a date"},
-	{"POST", "/reload-date", "Swap the replay date without restarting"},
-	{"POST", "/seek-to-timestamp", "Move every position to a market time"},
-	{"POST", "/reset-cache", "Send positions back to the start"},
+	{"GET", "/available/{date}", "What exists for a date"},
+	{"POST", "/load", "Load a day or span for replay (async job)"},
+	{"POST", "/seek", "Move every position to a market time"},
+	{"POST", "/reset", "Send positions back to the start"},
 	{"GET", "/negotiate", "WebSocket URLs and group prefix"},
 	{"GET", "/sync/stream", "SSE position broadcast for other services"},
 }

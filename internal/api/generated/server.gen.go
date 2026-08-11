@@ -35,12 +35,12 @@ const (
 	Stream HealthResponseDataMode = "stream"
 )
 
-// Defines values for LoadRangeStatusState.
+// Defines values for LoadStatusState.
 const (
-	Done    LoadRangeStatusState = "done"
-	Error   LoadRangeStatusState = "error"
-	Queued  LoadRangeStatusState = "queued"
-	Running LoadRangeStatusState = "running"
+	Done    LoadStatusState = "done"
+	Error   LoadStatusState = "error"
+	Queued  LoadStatusState = "queued"
+	Running LoadStatusState = "running"
 )
 
 // Defines values for PackageDataName.
@@ -57,11 +57,11 @@ const (
 	SeekPositionDetailClampedStart SeekPositionDetailClamped = "start"
 )
 
-// Defines values for SeekToTimestampResponseClamped.
+// Defines values for SeekResponseClamped.
 const (
-	SeekToTimestampResponseClampedEnd   SeekToTimestampResponseClamped = "end"
-	SeekToTimestampResponseClampedNone  SeekToTimestampResponseClamped = "none"
-	SeekToTimestampResponseClampedStart SeekToTimestampResponseClamped = "start"
+	SeekResponseClampedEnd   SeekResponseClamped = "end"
+	SeekResponseClampedNone  SeekResponseClamped = "none"
+	SeekResponseClampedStart SeekResponseClamped = "start"
 )
 
 // Defines values for DownloadClassicGexParamsAggregation.
@@ -180,8 +180,8 @@ const (
 	GetStateGexMaxChangeParamsTypeGexZero GetStateGexMaxChangeParamsType = "gex_zero"
 )
 
-// AvailableDataResponse defines model for AvailableDataResponse.
-type AvailableDataResponse struct {
+// AvailableResponse defines model for AvailableResponse.
+type AvailableResponse struct {
 	// Date The requested date
 	Date    *string      `json:"date,omitempty"`
 	Summary *DataSummary `json:"summary,omitempty"`
@@ -190,29 +190,23 @@ type AvailableDataResponse struct {
 	Tickers *[]TickerData `json:"tickers,omitempty"`
 }
 
-// AvailableDatesResponse defines model for AvailableDatesResponse.
-type AvailableDatesResponse struct {
-	// Count Number of available dates
-	Count *int `json:"count,omitempty"`
-
-	// Dates Sorted list of available date directories
-	Dates *[]string `json:"dates,omitempty"`
+// CoverageDay defines model for CoverageDay.
+type CoverageDay struct {
+	Date    *string   `json:"date,omitempty"`
+	Tickers *[]string `json:"tickers,omitempty"`
 }
 
-// CurrentDateResponse defines model for CurrentDateResponse.
-type CurrentDateResponse struct {
-	// CurrentDate Currently loaded data date
-	CurrentDate *string `json:"current_date,omitempty"`
-
-	// FilesLoaded Number of data files loaded
-	FilesLoaded *int `json:"files_loaded,omitempty"`
-
-	// LoadedAt Timestamp when data was loaded
-	LoadedAt *time.Time `json:"loaded_at,omitempty"`
+// CoverageResponse defines model for CoverageResponse.
+type CoverageResponse struct {
+	Days         *[]CoverageDay `json:"days,omitempty"`
+	From         *string        `json:"from,omitempty"`
+	Intersection *[]string      `json:"intersection,omitempty"`
+	To           *string        `json:"to,omitempty"`
+	Union        *[]string      `json:"union,omitempty"`
 }
 
-// CurrentRangeResponse defines model for CurrentRangeResponse.
-type CurrentRangeResponse struct {
+// CurrentLoadResponse defines model for CurrentLoadResponse.
+type CurrentLoadResponse struct {
 	Dates       *[]string  `json:"dates,omitempty"`
 	FilesLoaded *int       `json:"files_loaded,omitempty"`
 	From        *string    `json:"from,omitempty"`
@@ -227,6 +221,15 @@ type DataSummary struct {
 
 	// TotalTickers Number of tickers with data
 	TotalTickers *int `json:"total_tickers,omitempty"`
+}
+
+// DatesResponse defines model for DatesResponse.
+type DatesResponse struct {
+	// Count Number of available dates
+	Count *int `json:"count,omitempty"`
+
+	// Dates Sorted list of available date directories
+	Dates *[]string `json:"dates,omitempty"`
 }
 
 // DownloadLinksResponse defines model for DownloadLinksResponse.
@@ -372,30 +375,32 @@ type HistSnapshotResponse struct {
 	Url string `json:"url"`
 }
 
-// LoadRangeRequest Provide from+to (inclusive span; the available archived days are loaded) or an explicit dates list.
-type LoadRangeRequest struct {
+// LoadRequest Provide exactly one of: date (a single day); from+to (inclusive span — the available archived days within it are loaded); or an explicit dates list.
+type LoadRequest struct {
+	// Date Load a single day.
+	Date  *string   `json:"date,omitempty"`
 	Dates *[]string `json:"dates,omitempty"`
 	From  *string   `json:"from,omitempty"`
 	To    *string   `json:"to,omitempty"`
 }
 
-// LoadRangeStatus defines model for LoadRangeStatus.
-type LoadRangeStatus struct {
+// LoadStatus defines model for LoadStatus.
+type LoadStatus struct {
 	Dates *[]string `json:"dates,omitempty"`
 
 	// Done Days materialized so far
-	Done        *int                  `json:"done,omitempty"`
-	Error       *string               `json:"error,omitempty"`
-	JobId       *string               `json:"job_id,omitempty"`
-	LoadedRange *LoadedRange          `json:"loaded_range,omitempty"`
-	State       *LoadRangeStatusState `json:"state,omitempty"`
+	Done        *int             `json:"done,omitempty"`
+	Error       *string          `json:"error,omitempty"`
+	JobId       *string          `json:"job_id,omitempty"`
+	LoadedRange *LoadedRange     `json:"loaded_range,omitempty"`
+	State       *LoadStatusState `json:"state,omitempty"`
 
 	// Total Days in the span
 	Total *int `json:"total,omitempty"`
 }
 
-// LoadRangeStatusState defines model for LoadRangeStatus.State.
-type LoadRangeStatusState string
+// LoadStatusState defines model for LoadStatus.State.
+type LoadStatusState string
 
 // LoadedRange defines model for LoadedRange.
 type LoadedRange struct {
@@ -466,47 +471,8 @@ type QuantTickersResponse struct {
 	Stocks *[]string `json:"stocks,omitempty"`
 }
 
-// RangeCoverageDay defines model for RangeCoverageDay.
-type RangeCoverageDay struct {
-	Date    *string   `json:"date,omitempty"`
-	Tickers *[]string `json:"tickers,omitempty"`
-}
-
-// RangeCoverageResponse defines model for RangeCoverageResponse.
-type RangeCoverageResponse struct {
-	Days         *[]RangeCoverageDay `json:"days,omitempty"`
-	From         *string             `json:"from,omitempty"`
-	Intersection *[]string           `json:"intersection,omitempty"`
-	To           *string             `json:"to,omitempty"`
-	Union        *[]string           `json:"union,omitempty"`
-}
-
-// ReloadDateRequest defines model for ReloadDateRequest.
-type ReloadDateRequest struct {
-	// Date New date to load (YYYY-MM-DD format)
-	Date string `json:"date"`
-}
-
-// ReloadDateResponse defines model for ReloadDateResponse.
-type ReloadDateResponse struct {
-	// FilesLoaded Number of data files loaded
-	FilesLoaded *int `json:"files_loaded,omitempty"`
-
-	// LoadedAt Timestamp when new data was loaded
-	LoadedAt *time.Time `json:"loaded_at,omitempty"`
-
-	// NewDate Newly loaded date
-	NewDate *string `json:"new_date,omitempty"`
-
-	// PreviousDate Previously loaded date
-	PreviousDate *string `json:"previous_date,omitempty"`
-
-	// Status Result status
-	Status *string `json:"status,omitempty"`
-}
-
-// ResetCacheResponse defines model for ResetCacheResponse.
-type ResetCacheResponse struct {
+// ResetResponse defines model for ResetResponse.
+type ResetResponse struct {
 	// Count Number of positions reset
 	Count   *int    `json:"count,omitempty"`
 	Message *string `json:"message,omitempty"`
@@ -537,8 +503,8 @@ type SeekPositionDetail struct {
 // SeekPositionDetailClamped Whether this stream's seek was clamped to the span bounds
 type SeekPositionDetailClamped string
 
-// SeekToTimestampRequest defines model for SeekToTimestampRequest.
-type SeekToTimestampRequest struct {
+// SeekRequest defines model for SeekRequest.
+type SeekRequest struct {
 	// Key API key for playback position tracking
 	Key string `json:"key"`
 
@@ -546,10 +512,10 @@ type SeekToTimestampRequest struct {
 	Timestamp int64 `json:"timestamp"`
 }
 
-// SeekToTimestampResponse defines model for SeekToTimestampResponse.
-type SeekToTimestampResponse struct {
+// SeekResponse defines model for SeekResponse.
+type SeekResponse struct {
 	// Clamped Whether the seek was clamped to the span bounds
-	Clamped *SeekToTimestampResponseClamped `json:"clamped,omitempty"`
+	Clamped *SeekResponseClamped `json:"clamped,omitempty"`
 
 	// Day The loaded day the representative resolved row belongs to (range mode; per-stream in details[])
 	Day *string `json:"day,omitempty"`
@@ -572,8 +538,8 @@ type SeekToTimestampResponse struct {
 	Status     *string `json:"status,omitempty"`
 }
 
-// SeekToTimestampResponseClamped Whether the seek was clamped to the span bounds
-type SeekToTimestampResponseClamped string
+// SeekResponseClamped Whether the seek was clamped to the span bounds
+type SeekResponseClamped string
 
 // TickerData defines model for TickerData.
 type TickerData struct {
@@ -596,10 +562,16 @@ type TickersResponse struct {
 	Stocks *[]string `json:"stocks,omitempty"`
 }
 
-// GetAvailableDataParams defines parameters for GetAvailableData.
-type GetAvailableDataParams struct {
+// GetAvailableParams defines parameters for GetAvailable.
+type GetAvailableParams struct {
 	// Ticker Filter to a specific ticker
 	Ticker *string `form:"ticker,omitempty" json:"ticker,omitempty"`
+}
+
+// GetCoverageParams defines parameters for GetCoverage.
+type GetCoverageParams struct {
+	From string `form:"from" json:"from"`
+	To   string `form:"to" json:"to"`
 }
 
 // DownloadClassicGexParamsAggregation defines parameters for DownloadClassicGex.
@@ -640,14 +612,8 @@ type GetHistSnapshotParams struct {
 // GetHistSnapshotParamsPackage defines parameters for GetHistSnapshot.
 type GetHistSnapshotParamsPackage string
 
-// GetRangeCoverageParams defines parameters for GetRangeCoverage.
-type GetRangeCoverageParams struct {
-	From string `form:"from" json:"from"`
-	To   string `form:"to" json:"to"`
-}
-
-// ResetCacheParams defines parameters for ResetCache.
-type ResetCacheParams struct {
+// ResetParams defines parameters for Reset.
+type ResetParams struct {
 	// Key Reset only this API key (omit for all)
 	Key *string `form:"key,omitempty" json:"key,omitempty"`
 }
@@ -673,29 +639,26 @@ type GetStateGexMajorsParamsType string
 // GetStateGexMaxChangeParamsType defines parameters for GetStateGexMaxChange.
 type GetStateGexMaxChangeParamsType string
 
-// LoadRangeJSONRequestBody defines body for LoadRange for application/json ContentType.
-type LoadRangeJSONRequestBody = LoadRangeRequest
+// LoadJSONRequestBody defines body for Load for application/json ContentType.
+type LoadJSONRequestBody = LoadRequest
 
-// ReloadDateJSONRequestBody defines body for ReloadDate for application/json ContentType.
-type ReloadDateJSONRequestBody = ReloadDateRequest
-
-// SeekToTimestampJSONRequestBody defines body for SeekToTimestamp for application/json ContentType.
-type SeekToTimestampJSONRequestBody = SeekToTimestampRequest
+// SeekJSONRequestBody defines body for Seek for application/json ContentType.
+type SeekJSONRequestBody = SeekRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Get available data for a date
-	// (GET /available-data/{date})
-	GetAvailableData(w http.ResponseWriter, r *http.Request, date string, params GetAvailableDataParams)
-	// List available dates
-	// (GET /available-dates)
-	GetAvailableDates(w http.ResponseWriter, r *http.Request)
-	// Get current date
-	// (GET /current-date)
-	GetCurrentDate(w http.ResponseWriter, r *http.Request)
-	// The currently loaded span
-	// (GET /current-range)
-	GetCurrentRange(w http.ResponseWriter, r *http.Request)
+	// What data exists for a date
+	// (GET /available/{date})
+	GetAvailable(w http.ResponseWriter, r *http.Request, date string, params GetAvailableParams)
+	// Ticker coverage across a date span (pre-load)
+	// (GET /coverage)
+	GetCoverage(w http.ResponseWriter, r *http.Request, params GetCoverageParams)
+	// The currently loaded day(s)
+	// (GET /current-load)
+	GetCurrentLoad(w http.ResponseWriter, r *http.Request)
+	// List loadable dates
+	// (GET /dates)
+	GetDates(w http.ResponseWriter, r *http.Request)
 	// Download classic GEX dataset
 	// (GET /download/{date}/{ticker}/classic/{aggregation})
 	DownloadClassicGex(w http.ResponseWriter, r *http.Request, date string, ticker string, aggregation DownloadClassicGexParamsAggregation)
@@ -720,27 +683,21 @@ type ServerInterface interface {
 	// Historical snapshot download link
 	// (GET /hist/{ticker}/{package}/{category}/{date})
 	GetHistSnapshot(w http.ResponseWriter, r *http.Request, ticker string, pPackage GetHistSnapshotParamsPackage, category string, date string, params GetHistSnapshotParams)
-	// Load a contiguous span of trading days for continuous replay
-	// (POST /load-range)
-	LoadRange(w http.ResponseWriter, r *http.Request)
-	// Poll a load-range job
-	// (GET /load-range/status/{jobId})
-	GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string)
+	// Load a day or a span of trading days for replay
+	// (POST /load)
+	Load(w http.ResponseWriter, r *http.Request)
+	// Poll a load job
+	// (GET /load/status/{jobId})
+	GetLoadStatus(w http.ResponseWriter, r *http.Request, jobId string)
 	// List valid option expiries
 	// (GET /options/{ticker}/expiries)
 	GetOptionsExpiries(w http.ResponseWriter, r *http.Request, ticker string)
-	// Ticker coverage across a date span (pre-load)
-	// (GET /range-coverage)
-	GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams)
-	// Hot reload data for a different date
-	// (POST /reload-date)
-	ReloadDate(w http.ResponseWriter, r *http.Request)
-	// Reset playback positions
-	// (POST /reset-cache)
-	ResetCache(w http.ResponseWriter, r *http.Request, params ResetCacheParams)
-	// Seek playback positions to timestamp
-	// (POST /seek-to-timestamp)
-	SeekToTimestamp(w http.ResponseWriter, r *http.Request)
+	// Rewind playback positions
+	// (POST /reset)
+	Reset(w http.ResponseWriter, r *http.Request, params ResetParams)
+	// Seek playback positions to a timestamp
+	// (POST /seek)
+	Seek(w http.ResponseWriter, r *http.Request)
 	// List available tickers
 	// (GET /tickers)
 	GetTickers(w http.ResponseWriter, r *http.Request)
@@ -777,27 +734,27 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
-// Get available data for a date
-// (GET /available-data/{date})
-func (_ Unimplemented) GetAvailableData(w http.ResponseWriter, r *http.Request, date string, params GetAvailableDataParams) {
+// What data exists for a date
+// (GET /available/{date})
+func (_ Unimplemented) GetAvailable(w http.ResponseWriter, r *http.Request, date string, params GetAvailableParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List available dates
-// (GET /available-dates)
-func (_ Unimplemented) GetAvailableDates(w http.ResponseWriter, r *http.Request) {
+// Ticker coverage across a date span (pre-load)
+// (GET /coverage)
+func (_ Unimplemented) GetCoverage(w http.ResponseWriter, r *http.Request, params GetCoverageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Get current date
-// (GET /current-date)
-func (_ Unimplemented) GetCurrentDate(w http.ResponseWriter, r *http.Request) {
+// The currently loaded day(s)
+// (GET /current-load)
+func (_ Unimplemented) GetCurrentLoad(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// The currently loaded span
-// (GET /current-range)
-func (_ Unimplemented) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
+// List loadable dates
+// (GET /dates)
+func (_ Unimplemented) GetDates(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -849,15 +806,15 @@ func (_ Unimplemented) GetHistSnapshot(w http.ResponseWriter, r *http.Request, t
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Load a contiguous span of trading days for continuous replay
-// (POST /load-range)
-func (_ Unimplemented) LoadRange(w http.ResponseWriter, r *http.Request) {
+// Load a day or a span of trading days for replay
+// (POST /load)
+func (_ Unimplemented) Load(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Poll a load-range job
-// (GET /load-range/status/{jobId})
-func (_ Unimplemented) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string) {
+// Poll a load job
+// (GET /load/status/{jobId})
+func (_ Unimplemented) GetLoadStatus(w http.ResponseWriter, r *http.Request, jobId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -867,27 +824,15 @@ func (_ Unimplemented) GetOptionsExpiries(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Ticker coverage across a date span (pre-load)
-// (GET /range-coverage)
-func (_ Unimplemented) GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams) {
+// Rewind playback positions
+// (POST /reset)
+func (_ Unimplemented) Reset(w http.ResponseWriter, r *http.Request, params ResetParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Hot reload data for a different date
-// (POST /reload-date)
-func (_ Unimplemented) ReloadDate(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Reset playback positions
-// (POST /reset-cache)
-func (_ Unimplemented) ResetCache(w http.ResponseWriter, r *http.Request, params ResetCacheParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Seek playback positions to timestamp
-// (POST /seek-to-timestamp)
-func (_ Unimplemented) SeekToTimestamp(w http.ResponseWriter, r *http.Request) {
+// Seek playback positions to a timestamp
+// (POST /seek)
+func (_ Unimplemented) Seek(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -960,8 +905,8 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// GetAvailableData operation middleware
-func (siw *ServerInterfaceWrapper) GetAvailableData(w http.ResponseWriter, r *http.Request) {
+// GetAvailable operation middleware
+func (siw *ServerInterfaceWrapper) GetAvailable(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -975,7 +920,7 @@ func (siw *ServerInterfaceWrapper) GetAvailableData(w http.ResponseWriter, r *ht
 	}
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetAvailableDataParams
+	var params GetAvailableParams
 
 	// ------------- Optional query parameter "ticker" -------------
 
@@ -986,7 +931,7 @@ func (siw *ServerInterfaceWrapper) GetAvailableData(w http.ResponseWriter, r *ht
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAvailableData(w, r, date, params)
+		siw.Handler.GetAvailable(w, r, date, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -996,11 +941,46 @@ func (siw *ServerInterfaceWrapper) GetAvailableData(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// GetAvailableDates operation middleware
-func (siw *ServerInterfaceWrapper) GetAvailableDates(w http.ResponseWriter, r *http.Request) {
+// GetCoverage operation middleware
+func (siw *ServerInterfaceWrapper) GetCoverage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCoverageParams
+
+	// ------------- Required query parameter "from" -------------
+
+	if paramValue := r.URL.Query().Get("from"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	if paramValue := r.URL.Query().Get("to"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAvailableDates(w, r)
+		siw.Handler.GetCoverage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1010,11 +990,11 @@ func (siw *ServerInterfaceWrapper) GetAvailableDates(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// GetCurrentDate operation middleware
-func (siw *ServerInterfaceWrapper) GetCurrentDate(w http.ResponseWriter, r *http.Request) {
+// GetCurrentLoad operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentLoad(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCurrentDate(w, r)
+		siw.Handler.GetCurrentLoad(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1024,11 +1004,11 @@ func (siw *ServerInterfaceWrapper) GetCurrentDate(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// GetCurrentRange operation middleware
-func (siw *ServerInterfaceWrapper) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
+// GetDates operation middleware
+func (siw *ServerInterfaceWrapper) GetDates(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCurrentRange(w, r)
+		siw.Handler.GetDates(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1351,11 +1331,11 @@ func (siw *ServerInterfaceWrapper) GetHistSnapshot(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
-// LoadRange operation middleware
-func (siw *ServerInterfaceWrapper) LoadRange(w http.ResponseWriter, r *http.Request) {
+// Load operation middleware
+func (siw *ServerInterfaceWrapper) Load(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.LoadRange(w, r)
+		siw.Handler.Load(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1365,8 +1345,8 @@ func (siw *ServerInterfaceWrapper) LoadRange(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
-// GetLoadRangeStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request) {
+// GetLoadStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetLoadStatus(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -1380,7 +1360,7 @@ func (siw *ServerInterfaceWrapper) GetLoadRangeStatus(w http.ResponseWriter, r *
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetLoadRangeStatus(w, r, jobId)
+		siw.Handler.GetLoadStatus(w, r, jobId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1415,76 +1395,13 @@ func (siw *ServerInterfaceWrapper) GetOptionsExpiries(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// GetRangeCoverage operation middleware
-func (siw *ServerInterfaceWrapper) GetRangeCoverage(w http.ResponseWriter, r *http.Request) {
+// Reset operation middleware
+func (siw *ServerInterfaceWrapper) Reset(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetRangeCoverageParams
-
-	// ------------- Required query parameter "from" -------------
-
-	if paramValue := r.URL.Query().Get("from"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "from", r.URL.Query(), &params.From)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "to" -------------
-
-	if paramValue := r.URL.Query().Get("to"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "to", r.URL.Query(), &params.To)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRangeCoverage(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ReloadDate operation middleware
-func (siw *ServerInterfaceWrapper) ReloadDate(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ReloadDate(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ResetCache operation middleware
-func (siw *ServerInterfaceWrapper) ResetCache(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ResetCacheParams
+	var params ResetParams
 
 	// ------------- Optional query parameter "key" -------------
 
@@ -1495,7 +1412,7 @@ func (siw *ServerInterfaceWrapper) ResetCache(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ResetCache(w, r, params)
+		siw.Handler.Reset(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1505,11 +1422,11 @@ func (siw *ServerInterfaceWrapper) ResetCache(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// SeekToTimestamp operation middleware
-func (siw *ServerInterfaceWrapper) SeekToTimestamp(w http.ResponseWriter, r *http.Request) {
+// Seek operation middleware
+func (siw *ServerInterfaceWrapper) Seek(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SeekToTimestamp(w, r)
+		siw.Handler.Seek(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1915,16 +1832,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/available-data/{date}", wrapper.GetAvailableData)
+		r.Get(options.BaseURL+"/available/{date}", wrapper.GetAvailable)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/available-dates", wrapper.GetAvailableDates)
+		r.Get(options.BaseURL+"/coverage", wrapper.GetCoverage)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/current-date", wrapper.GetCurrentDate)
+		r.Get(options.BaseURL+"/current-load", wrapper.GetCurrentLoad)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/current-range", wrapper.GetCurrentRange)
+		r.Get(options.BaseURL+"/dates", wrapper.GetDates)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/download/{date}/{ticker}/classic/{aggregation}", wrapper.DownloadClassicGex)
@@ -1951,25 +1868,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/hist/{ticker}/{package}/{category}/{date}", wrapper.GetHistSnapshot)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/load-range", wrapper.LoadRange)
+		r.Post(options.BaseURL+"/load", wrapper.Load)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/load-range/status/{jobId}", wrapper.GetLoadRangeStatus)
+		r.Get(options.BaseURL+"/load/status/{jobId}", wrapper.GetLoadStatus)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/options/{ticker}/expiries", wrapper.GetOptionsExpiries)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/range-coverage", wrapper.GetRangeCoverage)
+		r.Post(options.BaseURL+"/reset", wrapper.Reset)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/reload-date", wrapper.ReloadDate)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/reset-cache", wrapper.ResetCache)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/seek-to-timestamp", wrapper.SeekToTimestamp)
+		r.Post(options.BaseURL+"/seek", wrapper.Seek)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/tickers", wrapper.GetTickers)
@@ -2005,66 +1916,76 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	return r
 }
 
-type GetAvailableDataRequestObject struct {
+type GetAvailableRequestObject struct {
 	Date   string `json:"date"`
-	Params GetAvailableDataParams
+	Params GetAvailableParams
 }
 
-type GetAvailableDataResponseObject interface {
-	VisitGetAvailableDataResponse(w http.ResponseWriter) error
+type GetAvailableResponseObject interface {
+	VisitGetAvailableResponse(w http.ResponseWriter) error
 }
 
-type GetAvailableData200JSONResponse AvailableDataResponse
+type GetAvailable200JSONResponse AvailableResponse
 
-func (response GetAvailableData200JSONResponse) VisitGetAvailableDataResponse(w http.ResponseWriter) error {
+func (response GetAvailable200JSONResponse) VisitGetAvailableResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetAvailableDatesRequestObject struct {
+type GetCoverageRequestObject struct {
+	Params GetCoverageParams
 }
 
-type GetAvailableDatesResponseObject interface {
-	VisitGetAvailableDatesResponse(w http.ResponseWriter) error
+type GetCoverageResponseObject interface {
+	VisitGetCoverageResponse(w http.ResponseWriter) error
 }
 
-type GetAvailableDates200JSONResponse AvailableDatesResponse
+type GetCoverage200JSONResponse CoverageResponse
 
-func (response GetAvailableDates200JSONResponse) VisitGetAvailableDatesResponse(w http.ResponseWriter) error {
+func (response GetCoverage200JSONResponse) VisitGetCoverageResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetCurrentDateRequestObject struct {
+type GetCoverage400JSONResponse ErrorResponse
+
+func (response GetCoverage400JSONResponse) VisitGetCoverageResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
 }
 
-type GetCurrentDateResponseObject interface {
-	VisitGetCurrentDateResponse(w http.ResponseWriter) error
+type GetCurrentLoadRequestObject struct {
 }
 
-type GetCurrentDate200JSONResponse CurrentDateResponse
+type GetCurrentLoadResponseObject interface {
+	VisitGetCurrentLoadResponse(w http.ResponseWriter) error
+}
 
-func (response GetCurrentDate200JSONResponse) VisitGetCurrentDateResponse(w http.ResponseWriter) error {
+type GetCurrentLoad200JSONResponse CurrentLoadResponse
+
+func (response GetCurrentLoad200JSONResponse) VisitGetCurrentLoadResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetCurrentRangeRequestObject struct {
+type GetDatesRequestObject struct {
 }
 
-type GetCurrentRangeResponseObject interface {
-	VisitGetCurrentRangeResponse(w http.ResponseWriter) error
+type GetDatesResponseObject interface {
+	VisitGetDatesResponse(w http.ResponseWriter) error
 }
 
-type GetCurrentRange200JSONResponse CurrentRangeResponse
+type GetDates200JSONResponse DatesResponse
 
-func (response GetCurrentRange200JSONResponse) VisitGetCurrentRangeResponse(w http.ResponseWriter) error {
+func (response GetDates200JSONResponse) VisitGetDatesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
@@ -2333,52 +2254,52 @@ func (response GetHistSnapshot404JSONResponse) VisitGetHistSnapshotResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type LoadRangeRequestObject struct {
-	Body *LoadRangeJSONRequestBody
+type LoadRequestObject struct {
+	Body *LoadJSONRequestBody
 }
 
-type LoadRangeResponseObject interface {
-	VisitLoadRangeResponse(w http.ResponseWriter) error
+type LoadResponseObject interface {
+	VisitLoadResponse(w http.ResponseWriter) error
 }
 
-type LoadRange202JSONResponse LoadRangeStatus
+type Load202JSONResponse LoadStatus
 
-func (response LoadRange202JSONResponse) VisitLoadRangeResponse(w http.ResponseWriter) error {
+func (response Load202JSONResponse) VisitLoadResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(202)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type LoadRange400JSONResponse ErrorResponse
+type Load400JSONResponse ErrorResponse
 
-func (response LoadRange400JSONResponse) VisitLoadRangeResponse(w http.ResponseWriter) error {
+func (response Load400JSONResponse) VisitLoadResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetLoadRangeStatusRequestObject struct {
+type GetLoadStatusRequestObject struct {
 	JobId string `json:"jobId"`
 }
 
-type GetLoadRangeStatusResponseObject interface {
-	VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error
+type GetLoadStatusResponseObject interface {
+	VisitGetLoadStatusResponse(w http.ResponseWriter) error
 }
 
-type GetLoadRangeStatus200JSONResponse LoadRangeStatus
+type GetLoadStatus200JSONResponse LoadStatus
 
-func (response GetLoadRangeStatus200JSONResponse) VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error {
+func (response GetLoadStatus200JSONResponse) VisitGetLoadStatusResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetLoadRangeStatus404JSONResponse ErrorResponse
+type GetLoadStatus404JSONResponse ErrorResponse
 
-func (response GetLoadRangeStatus404JSONResponse) VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error {
+func (response GetLoadStatus404JSONResponse) VisitGetLoadStatusResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
@@ -2420,113 +2341,43 @@ func (response GetOptionsExpiries404JSONResponse) VisitGetOptionsExpiriesRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRangeCoverageRequestObject struct {
-	Params GetRangeCoverageParams
+type ResetRequestObject struct {
+	Params ResetParams
 }
 
-type GetRangeCoverageResponseObject interface {
-	VisitGetRangeCoverageResponse(w http.ResponseWriter) error
+type ResetResponseObject interface {
+	VisitResetResponse(w http.ResponseWriter) error
 }
 
-type GetRangeCoverage200JSONResponse RangeCoverageResponse
+type Reset200JSONResponse ResetResponse
 
-func (response GetRangeCoverage200JSONResponse) VisitGetRangeCoverageResponse(w http.ResponseWriter) error {
+func (response Reset200JSONResponse) VisitResetResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRangeCoverage400JSONResponse ErrorResponse
-
-func (response GetRangeCoverage400JSONResponse) VisitGetRangeCoverageResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
+type SeekRequestObject struct {
+	Body *SeekJSONRequestBody
 }
 
-type ReloadDateRequestObject struct {
-	Body *ReloadDateJSONRequestBody
+type SeekResponseObject interface {
+	VisitSeekResponse(w http.ResponseWriter) error
 }
 
-type ReloadDateResponseObject interface {
-	VisitReloadDateResponse(w http.ResponseWriter) error
-}
+type Seek200JSONResponse SeekResponse
 
-type ReloadDate200JSONResponse ReloadDateResponse
-
-func (response ReloadDate200JSONResponse) VisitReloadDateResponse(w http.ResponseWriter) error {
+func (response Seek200JSONResponse) VisitSeekResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ReloadDate400JSONResponse ErrorResponse
+type Seek400JSONResponse ErrorResponse
 
-func (response ReloadDate400JSONResponse) VisitReloadDateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReloadDate409JSONResponse ErrorResponse
-
-func (response ReloadDate409JSONResponse) VisitReloadDateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReloadDate500JSONResponse ErrorResponse
-
-func (response ReloadDate500JSONResponse) VisitReloadDateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ResetCacheRequestObject struct {
-	Params ResetCacheParams
-}
-
-type ResetCacheResponseObject interface {
-	VisitResetCacheResponse(w http.ResponseWriter) error
-}
-
-type ResetCache200JSONResponse ResetCacheResponse
-
-func (response ResetCache200JSONResponse) VisitResetCacheResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SeekToTimestampRequestObject struct {
-	Body *SeekToTimestampJSONRequestBody
-}
-
-type SeekToTimestampResponseObject interface {
-	VisitSeekToTimestampResponse(w http.ResponseWriter) error
-}
-
-type SeekToTimestamp200JSONResponse SeekToTimestampResponse
-
-func (response SeekToTimestamp200JSONResponse) VisitSeekToTimestampResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type SeekToTimestamp400JSONResponse ErrorResponse
-
-func (response SeekToTimestamp400JSONResponse) VisitSeekToTimestampResponse(w http.ResponseWriter) error {
+func (response Seek400JSONResponse) VisitSeekResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
@@ -2900,18 +2751,18 @@ func (response GetStateGexMaxChange404JSONResponse) VisitGetStateGexMaxChangeRes
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Get available data for a date
-	// (GET /available-data/{date})
-	GetAvailableData(ctx context.Context, request GetAvailableDataRequestObject) (GetAvailableDataResponseObject, error)
-	// List available dates
-	// (GET /available-dates)
-	GetAvailableDates(ctx context.Context, request GetAvailableDatesRequestObject) (GetAvailableDatesResponseObject, error)
-	// Get current date
-	// (GET /current-date)
-	GetCurrentDate(ctx context.Context, request GetCurrentDateRequestObject) (GetCurrentDateResponseObject, error)
-	// The currently loaded span
-	// (GET /current-range)
-	GetCurrentRange(ctx context.Context, request GetCurrentRangeRequestObject) (GetCurrentRangeResponseObject, error)
+	// What data exists for a date
+	// (GET /available/{date})
+	GetAvailable(ctx context.Context, request GetAvailableRequestObject) (GetAvailableResponseObject, error)
+	// Ticker coverage across a date span (pre-load)
+	// (GET /coverage)
+	GetCoverage(ctx context.Context, request GetCoverageRequestObject) (GetCoverageResponseObject, error)
+	// The currently loaded day(s)
+	// (GET /current-load)
+	GetCurrentLoad(ctx context.Context, request GetCurrentLoadRequestObject) (GetCurrentLoadResponseObject, error)
+	// List loadable dates
+	// (GET /dates)
+	GetDates(ctx context.Context, request GetDatesRequestObject) (GetDatesResponseObject, error)
 	// Download classic GEX dataset
 	// (GET /download/{date}/{ticker}/classic/{aggregation})
 	DownloadClassicGex(ctx context.Context, request DownloadClassicGexRequestObject) (DownloadClassicGexResponseObject, error)
@@ -2936,27 +2787,21 @@ type StrictServerInterface interface {
 	// Historical snapshot download link
 	// (GET /hist/{ticker}/{package}/{category}/{date})
 	GetHistSnapshot(ctx context.Context, request GetHistSnapshotRequestObject) (GetHistSnapshotResponseObject, error)
-	// Load a contiguous span of trading days for continuous replay
-	// (POST /load-range)
-	LoadRange(ctx context.Context, request LoadRangeRequestObject) (LoadRangeResponseObject, error)
-	// Poll a load-range job
-	// (GET /load-range/status/{jobId})
-	GetLoadRangeStatus(ctx context.Context, request GetLoadRangeStatusRequestObject) (GetLoadRangeStatusResponseObject, error)
+	// Load a day or a span of trading days for replay
+	// (POST /load)
+	Load(ctx context.Context, request LoadRequestObject) (LoadResponseObject, error)
+	// Poll a load job
+	// (GET /load/status/{jobId})
+	GetLoadStatus(ctx context.Context, request GetLoadStatusRequestObject) (GetLoadStatusResponseObject, error)
 	// List valid option expiries
 	// (GET /options/{ticker}/expiries)
 	GetOptionsExpiries(ctx context.Context, request GetOptionsExpiriesRequestObject) (GetOptionsExpiriesResponseObject, error)
-	// Ticker coverage across a date span (pre-load)
-	// (GET /range-coverage)
-	GetRangeCoverage(ctx context.Context, request GetRangeCoverageRequestObject) (GetRangeCoverageResponseObject, error)
-	// Hot reload data for a different date
-	// (POST /reload-date)
-	ReloadDate(ctx context.Context, request ReloadDateRequestObject) (ReloadDateResponseObject, error)
-	// Reset playback positions
-	// (POST /reset-cache)
-	ResetCache(ctx context.Context, request ResetCacheRequestObject) (ResetCacheResponseObject, error)
-	// Seek playback positions to timestamp
-	// (POST /seek-to-timestamp)
-	SeekToTimestamp(ctx context.Context, request SeekToTimestampRequestObject) (SeekToTimestampResponseObject, error)
+	// Rewind playback positions
+	// (POST /reset)
+	Reset(ctx context.Context, request ResetRequestObject) (ResetResponseObject, error)
+	// Seek playback positions to a timestamp
+	// (POST /seek)
+	Seek(ctx context.Context, request SeekRequestObject) (SeekResponseObject, error)
 	// List available tickers
 	// (GET /tickers)
 	GetTickers(ctx context.Context, request GetTickersRequestObject) (GetTickersResponseObject, error)
@@ -3018,26 +2863,26 @@ type strictHandler struct {
 	options     StrictHTTPServerOptions
 }
 
-// GetAvailableData operation middleware
-func (sh *strictHandler) GetAvailableData(w http.ResponseWriter, r *http.Request, date string, params GetAvailableDataParams) {
-	var request GetAvailableDataRequestObject
+// GetAvailable operation middleware
+func (sh *strictHandler) GetAvailable(w http.ResponseWriter, r *http.Request, date string, params GetAvailableParams) {
+	var request GetAvailableRequestObject
 
 	request.Date = date
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAvailableData(ctx, request.(GetAvailableDataRequestObject))
+		return sh.ssi.GetAvailable(ctx, request.(GetAvailableRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAvailableData")
+		handler = middleware(handler, "GetAvailable")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAvailableDataResponseObject); ok {
-		if err := validResponse.VisitGetAvailableDataResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetAvailableResponseObject); ok {
+		if err := validResponse.VisitGetAvailableResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3045,23 +2890,25 @@ func (sh *strictHandler) GetAvailableData(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// GetAvailableDates operation middleware
-func (sh *strictHandler) GetAvailableDates(w http.ResponseWriter, r *http.Request) {
-	var request GetAvailableDatesRequestObject
+// GetCoverage operation middleware
+func (sh *strictHandler) GetCoverage(w http.ResponseWriter, r *http.Request, params GetCoverageParams) {
+	var request GetCoverageRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAvailableDates(ctx, request.(GetAvailableDatesRequestObject))
+		return sh.ssi.GetCoverage(ctx, request.(GetCoverageRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAvailableDates")
+		handler = middleware(handler, "GetCoverage")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAvailableDatesResponseObject); ok {
-		if err := validResponse.VisitGetAvailableDatesResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetCoverageResponseObject); ok {
+		if err := validResponse.VisitGetCoverageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3069,23 +2916,23 @@ func (sh *strictHandler) GetAvailableDates(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// GetCurrentDate operation middleware
-func (sh *strictHandler) GetCurrentDate(w http.ResponseWriter, r *http.Request) {
-	var request GetCurrentDateRequestObject
+// GetCurrentLoad operation middleware
+func (sh *strictHandler) GetCurrentLoad(w http.ResponseWriter, r *http.Request) {
+	var request GetCurrentLoadRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetCurrentDate(ctx, request.(GetCurrentDateRequestObject))
+		return sh.ssi.GetCurrentLoad(ctx, request.(GetCurrentLoadRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetCurrentDate")
+		handler = middleware(handler, "GetCurrentLoad")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetCurrentDateResponseObject); ok {
-		if err := validResponse.VisitGetCurrentDateResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetCurrentLoadResponseObject); ok {
+		if err := validResponse.VisitGetCurrentLoadResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3093,23 +2940,23 @@ func (sh *strictHandler) GetCurrentDate(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// GetCurrentRange operation middleware
-func (sh *strictHandler) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
-	var request GetCurrentRangeRequestObject
+// GetDates operation middleware
+func (sh *strictHandler) GetDates(w http.ResponseWriter, r *http.Request) {
+	var request GetDatesRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetCurrentRange(ctx, request.(GetCurrentRangeRequestObject))
+		return sh.ssi.GetDates(ctx, request.(GetDatesRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetCurrentRange")
+		handler = middleware(handler, "GetDates")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetCurrentRangeResponseObject); ok {
-		if err := validResponse.VisitGetCurrentRangeResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetDatesResponseObject); ok {
+		if err := validResponse.VisitGetDatesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3333,11 +3180,11 @@ func (sh *strictHandler) GetHistSnapshot(w http.ResponseWriter, r *http.Request,
 	}
 }
 
-// LoadRange operation middleware
-func (sh *strictHandler) LoadRange(w http.ResponseWriter, r *http.Request) {
-	var request LoadRangeRequestObject
+// Load operation middleware
+func (sh *strictHandler) Load(w http.ResponseWriter, r *http.Request) {
+	var request LoadRequestObject
 
-	var body LoadRangeJSONRequestBody
+	var body LoadJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -3345,18 +3192,18 @@ func (sh *strictHandler) LoadRange(w http.ResponseWriter, r *http.Request) {
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.LoadRange(ctx, request.(LoadRangeRequestObject))
+		return sh.ssi.Load(ctx, request.(LoadRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "LoadRange")
+		handler = middleware(handler, "Load")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(LoadRangeResponseObject); ok {
-		if err := validResponse.VisitLoadRangeResponse(w); err != nil {
+	} else if validResponse, ok := response.(LoadResponseObject); ok {
+		if err := validResponse.VisitLoadResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3364,25 +3211,25 @@ func (sh *strictHandler) LoadRange(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetLoadRangeStatus operation middleware
-func (sh *strictHandler) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string) {
-	var request GetLoadRangeStatusRequestObject
+// GetLoadStatus operation middleware
+func (sh *strictHandler) GetLoadStatus(w http.ResponseWriter, r *http.Request, jobId string) {
+	var request GetLoadStatusRequestObject
 
 	request.JobId = jobId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetLoadRangeStatus(ctx, request.(GetLoadRangeStatusRequestObject))
+		return sh.ssi.GetLoadStatus(ctx, request.(GetLoadStatusRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetLoadRangeStatus")
+		handler = middleware(handler, "GetLoadStatus")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetLoadRangeStatusResponseObject); ok {
-		if err := validResponse.VisitGetLoadRangeStatusResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetLoadStatusResponseObject); ok {
+		if err := validResponse.VisitGetLoadStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3416,25 +3263,25 @@ func (sh *strictHandler) GetOptionsExpiries(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// GetRangeCoverage operation middleware
-func (sh *strictHandler) GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams) {
-	var request GetRangeCoverageRequestObject
+// Reset operation middleware
+func (sh *strictHandler) Reset(w http.ResponseWriter, r *http.Request, params ResetParams) {
+	var request ResetRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetRangeCoverage(ctx, request.(GetRangeCoverageRequestObject))
+		return sh.ssi.Reset(ctx, request.(ResetRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetRangeCoverage")
+		handler = middleware(handler, "Reset")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetRangeCoverageResponseObject); ok {
-		if err := validResponse.VisitGetRangeCoverageResponse(w); err != nil {
+	} else if validResponse, ok := response.(ResetResponseObject); ok {
+		if err := validResponse.VisitResetResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3442,11 +3289,11 @@ func (sh *strictHandler) GetRangeCoverage(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// ReloadDate operation middleware
-func (sh *strictHandler) ReloadDate(w http.ResponseWriter, r *http.Request) {
-	var request ReloadDateRequestObject
+// Seek operation middleware
+func (sh *strictHandler) Seek(w http.ResponseWriter, r *http.Request) {
+	var request SeekRequestObject
 
-	var body ReloadDateJSONRequestBody
+	var body SeekJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -3454,75 +3301,18 @@ func (sh *strictHandler) ReloadDate(w http.ResponseWriter, r *http.Request) {
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ReloadDate(ctx, request.(ReloadDateRequestObject))
+		return sh.ssi.Seek(ctx, request.(SeekRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ReloadDate")
+		handler = middleware(handler, "Seek")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ReloadDateResponseObject); ok {
-		if err := validResponse.VisitReloadDateResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ResetCache operation middleware
-func (sh *strictHandler) ResetCache(w http.ResponseWriter, r *http.Request, params ResetCacheParams) {
-	var request ResetCacheRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ResetCache(ctx, request.(ResetCacheRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ResetCache")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ResetCacheResponseObject); ok {
-		if err := validResponse.VisitResetCacheResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SeekToTimestamp operation middleware
-func (sh *strictHandler) SeekToTimestamp(w http.ResponseWriter, r *http.Request) {
-	var request SeekToTimestampRequestObject
-
-	var body SeekToTimestampJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SeekToTimestamp(ctx, request.(SeekToTimestampRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SeekToTimestamp")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SeekToTimestampResponseObject); ok {
-		if err := validResponse.VisitSeekToTimestampResponse(w); err != nil {
+	} else if validResponse, ok := response.(SeekResponseObject); ok {
+		if err := validResponse.VisitSeekResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3795,127 +3585,126 @@ func (sh *strictHandler) GetStateGexMaxChange(w http.ResponseWriter, r *http.Req
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"CSVCcmPBe942ma3Xp9f/FwAA//8QlEnO16AAAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

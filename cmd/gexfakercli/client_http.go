@@ -64,8 +64,8 @@ func (c *apiClient) get(ctx context.Context, path string, auth bool, q url.Value
 }
 
 // postJSON issues a POST with a JSON body and no Studio-token auth. Mutating
-// control routes that may require the token (load-range/reload-date/reset-cache
-// on a gated faker) use postControlJSON instead.
+// control routes that may require the token (load/reset on a gated faker) use
+// postControlJSON instead; per-client /seek stays open, so it uses postJSON.
 func (c *apiClient) postJSON(ctx context.Context, path string, auth bool, body any) (json.RawMessage, error) {
 	u := c.base + path
 	var buf io.Reader
@@ -87,8 +87,8 @@ func (c *apiClient) postJSON(ctx context.Context, path string, auth bool, body a
 	return c.do(req)
 }
 
-// postControlJSON issues a POST to a mutating control route (load-range, reload-date,
-// reset-cache). It presents the control token as Bearer when one is configured so the CLI works
+// postControlJSON issues a POST to a mutating control route (load, reset).
+// It presents the control token as Bearer when one is configured so the CLI works
 // against a token-gated faker (Part B); with no token it sends no auth header, matching an open
 // (local dev) faker.
 func (c *apiClient) postControlJSON(ctx context.Context, path string, body any) (json.RawMessage, error) {

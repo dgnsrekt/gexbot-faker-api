@@ -35,17 +35,17 @@ export GEXBOT_API_KEY=test123   # the faker accepts any key
 
 `Basic`, `Bearer`, and a bare token are all accepted. A **missing** header on a
 data route returns `400 {"error":"Authorization header not found."}`. Read-only
-discovery (`/tickers`, `/health`, `/available-dates`, …) needs no header.
+discovery (`/tickers`, `/health`, `/dates`, …) needs no header.
 
 ### Control routes and the Studio token
 
-The **mutating** control routes — `reload-date`, `reset-cache`, `load-range` —
-change global server state, so they're gated behind the server's **Studio auth
-token** (`STUDIO_AUTH_TOKEN`) **when one is set** (typical for a LAN/remote faker):
-present it as `Basic`/`Bearer` or you get `401 {"error":"control route requires the
-Studio auth token"}`. An **unset** token (local dev) leaves them open. Reads and the
-per-client `seek-to-timestamp` are never gated. From the CLI, pass the token with
-`--token` / `GEXFAKER_TOKEN` (see [gexfakercli](gexfakercli.md)).
+The faker-only control plane ([REST API](rest-api.md)) has two **mutating** routes —
+`load` and `reset` — that change global server state, so they're gated behind the
+server's **Studio auth token** (`STUDIO_AUTH_TOKEN`) **when one is set** (typical for a
+LAN/remote faker): present it as `Basic`/`Bearer` or you get `401 {"error":"control
+route requires the Studio auth token"}`. An **unset** token (local dev) leaves them
+open. Reads and the per-client `seek` are never gated. From the CLI, pass the token
+with `--token` / `GEXFAKER_TOKEN` (see [gexfakercli](gexfakercli.md)).
 
 ## 3. Understand per-key playback
 
@@ -60,17 +60,17 @@ distinct key walks the loaded day's snapshots independently:
   `404 {"error":"No more data available"}`.
 - `cache_mode=rotation`: the cursor wraps to the start instead of 404.
 
-Control the cursor with `POST /reset-cache` (rewind) and `POST /seek-to-timestamp`
-(jump to a time) — or via [gexfakercli](gexfakercli.md) (`reset`, `seek`).
+Control the cursor with `POST /reset` (rewind) and `POST /seek` (jump to a time) —
+or via [gexfakercli](gexfakercli.md) (`reset`, `seek`).
 
 ## 4. Multi-day range replay
 
 A client can load a **contiguous span of days** as one cross-day dataset with
-`POST /load-range` (`{from,to}` or `{dates[]}`), so the cursor rolls from one day's
-last snapshot into the next instead of ending at a session boundary, and
-`seek-to-timestamp` resolves anywhere in the span (with `in_gap`/`clamped` for
-overnight gaps and span edges). See [gexfakercli](gexfakercli.md) (`load-range`,
-`current-range`, `coverage`) and [materialize & load](materialize-load.md).
+`POST /load` (`{from,to}` or `{dates[]}` — a single `{date}` loads one day), so the
+cursor rolls from one day's last snapshot into the next instead of ending at a session
+boundary, and `seek` resolves anywhere in the span (with `in_gap`/`clamped` for
+overnight gaps and span edges). See [gexfakercli](gexfakercli.md) (`load`,
+`current-load`, `coverage`) and [materialize & load](materialize-load.md).
 
 ## What to read next
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, fmtBytes, type Status } from './lib/api'
+  import { api, fmtBytes, fmtLoadedSpan, type Status } from './lib/api'
   import { copyText } from './lib/clipboard'
   import Server from './screens/Server.svelte'
   import Library from './screens/Library.svelte'
@@ -109,7 +109,7 @@
         </span>
       </div>
       <div class="status-kv">
-        <span>replaying</span><span class="mono val">{status?.loaded_date ?? '—'}</span>
+        <span>replaying</span><span class="mono val">{fmtLoadedSpan(status)}</span>
       </div>
       <div class="status-kv">
         <span>on disk</span><span class="mono val">{status ? fmtBytes(status.disk_bytes) : '—'}</span

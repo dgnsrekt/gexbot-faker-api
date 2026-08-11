@@ -1,5 +1,23 @@
 # Knowledge base update log
 
+## 2026-08-11 (API consolidation + parity labeling)
+* **Consolidated + renamed the faker control plane** to match the CLI's vocabulary
+  (issue continuation of #66): the two loaders `reload-date` + `load-range` unified
+  into one async **`POST /load`** (`{date}`|`{from,to}`|`{dates[]}` → `job_id`, poll
+  `/load/status/{id}`); the two reads `current-date` + `current-range` into
+  **`GET /current-load`**; and a full rename — `available-dates`→`/dates`,
+  `available-data/{date}`→`/available/{date}`, `range-coverage`→`/coverage`,
+  `reset-cache`→`/reset`, `seek-to-timestamp`→`/seek`. Old paths removed. The gated
+  mutating set is now `load` + `reset`; `seek` and the reads stay open.
+* **Made GexBot parity explicit.** `rest-api` now splits into **Real-GexBot parity**
+  (a GexBot client works unchanged) vs the **Faker control plane** (faker-only);
+  Swagger tags every operation the same way; `websockets` gained a parity banner
+  (the protocol mirrors production, only prefix/cadence are faker knobs);
+  `gexfakercli describe` carries a `gexbot_parity` flag per endpoint.
+* **Fixed #66** (Studio showed only the span-start date): Studio now reads the full
+  loaded span (`loaded_dates`), badges every loaded date, and shows the span in the
+  status/settings. Spanish mirrors updated to match.
+
 ## 2026-08-11 (range replay + control auth)
 * **Corrected the auth model.** `rest-api` and `point-a-client` no longer claim
   control routes are open: the mutating ones (`reload-date`/`reset-cache`/

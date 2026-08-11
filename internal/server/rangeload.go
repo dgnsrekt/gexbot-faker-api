@@ -13,14 +13,14 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
-// loadedRange describes the span a load-range job loaded.
+// loadedRange describes the span a load job loaded.
 type loadedRange struct {
 	From  string   `json:"from"`
 	To    string   `json:"to"`
 	Dates []string `json:"dates"`
 }
 
-// rangeLoadJob is the status of one asynchronous load-range request.
+// rangeLoadJob is the status of one asynchronous /load request (a day or a span).
 type rangeLoadJob struct {
 	ID          string       `json:"job_id"`
 	Dates       []string     `json:"dates"`
@@ -31,7 +31,7 @@ type rangeLoadJob struct {
 	Error       string       `json:"error,omitempty"`
 }
 
-// rangeLoadManager runs load-range jobs in the background so the client never blocks on the
+// rangeLoadManager runs load jobs in the background so the client never blocks on the
 // multi-minute materialize of a span. Work is serialized: one worker processes a job at a time, so
 // each date's slow unpack runs sequentially (progress = days materialized / total). After all days
 // are on disk it swaps the whole span in via ReloadManager.ReloadRange. Jobs are keyed by an opaque
@@ -103,7 +103,7 @@ func (m *rangeLoadManager) worker() {
 		if failErr != nil {
 			job.State = "error"
 			job.Error = failErr.Error()
-			m.logger.Warn("load-range job failed", zap.String("job", id), zap.Error(failErr))
+			m.logger.Warn("load job failed", zap.String("job", id), zap.Error(failErr))
 		} else {
 			job.State = "done"
 			job.LoadedRange = &loadedRange{From: dates[0], To: dates[len(dates)-1], Dates: dates}
@@ -112,7 +112,7 @@ func (m *rangeLoadManager) worker() {
 	}
 }
 
-// start enqueues a load-range job for the (already normalized, non-empty) dates and returns its
+// start enqueues a load job for the (already normalized, non-empty) dates and returns its
 // initial status.
 func (m *rangeLoadManager) start(dates []string) rangeLoadJob {
 	id := m.nextID()
