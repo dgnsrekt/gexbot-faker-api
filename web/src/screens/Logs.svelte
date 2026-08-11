@@ -225,8 +225,8 @@
     <div class="notice">
       {errorMsg}
       <div class="hint mono">
-        Run <code>just observability-up</code> (or ensure the Loki container is running), then reopen
-        this screen.
+        Loki runs in the default stack — start it with <code>just up</code> (or
+        <code>docker compose up -d</code>), then reopen this screen.
       </div>
     </div>
   {/if}
