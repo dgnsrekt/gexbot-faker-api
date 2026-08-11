@@ -147,6 +147,13 @@ export const api = {
   downloadStatus: () => getJSON<DownloadJob[]>('/studio/api/download'),
   metricsQuery: (query: string) =>
     getJSON<PromResponse>(`/studio/api/metrics/query?query=${encodeURIComponent(query)}`),
+  // metricsRange runs a range query over the last `minutes`, sampled every `step` seconds.
+  metricsRange: (query: string, minutes: number, step: number) => {
+    const end = Math.floor(Date.now() / 1000)
+    const start = end - minutes * 60
+    const qs = `query=${encodeURIComponent(query)}&start=${start}&end=${end}&step=${step}`
+    return getJSON<PromResponse>(`/studio/api/metrics/range?${qs}`)
+  },
 }
 
 // PromResponse mirrors Prometheus's query API envelope (proxied server-side).
@@ -158,12 +165,29 @@ export interface PromResponse {
 export interface PromSample {
   metric: Record<string, string>
   value?: [number, string] // instant query: [unixSeconds, sampleValue]
+  values?: [number, string][] // range query: [[unixSeconds, sampleValue], ...]
 }
 
 // promScalar returns the single sample value of an instant query, or null.
 export function promScalar(r: PromResponse): number | null {
   const v = r.data?.result?.[0]?.value?.[1]
   return v === undefined ? null : Number(v)
+}
+
+// A chart series: a label plus [unixSeconds, value] points.
+export interface Series {
+  name: string
+  points: [number, number][]
+}
+
+// promToSeries turns a range-query response into chart series, labeling each by
+// the given metric label (e.g. "ticker") or falling back to a static name.
+export function promToSeries(r: PromResponse, label?: string, fallback = ''): Series[] {
+  if (r.status !== 'success' || !r.data?.result) return []
+  return r.data.result.map((s) => ({
+    name: (label && s.metric[label]) || fallback || Object.values(s.metric).join(' ') || 'value',
+    points: (s.values || []).map(([t, v]) => [t, Number(v)] as [number, number]),
+  }))
 }
 
 export function fmtBytes(n: number): string {
