@@ -63,7 +63,7 @@ func datesCmd() *cobra.Command {
 		Short: "List materialized dates available to load",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			raw, err := newClient().get(cmd.Context(), "/available-dates", false, nil)
+			raw, err := newClient().get(cmd.Context(), "/dates", false, nil)
 			if err != nil {
 				return fail(err)
 			}
@@ -85,7 +85,7 @@ func availableCmd() *cobra.Command {
 			if ticker != "" {
 				q = url.Values{"ticker": {ticker}}
 			}
-			raw, err := newClient().get(cmd.Context(), "/available-data/"+args[0], false, q)
+			raw, err := newClient().get(cmd.Context(), "/available/"+args[0], false, q)
 			if err != nil {
 				return fail(err)
 			}
@@ -112,9 +112,9 @@ func statusCmd() *cobra.Command {
 			out := map[string]json.RawMessage{}
 			_ = json.Unmarshal(health, &out)
 
-			// current-date is best-effort: merge its fields when reachable so a
-			// single `status` call answers "is it up and what is loaded?".
-			if cur, err := c.get(ctx, "/current-date", false, nil); err == nil {
+			// current-load is best-effort: merge its fields (dates/from/to/files_loaded)
+			// when reachable so a single `status` call answers "is it up and what is loaded?".
+			if cur, err := c.get(ctx, "/current-load", false, nil); err == nil {
 				var m map[string]json.RawMessage
 				if json.Unmarshal(cur, &m) == nil {
 					for k, v := range m {

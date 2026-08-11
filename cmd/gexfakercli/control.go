@@ -9,19 +9,17 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
 )
 
-// Control commands steer playback (reset/seek) and what data is loaded (load / load-range).
-// reset/seek default to the CLI's --key so a plain `gexfakercli reset` rewinds the same cursor the
-// data pulls advance. The MUTATING routes (reset, load, load-range) present the --token/GEXFAKER_TOKEN
-// as Bearer when set, so they work against a token-gated faker; seek and the read-only range queries
-// stay open.
+// Control commands steer playback (reset/seek) and what data is loaded (load). reset/seek default to
+// the CLI's --key so a plain `gexfakercli reset` rewinds the same cursor the data pulls advance. The
+// MUTATING routes (reset, load) present the --token/GEXFAKER_TOKEN as Bearer when set, so they work
+// against a token-gated faker; seek and the read-only queries (current-load, coverage) stay open.
 
 func controlCmds() []*cobra.Command {
 	return []*cobra.Command{
 		resetCmd(),
 		seekCmd(),
 		loadCmd(),
-		loadRangeCmd(),
-		currentRangeCmd(),
+		currentLoadCmd(),
 		coverageCmd(),
 	}
 }
@@ -41,7 +39,7 @@ func resetCmd() *cobra.Command {
 			if !all {
 				q = url.Values{"key": {flagKey}}
 			}
-			raw, err := newClient().postControlJSON(cmd.Context(), "/reset-cache?"+q.Encode(), nil)
+			raw, err := newClient().postControlJSON(cmd.Context(), "/reset?"+q.Encode(), nil)
 			if err != nil {
 				return fail(err)
 			}
@@ -67,8 +65,8 @@ func seekCmd() *cobra.Command {
 			if k == "" {
 				k = flagKey // seek requires a non-empty key; default to the CLI key
 			}
-			body := generated.SeekToTimestampRequest{Timestamp: ts, Key: k}
-			raw, err := newClient().postJSON(cmd.Context(), "/seek-to-timestamp", false, body)
+			body := generated.SeekRequest{Timestamp: ts, Key: k}
+			raw, err := newClient().postJSON(cmd.Context(), "/seek", false, body)
 			if err != nil {
 				return fail(err)
 			}
@@ -77,20 +75,4 @@ func seekCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&key, "key", "", "key to seek (default: the CLI --key)")
 	return cmd
-}
-
-func loadCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "load <date>",
-		Short: "Load a date (YYYY-MM-DD); materializes its EOD archive if needed",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			body := generated.ReloadDateRequest{Date: args[0]}
-			raw, err := newClient().postControlJSON(cmd.Context(), "/reload-date", body)
-			if err != nil {
-				return fail(err)
-			}
-			return emit(raw)
-		},
-	}
 }

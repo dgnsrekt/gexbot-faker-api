@@ -11,7 +11,7 @@ timestamp: 2026-08-11T00:00:00Z
 ## "Data not found for TICKER/…"
 
 La fecha cargada no tiene ese ticker/package/categoría. Revisa qué está realmente
-cargado con `gexfakercli available <date>` (o `GET /available-data/{date}`). Un día
+cargado con `gexfakercli available <date>` (o `GET /available/{date}`). Un día
 cargado solo contiene los tickers que descargaste — p. ej. puede tener QQQ pero no
 SPX. Descarga el ticker que quieres y luego recarga.
 
@@ -39,7 +39,7 @@ Consulta [point a client](point-a-client.md).
 ## `404 {"error":"No more data available"}`
 
 El cursor de reproducción de la key llegó al final del día en modo `exhaust`.
-Rebobínalo con `gexfakercli reset` (o `POST /reset-cache`), o corre el servidor con
+Rebobínalo con `gexfakercli reset` (o `POST /reset`), o corre el servidor con
 `CACHE_MODE=rotation` para hacer bucle en vez de 404.
 
 ## La pantalla Download dice "set GEXBOT_API_KEY"

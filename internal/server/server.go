@@ -154,13 +154,12 @@ func authMiddleware(next http.Handler) http.Handler {
 
 // isMutatingControlPath reports whether path is a state-changing faker control route that Part B
 // gates behind the Studio auth token. These mutate global server state (what data is loaded, cursor
-// positions), so on a LAN they should require the token. Read-only discovery (/available-dates,
-// /current-date, /current-range, /range-coverage, /available-data, /tickers, /load-range/status,
-// /health), the market-data routes (their own any-token auth), and per-client playback
-// (/seek-to-timestamp) stay open.
+// positions), so on a LAN they should require the token. Read-only discovery (/dates, /current-load,
+// /coverage, /available/{date}, /tickers, /load/status, /health), the market-data routes (their own
+// any-token auth), and per-client playback (/seek) stay open.
 func isMutatingControlPath(path string) bool {
 	switch strings.Trim(path, "/") {
-	case "load-range", "reload-date", "reset-cache":
+	case "load", "reset":
 		return true
 	}
 	return false

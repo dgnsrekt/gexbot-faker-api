@@ -40,8 +40,8 @@ Data pulls replay the day in order; each pull advances a **per-`--key` cursor**
 - `cache_mode=exhaust` → `404 "No more data"` at the end; `rotation` → wraps.
 - `gexfakercli reset` rewinds the active key's cursor (`--all` resets every key).
 - `gexfakercli seek <unix-ts>` jumps to the first snapshot at/after a timestamp.
-- **Multi-day:** with a span loaded (`load-range`, below), the cursor rolls from one
-  day's last snapshot into the next, and `seek` resolves across the whole span.
+- **Multi-day:** with a span loaded (`load --from/--to`, below), the cursor rolls from
+  one day's last snapshot into the next, and `seek` resolves across the whole span.
 
 ## Common commands
 
@@ -67,33 +67,32 @@ Output control: `--fields a,b,c`, `--pretty`, `--url` / `GEXFAKER_URL`
 
 ## Multi-day replay
 
-Load a contiguous **span** of days as one continuous dataset so replay crosses day
-boundaries instead of dying at the first session end:
+`load` handles one day or a contiguous **span** — a span is served as one continuous
+dataset so replay crosses day boundaries instead of dying at the first session end:
 
 ```bash
 gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # per-day tickers + union/intersection (pre-load)
-gexfakercli load-range --from 2026-08-06 --to 2026-08-10 # materialize + load the span (async; waits to done)
-gexfakercli load-range --dates 2026-08-06,2026-08-07     # or an explicit list
-gexfakercli current-range                                # confirm the loaded span
+gexfakercli load --from 2026-08-06 --to 2026-08-10        # materialize + load the span (async; waits to done)
+gexfakercli load --dates 2026-08-06,2026-08-07            # or an explicit list
+gexfakercli current-load                                 # confirm what's loaded
 ```
 
-`load-range` is asynchronous — it polls the job to completion (progress on stderr);
-`--no-wait` returns the job id immediately, `--timeout <sec>` bounds the wait. Once a
-span is loaded, `seek <unix-ts>` resolves across it — the response carries
-`resolved_ts`, `day`, `in_gap` (clamps forward through overnight/weekend gaps), and
-`clamped` (`start`/`end` at the span edges; after-end is `clamp` or `error` per the
-server's `RANGE_END_POLICY`). Data pulls then roll from one day's last row into the
-next.
+`load` is asynchronous whether one day or a span — it polls the job to completion
+(progress on stderr); `--no-wait` returns the job id immediately, `--timeout <sec>`
+bounds the wait. Once a span is loaded, `seek <unix-ts>` resolves across it — the
+response carries `resolved_ts`, `day`, `in_gap` (clamps forward through
+overnight/weekend gaps), and `clamped` (`start`/`end` at the span edges; after-end is
+`clamp` or `error` per the server's `RANGE_END_POLICY`). Data pulls then roll from one
+day's last row into the next.
 
 ## Control-route auth
 
-The **mutating** control routes — `load`, `reset`, `load-range` — require the
-faker's **Studio auth token** when the server has one set (`STUDIO_AUTH_TOKEN`, e.g.
-a LAN box). Present it with `--token` or `GEXFAKER_TOKEN` (sent as Bearer); a `401`
-with the hint "requires the faker's Studio auth token" means you need it. Read-only
-routes (`status`, `dates`, `coverage`, `current-range`, `seek`, data pulls) never
-need it, and an unset token means everything is open (local dev). See
-[point a client](point-a-client.md).
+The **mutating** control routes — `load` and `reset` — require the faker's **Studio
+auth token** when the server has one set (`STUDIO_AUTH_TOKEN`, e.g. a LAN box). Present
+it with `--token` or `GEXFAKER_TOKEN` (sent as Bearer); a `401` with the hint "requires
+the faker's Studio auth token" means you need it. Read-only routes (`status`, `dates`,
+`coverage`, `current-load`, `seek`, data pulls) never need it, and an unset token means
+everything is open (local dev). See [point a client](point-a-client.md).
 
 ## Install it as an agent skill
 

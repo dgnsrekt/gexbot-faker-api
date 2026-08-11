@@ -46,8 +46,8 @@ func TestSetupFailsWhenVerifyFails(t *testing.T) {
 		switch {
 		case r.URL.Path == "/health":
 			_, _ = w.Write([]byte(`{"status":"ok","data_date":"2026-08-10","cache_mode":"exhaust","data_mode":"stream"}`))
-		case r.URL.Path == "/current-date":
-			_, _ = w.Write([]byte(`{"current_date":"2026-08-10"}`))
+		case r.URL.Path == "/current-load":
+			_, _ = w.Write([]byte(`{"dates":["2026-08-10"],"from":"2026-08-10","to":"2026-08-10"}`))
 		case r.URL.Path == "/tickers":
 			_, _ = w.Write([]byte(`{"stocks":["QQQ"]}`))
 		case strings.HasSuffix(r.URL.Path, "/classic/gex_zero"):
@@ -76,13 +76,13 @@ func TestSetupFailsWhenRewindFails(t *testing.T) {
 		switch {
 		case r.URL.Path == "/health":
 			_, _ = w.Write([]byte(`{"status":"ok","data_date":"2026-08-10","cache_mode":"exhaust","data_mode":"stream"}`))
-		case r.URL.Path == "/current-date":
-			_, _ = w.Write([]byte(`{"current_date":"2026-08-10"}`))
+		case r.URL.Path == "/current-load":
+			_, _ = w.Write([]byte(`{"dates":["2026-08-10"],"from":"2026-08-10","to":"2026-08-10"}`))
 		case r.URL.Path == "/tickers":
 			_, _ = w.Write([]byte(`{"stocks":["QQQ"]}`))
 		case strings.HasSuffix(r.URL.Path, "/classic/gex_zero"):
 			_, _ = w.Write([]byte(`{"timestamp":1,"ticker":"QQQ"}`)) // pull succeeds
-		case r.URL.Path == "/reset-cache":
+		case r.URL.Path == "/reset":
 			w.WriteHeader(http.StatusInternalServerError) // rewind fails
 			_, _ = w.Write([]byte(`{"error":"reset failed"}`))
 		default:

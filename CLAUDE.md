@@ -52,14 +52,27 @@ go test -v ./internal/config/...    # Run single package tests
 - `cmd/gexfakercli/main.go` - JSON-first agent CLI over the faker (client + self-installing skill + auto-setup)
 - `cmd/synctickers/main.go` - Refresh `internal/config/tickers.json` from GexBot's `/tickers` (CI drift check)
 
-### Control-plane auth & multi-day range
-- **Mutating control routes** (`/load-range`, `/reload-date`, `/reset-cache`) are gated
-  behind `STUDIO_AUTH_TOKEN` via `controlAuthMiddleware`/`isMutatingControlPath`
-  (`internal/server/server.go`) — same Basic/Bearer check as the Studio; empty = open.
-  Reads and `/seek-to-timestamp` stay open; data routes keep any-token auth.
-- **Multi-day range replay**: `/load-range` (span → one cross-day dataset, async job),
-  `/current-range`, `/range-coverage`, range-aware `/seek-to-timestamp`; after-range-end
-  policy is `RANGE_END_POLICY` (`clamp`|`error`). Spec: `docs/SPEC-multiday-range-replay.md`.
+### API parity split, control-plane auth & multi-day range
+- **Parity vs faker-only**: the OpenAPI (`api/openapi.yaml`) tags every operation
+  `GexBot parity` (behaves like the real API — a GexBot client works unchanged) or
+  `Faker control plane` (faker-only; drives the mock). Keep the tag correct when adding
+  endpoints; `knowledge/rest-api.md` mirrors the split, and `gexfakercli describe`
+  carries a `gexbot_parity` flag per endpoint.
+- **The control plane is CLI-aligned**: `POST /load` (one loader — `{date}`|`{from,to}`|
+  `{dates[]}`, async → `job_id`, poll `/load/status/{id}`), `GET /current-load`, `/dates`,
+  `/available/{date}`, `/coverage`, `POST /reset`, `POST /seek`. (These replaced the old
+  `reload-date`/`load-range`/`current-date`/`current-range`/`available-dates`/
+  `available-data`/`range-coverage`/`reset-cache`/`seek-to-timestamp` — one verb each,
+  matching the `gexfakercli` subcommands.)
+- **Mutating control routes** (`/load`, `/reset`) are gated behind `STUDIO_AUTH_TOKEN`
+  via `controlAuthMiddleware`/`isMutatingControlPath` (`internal/server/server.go`) —
+  same Basic/Bearer check as the Studio; empty = open. Reads and `/seek` stay open; data
+  routes keep any-token auth.
+- **Multi-day range replay**: `/load` with a span loads one cross-day dataset (async job);
+  `/current-load`, `/coverage`, and range-aware `/seek`; after-range-end policy is
+  `RANGE_END_POLICY` (`clamp`|`error`). A single-day `/load` honors `DATA_MODE`; a span
+  always streams. Design (endpoint names since renamed — see its banner):
+  `docs/SPEC-multiday-range-replay.md`.
 
 ### Code Generation Pipeline
 1. `api/openapi.yaml` - OpenAPI 3.0 spec defines all endpoints
@@ -100,7 +113,7 @@ faker without curl/env-vars.
   stage (see `Dockerfile`).
 - Read-only control-plane JSON at `/studio/api/{status,config,hubs,library,keys,endpoints}`
   (`internal/server/studio_handlers.go`); the SPA also calls the existing open
-  control endpoints (`/reload-date`, `/reset-cache`, `/current-date`, `/tickers`, ...).
+  control endpoints (`/load`, `/reset`, `/current-load`, `/tickers`, ...).
 - Screens: Download data (calendar + batch builder → fetch market days from GEXbot),
   Local server, Data library (Materialize archived dates in the background → Load ready
   ones), Live streams (hub stats + group-name builder), Settings (effective env vars),

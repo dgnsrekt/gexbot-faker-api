@@ -39,9 +39,9 @@ cursor you walk.
 - `cache_mode=exhaust` → after the last row, pulls return HTTP 404 `No more data`.
 - `cache_mode=rotation` → the cursor wraps to the start. Check `gexfakercli status`.
 - `gexfakercli reset` rewinds to the start; `gexfakercli seek <unix-ts>` jumps to a time.
-- **Multi-day**: `gexfakercli load-range` loads a span of days as one continuous dataset; the
-  cursor then rolls from one day's last row into the next and `seek` resolves across the whole span
-  (see below).
+- **Multi-day**: `gexfakercli load --from A --to B` (or `--dates`) loads a span of days as one
+  continuous dataset; the cursor then rolls from one day's last row into the next and `seek`
+  resolves across the whole span (see below).
 
 ## Common commands
 
@@ -49,7 +49,7 @@ cursor you walk.
 gexfakercli status                      # is it up + which date is loaded
 gexfakercli tickers                     # stocks/indexes/futures  (--quant for quant set)
 gexfakercli dates                       # dates available to load
-gexfakercli load 2026-07-17             # load a date (materializes its archive if needed)
+gexfakercli load 2026-07-17             # load a date (async; waits to done; materializes if needed)
 
 # Data pulls (advance the cursor). --fields trims the payload for token thrift:
 gexfakercli classic SPX gex_zero --fields timestamp,spot,zero_gamma
@@ -68,13 +68,14 @@ end. Check coverage first (some days have fewer tickers), then load:
 
 ```bash
 gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # per-day tickers + union + intersection (pre-load)
-gexfakercli load-range --from 2026-08-06 --to 2026-08-10 # materialize+load the span (async; waits to done)
-gexfakercli load-range --dates 2026-08-06,2026-08-07     # or an explicit list
-gexfakercli current-range                                # confirm the loaded span
+gexfakercli load --from 2026-08-06 --to 2026-08-10        # materialize+load the span (async; waits to done)
+gexfakercli load --dates 2026-08-06,2026-08-07            # or an explicit list
+gexfakercli current-load                                 # confirm what's loaded
 ```
 
-`load-range` is asynchronous — it kicks off a job and polls to completion (progress lines on stderr);
-pass `--no-wait` to return the job id immediately, `--timeout <sec>` to bound the wait.
+`load` is asynchronous (whether one day or a span) — it kicks off a job and polls to completion
+(progress lines on stderr); pass `--no-wait` to return the job id immediately, `--timeout <sec>` to
+bound the wait.
 
 Once a span is loaded, `seek <unix-ts>` resolves across the whole range. The response carries
 `resolved_ts`, `day`, `in_gap`, `clamped`, and a per-stream `details[]`:
@@ -87,11 +88,11 @@ Data pulls (`classic/state/orderflow`) then roll from one day's last row straigh
 
 ## Control-route auth (gated fakers)
 
-Mutating control routes — `load`, `reset`, `load-range` — require the faker's **Studio auth token**
-when it is set (`STUDIO_AUTH_TOKEN` on the server, e.g. a LAN box). Present it with `--token` or
-`GEXFAKER_TOKEN` (sent as Bearer). A `401` with the hint "requires the faker's Studio auth token"
-means you need it. Read-only routes (`status`, `dates`, `coverage`, `current-range`, `seek`, data
-pulls) never need it; an unset token means everything is open (local dev).
+Mutating control routes — `load`, `reset` — require the faker's **Studio auth token** when it is set
+(`STUDIO_AUTH_TOKEN` on the server, e.g. a LAN box). Present it with `--token` or `GEXFAKER_TOKEN`
+(sent as Bearer). A `401` with the hint "requires the faker's Studio auth token" means you need it.
+Read-only routes (`status`, `dates`, `coverage`, `current-load`, `seek`, data pulls) never need it;
+an unset token means everything is open (local dev).
 
 ## Output control
 

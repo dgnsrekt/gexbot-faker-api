@@ -503,8 +503,8 @@ func (s *Server) GetHealth(ctx context.Context, request generated.GetHealthReque
 	}, nil
 }
 
-// ResetCache implements generated.StrictServerInterface
-func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheRequestObject) (generated.ResetCacheResponseObject, error) {
+// Reset implements generated.StrictServerInterface
+func (s *Server) Reset(ctx context.Context, request generated.ResetRequestObject) (generated.ResetResponseObject, error) {
 	apiKey := ""
 	if request.Params.Key != nil {
 		apiKey = *request.Params.Key
@@ -523,15 +523,15 @@ func (s *Server) ResetCache(ctx context.Context, request generated.ResetCacheReq
 		zap.Int("count", count),
 	)
 
-	return generated.ResetCache200JSONResponse{
+	return generated.Reset200JSONResponse{
 		Status:  &status,
 		Message: &message,
 		Count:   &count,
 	}, nil
 }
 
-// SeekToTimestamp implements generated.StrictServerInterface
-func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTimestampRequestObject) (generated.SeekToTimestampResponseObject, error) {
+// Seek implements generated.StrictServerInterface
+func (s *Server) Seek(ctx context.Context, request generated.SeekRequestObject) (generated.SeekResponseObject, error) {
 	targetTs := request.Body.Timestamp
 	apiKey := request.Body.Key
 
@@ -632,14 +632,14 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 			zap.Int64("targetTimestamp", targetTs),
 			zap.Int("outOfRangeCount", outOfRangeCount),
 		)
-		return generated.SeekToTimestamp400JSONResponse{
+		return generated.Seek400JSONResponse{
 			Error: ptr("Timestamp is after all available data"),
 		}, nil
 	}
 
 	// If no data was found at all
 	if positionsSet == 0 {
-		return generated.SeekToTimestamp400JSONResponse{
+		return generated.Seek400JSONResponse{
 			Error: ptr("No data found to seek"),
 		}, nil
 	}
@@ -663,10 +663,10 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 	if clampVal == "" {
 		clampVal = "none"
 	}
-	clamped := generated.SeekToTimestampResponseClamped(clampVal)
+	clamped := generated.SeekResponseClamped(clampVal)
 	reason := seekReason(repRes)
 
-	return generated.SeekToTimestamp200JSONResponse{
+	return generated.Seek200JSONResponse{
 		Status:       &status,
 		Message:      &message,
 		PositionsSet: &positionsSet,
@@ -1216,8 +1216,8 @@ func maskCacheKey(cacheKey string) string {
 	return cacheKey
 }
 
-// GetAvailableDates implements generated.StrictServerInterface
-func (s *Server) GetAvailableDates(ctx context.Context, request generated.GetAvailableDatesRequestObject) (generated.GetAvailableDatesResponseObject, error) {
+// GetDates implements generated.StrictServerInterface
+func (s *Server) GetDates(ctx context.Context, request generated.GetDatesRequestObject) (generated.GetDatesResponseObject, error) {
 	entries, err := os.ReadDir(s.config.DataDir)
 	if err != nil {
 		s.logger.Error("failed to read data directory", zap.Error(err))
@@ -1248,36 +1248,19 @@ func (s *Server) GetAvailableDates(ctx context.Context, request generated.GetAva
 		zap.Strings("dates", dates),
 	)
 
-	return generated.GetAvailableDates200JSONResponse{
+	return generated.GetDates200JSONResponse{
 		Dates: &dates,
 		Count: &count,
 	}, nil
 }
 
-// GetCurrentDate implements generated.StrictServerInterface
-func (s *Server) GetCurrentDate(ctx context.Context, request generated.GetCurrentDateRequestObject) (generated.GetCurrentDateResponseObject, error) {
-	filesLoaded := len(s.loader.GetLoadedKeys())
-
-	s.logger.Debug("current date request",
-		zap.String("currentDate", s.config.DataDate),
-		zap.Time("loadedAt", s.loadedAt),
-		zap.Int("filesLoaded", filesLoaded),
-	)
-
-	return generated.GetCurrentDate200JSONResponse{
-		CurrentDate: &s.config.DataDate,
-		LoadedAt:    &s.loadedAt,
-		FilesLoaded: &filesLoaded,
-	}, nil
-}
-
-// GetAvailableData implements generated.StrictServerInterface
-func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvailableDataRequestObject) (generated.GetAvailableDataResponseObject, error) {
+// GetAvailable implements generated.StrictServerInterface
+func (s *Server) GetAvailable(ctx context.Context, request generated.GetAvailableRequestObject) (generated.GetAvailableResponseObject, error) {
 	date := request.Date
 	if !isValidDateFormat(date) {
 		emptyTickers := []generated.TickerData{}
 		total := 0
-		return generated.GetAvailableData200JSONResponse{
+		return generated.GetAvailable200JSONResponse{
 			Date:    &date,
 			Tickers: &emptyTickers,
 			Summary: &generated.DataSummary{TotalTickers: &total, TotalFiles: &total},
@@ -1305,7 +1288,7 @@ func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvai
 		emptyTickers := []generated.TickerData{}
 		totalTickers := 0
 		totalFiles := 0
-		return generated.GetAvailableData200JSONResponse{
+		return generated.GetAvailable200JSONResponse{
 			Date:    &date,
 			Tickers: &emptyTickers,
 			Summary: &generated.DataSummary{
@@ -1414,7 +1397,7 @@ func (s *Server) GetAvailableData(ctx context.Context, request generated.GetAvai
 		zap.Int("totalFiles", totalFiles),
 	)
 
-	return generated.GetAvailableData200JSONResponse{
+	return generated.GetAvailable200JSONResponse{
 		Date:    &date,
 		Tickers: &tickers,
 		Summary: &generated.DataSummary{
@@ -1715,65 +1698,5 @@ func (s *Server) GetDownloadLinks(ctx context.Context, request generated.GetDown
 		Summary: &generated.DownloadLinksSummary{
 			TotalLinks: &totalLinks,
 		},
-	}, nil
-}
-
-// ReloadDate implements generated.StrictServerInterface
-func (s *Server) ReloadDate(ctx context.Context, request generated.ReloadDateRequestObject) (generated.ReloadDateResponseObject, error) {
-	newDate := request.Body.Date
-
-	s.logger.Info("reload date request",
-		zap.String("currentDate", s.config.DataDate),
-		zap.String("newDate", newDate),
-	)
-
-	// Check if reload manager is available
-	if s.reloadManager == nil {
-		return generated.ReloadDate500JSONResponse{
-			Error: ptr("Reload not available: server not configured for hot reload"),
-		}, nil
-	}
-
-	// Perform the reload
-	result, err := s.reloadManager.Reload(ctx, newDate)
-	if err != nil {
-		errMsg := err.Error()
-
-		// Check for specific error types
-		if strings.Contains(errMsg, "already in progress") {
-			return generated.ReloadDate409JSONResponse{
-				Error: ptr(errMsg),
-			}, nil
-		}
-
-		if strings.Contains(errMsg, "not found") || strings.Contains(errMsg, "invalid date format") {
-			return generated.ReloadDate400JSONResponse{
-				Error: ptr(errMsg),
-			}, nil
-		}
-
-		return generated.ReloadDate500JSONResponse{
-			Error: ptr(errMsg),
-		}, nil
-	}
-
-	// Update server's loadedAt time
-	s.loadedAt = result.LoadedAt
-
-	status := "success"
-
-	s.logger.Info("reload date complete",
-		zap.String("previousDate", result.PreviousDate),
-		zap.String("newDate", result.NewDate),
-		zap.Time("loadedAt", result.LoadedAt),
-		zap.Int("filesLoaded", result.FilesLoaded),
-	)
-
-	return generated.ReloadDate200JSONResponse{
-		Status:       &status,
-		PreviousDate: &result.PreviousDate,
-		NewDate:      &result.NewDate,
-		LoadedAt:     &result.LoadedAt,
-		FilesLoaded:  &result.FilesLoaded,
 	}, nil
 }

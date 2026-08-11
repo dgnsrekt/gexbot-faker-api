@@ -45,7 +45,7 @@ starting point (`cp gexbot.example.env .env`).
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`reload-date`/`reset-cache`/`load-range`); empty = open |
+| `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`load`/`reset`); empty = open |
 | `LOKI_URL` | http://loki:3100 | Loki endpoint for the Logs screen |
 | `PROMETHEUS_URL` | http://prometheus:9090 | Prometheus endpoint for Monitoring |
 

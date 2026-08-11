@@ -48,7 +48,7 @@ func defaultKeyEnv() string {
 
 // defaultTokenEnv resolves the Studio/control auth token from env. Empty by default
 // (open, local dev); required only when the faker sets STUDIO_AUTH_TOKEN and thus
-// gates the mutating control routes (load-range, load, reset).
+// gates the mutating control routes (load, reset).
 func defaultTokenEnv() string {
 	return os.Getenv("GEXFAKER_TOKEN")
 }

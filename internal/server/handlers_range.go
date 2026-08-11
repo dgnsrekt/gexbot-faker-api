@@ -8,10 +8,10 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
-// loadRangeStatusToAPI maps an internal job to the generated wire type.
-func loadRangeStatusToAPI(j rangeLoadJob) generated.LoadRangeStatus {
-	st := generated.LoadRangeStatusState(j.State)
-	out := generated.LoadRangeStatus{
+// loadStatusToAPI maps an internal job to the generated wire type.
+func loadStatusToAPI(j rangeLoadJob) generated.LoadStatus {
+	st := generated.LoadStatusState(j.State)
+	out := generated.LoadStatus{
 		JobId: ptr(j.ID),
 		Dates: ptr(j.Dates),
 		State: &st,
@@ -31,29 +31,50 @@ func loadRangeStatusToAPI(j rangeLoadJob) generated.LoadRangeStatus {
 	return out
 }
 
-// LoadRange starts an asynchronous multi-day span load. Provide from+to (the available archived
-// days in that inclusive span are loaded) or an explicit dates list. Returns 202 + a job to poll.
-func (s *Server) LoadRange(ctx context.Context, request generated.LoadRangeRequestObject) (generated.LoadRangeResponseObject, error) {
+// Load starts an asynchronous load of one day or a contiguous span. Provide exactly one of: date
+// (a single day), from+to (the available archived days in that inclusive span are loaded), or an
+// explicit dates list. Single-day and span both run through the same job. Returns 202 + a job to poll.
+func (s *Server) Load(ctx context.Context, request generated.LoadRequestObject) (generated.LoadResponseObject, error) {
 	if request.Body == nil {
-		return generated.LoadRange400JSONResponse{Error: ptr("missing request body")}, nil
+		return generated.Load400JSONResponse{Error: ptr("missing request body")}, nil
 	}
 	b := request.Body
 
+	// Enforce the documented exclusive selector: exactly one of date | from+to | dates.
+	selectors := 0
+	if b.Date != nil && *b.Date != "" {
+		selectors++
+	}
+	if b.Dates != nil && len(*b.Dates) > 0 {
+		selectors++
+	}
+	if (b.From != nil && *b.From != "") || (b.To != nil && *b.To != "") {
+		selectors++
+	}
+	if selectors > 1 {
+		return generated.Load400JSONResponse{Error: ptr("provide exactly one of: date, from+to, or dates")}, nil
+	}
+
 	var dates []string
 	switch {
+	case b.Date != nil && *b.Date != "":
+		if !isValidDateFormat(*b.Date) {
+			return generated.Load400JSONResponse{Error: ptr("invalid date format (YYYY-MM-DD)")}, nil
+		}
+		dates = []string{*b.Date}
 	case b.Dates != nil && len(*b.Dates) > 0:
 		dates = *b.Dates
 	case b.From != nil && b.To != nil && *b.From != "" && *b.To != "":
 		from, to := *b.From, *b.To
 		if !isValidDateFormat(from) || !isValidDateFormat(to) {
-			return generated.LoadRange400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
+			return generated.Load400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
 		}
 		if from > to {
 			from, to = to, from
 		}
 		archives, err := eod.ListArchives(s.config.DataDir)
 		if err != nil {
-			return generated.LoadRange400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
+			return generated.Load400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
 		}
 		for _, a := range archives {
 			if a.Date >= from && a.Date <= to {
@@ -61,48 +82,48 @@ func (s *Server) LoadRange(ctx context.Context, request generated.LoadRangeReque
 			}
 		}
 		if len(dates) == 0 {
-			return generated.LoadRange400JSONResponse{Error: ptr("no archived dates in range " + from + " to " + to)}, nil
+			return generated.Load400JSONResponse{Error: ptr("no archived dates in range " + from + " to " + to)}, nil
 		}
 	default:
-		return generated.LoadRange400JSONResponse{Error: ptr("provide from+to or a non-empty dates list")}, nil
+		return generated.Load400JSONResponse{Error: ptr("provide date, from+to, or a non-empty dates list")}, nil
 	}
 
 	dates = normalizeDates(dates)
 	for _, d := range dates {
 		if !isValidDateFormat(d) {
-			return generated.LoadRange400JSONResponse{Error: ptr("invalid date format: " + d)}, nil
+			return generated.Load400JSONResponse{Error: ptr("invalid date format: " + d)}, nil
 		}
 	}
 	if len(dates) == 0 {
-		return generated.LoadRange400JSONResponse{Error: ptr("no dates to load")}, nil
+		return generated.Load400JSONResponse{Error: ptr("no dates to load")}, nil
 	}
 
 	job := s.rangeLoad.start(dates)
-	return generated.LoadRange202JSONResponse(loadRangeStatusToAPI(job)), nil
+	return generated.Load202JSONResponse(loadStatusToAPI(job)), nil
 }
 
-// GetLoadRangeStatus polls a load-range job.
-func (s *Server) GetLoadRangeStatus(ctx context.Context, request generated.GetLoadRangeStatusRequestObject) (generated.GetLoadRangeStatusResponseObject, error) {
+// GetLoadStatus polls a load job.
+func (s *Server) GetLoadStatus(ctx context.Context, request generated.GetLoadStatusRequestObject) (generated.GetLoadStatusResponseObject, error) {
 	job, ok := s.rangeLoad.status(request.JobId)
 	if !ok {
-		return generated.GetLoadRangeStatus404JSONResponse{Error: ptr("unknown job id: " + request.JobId)}, nil
+		return generated.GetLoadStatus404JSONResponse{Error: ptr("unknown job id: " + request.JobId)}, nil
 	}
-	return generated.GetLoadRangeStatus200JSONResponse(loadRangeStatusToAPI(job)), nil
+	return generated.GetLoadStatus200JSONResponse(loadStatusToAPI(job)), nil
 }
 
-// GetRangeCoverage reports, from the archive inventory (no load needed), which tickers each day in
+// GetCoverage reports, from the archive inventory (no load needed), which tickers each day in
 // [from, to] covers, plus the union and intersection across the span.
-func (s *Server) GetRangeCoverage(ctx context.Context, request generated.GetRangeCoverageRequestObject) (generated.GetRangeCoverageResponseObject, error) {
+func (s *Server) GetCoverage(ctx context.Context, request generated.GetCoverageRequestObject) (generated.GetCoverageResponseObject, error) {
 	from, to := request.Params.From, request.Params.To
 	if !isValidDateFormat(from) || !isValidDateFormat(to) {
-		return generated.GetRangeCoverage400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
+		return generated.GetCoverage400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
 	}
 	if from > to {
 		from, to = to, from
 	}
 	archives, err := eod.ListArchives(s.config.DataDir)
 	if err != nil {
-		return generated.GetRangeCoverage400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
+		return generated.GetCoverage400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
 	}
 
 	type dayCov struct {
@@ -119,18 +140,18 @@ func (s *Server) GetRangeCoverage(ctx context.Context, request generated.GetRang
 	}
 	sort.Slice(sel, func(i, j int) bool { return sel[i].date < sel[j].date })
 
-	days := make([]generated.RangeCoverageDay, 0, len(sel))
+	days := make([]generated.CoverageDay, 0, len(sel))
 	unionSet := map[string]struct{}{}
 	perDay := make([][]string, 0, len(sel))
 	for _, d := range sel {
-		days = append(days, generated.RangeCoverageDay{Date: ptr(d.date), Tickers: ptr(d.tickers)})
+		days = append(days, generated.CoverageDay{Date: ptr(d.date), Tickers: ptr(d.tickers)})
 		for _, t := range d.tickers {
 			unionSet[t] = struct{}{}
 		}
 		perDay = append(perDay, d.tickers)
 	}
 
-	return generated.GetRangeCoverage200JSONResponse{
+	return generated.GetCoverage200JSONResponse{
 		From:         ptr(from),
 		To:           ptr(to),
 		Days:         &days,
@@ -139,13 +160,13 @@ func (s *Server) GetRangeCoverage(ctx context.Context, request generated.GetRang
 	}, nil
 }
 
-// GetCurrentRange reports the currently loaded span (one day for a single-day load).
-func (s *Server) GetCurrentRange(ctx context.Context, request generated.GetCurrentRangeRequestObject) (generated.GetCurrentRangeResponseObject, error) {
+// GetCurrentLoad reports the currently loaded span (one day for a single-day load).
+func (s *Server) GetCurrentLoad(ctx context.Context, request generated.GetCurrentLoadRequestObject) (generated.GetCurrentLoadResponseObject, error) {
 	dates := s.reloadManager.LoadedDates()
 	filesLoaded := len(s.loader.GetLoadedKeys())
 	loadedAt := s.reloadManager.LoadedAt()
 
-	resp := generated.GetCurrentRange200JSONResponse{
+	resp := generated.GetCurrentLoad200JSONResponse{
 		Dates:       ptr(dates),
 		FilesLoaded: ptr(filesLoaded),
 		LoadedAt:    ptr(loadedAt),

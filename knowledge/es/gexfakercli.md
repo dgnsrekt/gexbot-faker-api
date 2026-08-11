@@ -45,9 +45,9 @@ Las extracciones de datos reproducen el día en orden; cada extracción avanza u
   las keys).
 - `gexfakercli seek <unix-ts>` salta al primer snapshot en/después de un
   timestamp.
-- **Multi-día:** con un span cargado (`load-range`, más abajo), el cursor pasa del
-  último snapshot de un día al siguiente, y `seek` resuelve a lo largo de todo el
-  span.
+- **Multi-día:** con un span cargado (`load --from/--to`, más abajo), el cursor
+  pasa del último snapshot de un día al siguiente, y `seek` resuelve a lo largo de
+  todo el span.
 
 ## Comandos comunes
 
@@ -74,33 +74,34 @@ rutas de control protegidas).
 
 ## Reproducción multi-día
 
-Carga un **span** contiguo de días como un dataset continuo para que la
-reproducción cruce los límites de día en lugar de terminar en el primer fin de
-sesión:
+`load` maneja un solo día o un **span** contiguo — un span se sirve como un dataset
+continuo para que la reproducción cruce los límites de día en lugar de morir en el
+primer fin de sesión:
 
 ```bash
 gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # tickers por día + unión/intersección (antes de cargar)
-gexfakercli load-range --from 2026-08-06 --to 2026-08-10 # materializa + carga el span (asíncrono; espera hasta terminar)
-gexfakercli load-range --dates 2026-08-06,2026-08-07     # o una lista explícita
-gexfakercli current-range                                # confirma el span cargado
+gexfakercli load --from 2026-08-06 --to 2026-08-10        # materializa + carga el span (asíncrono; espera hasta terminar)
+gexfakercli load --dates 2026-08-06,2026-08-07            # o una lista explícita
+gexfakercli current-load                                 # confirma lo que está cargado
 ```
 
-`load-range` es asíncrono — sondea el job hasta completarlo (progreso en stderr);
-`--no-wait` devuelve el id del job de inmediato y `--timeout <sec>` acota la espera.
-Una vez cargado un span, `seek <unix-ts>` resuelve a lo largo de él — la respuesta
-lleva `resolved_ts`, `day`, `in_gap` (avanza a través de huecos nocturnos/fin de
-semana) y `clamped` (`start`/`end` en los bordes del span; el tope final es `clamp`
-o `error` según el `RANGE_END_POLICY` del servidor). Las extracciones de datos pasan
-entonces del último snapshot de un día al siguiente.
+`load` es asíncrono ya sea un día o un span — sondea el job hasta completarlo
+(progreso en stderr); `--no-wait` devuelve el id del job de inmediato y
+`--timeout <sec>` acota la espera. Una vez cargado un span, `seek <unix-ts>`
+resuelve a lo largo de él — la respuesta lleva `resolved_ts`, `day`, `in_gap`
+(avanza a través de huecos nocturnos/fin de semana) y `clamped` (`start`/`end` en
+los bordes del span; el tope final es `clamp` o `error` según el
+`RANGE_END_POLICY` del servidor). Las extracciones de datos pasan entonces del
+último snapshot de un día al siguiente.
 
 ## Auth de las rutas de control
 
-Las rutas de control **que mutan estado** — `load`, `reset`, `load-range` —
-requieren el **token de auth del Studio** cuando el servidor tiene uno configurado
+Las rutas de control **que mutan estado** — `load` y `reset` — requieren el
+**token de auth del Studio** cuando el servidor tiene uno configurado
 (`STUDIO_AUTH_TOKEN`, p. ej. una máquina en la LAN). Preséntalo con `--token` o
 `GEXFAKER_TOKEN` (enviado como Bearer); un `401` con el hint "requires the faker's
 Studio auth token" significa que lo necesitas. Las rutas de solo lectura (`status`,
-`dates`, `coverage`, `current-range`, `seek`, extracciones de datos) nunca lo
+`dates`, `coverage`, `current-load`, `seek`, extracciones de datos) nunca lo
 necesitan, y un token sin configurar significa que todo está abierto (dev local).
 Ver [apunta un cliente](point-a-client.md).
 

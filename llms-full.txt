@@ -317,7 +317,7 @@ marker for you (see [download data](download-data.md)).
 
 You don't always have to click Materialize. The server **materializes a date on
 demand** when it loads one that isn't unpacked yet — including via
-`POST /reload-date` and `gexfakercli load <date>`. Materialize in the Library is
+`POST /load` and `gexfakercli load <date>`. Materialize in the Library is
 just a way to do the unpack ahead of time (and in the background) so a later Load
 is instant.
 
@@ -331,8 +331,9 @@ This is **disabled by default**.
 ## Multi-day range
 
 Loading isn't limited to one day. A **span** of contiguous days can be loaded as one
-cross-day dataset (`POST /load-range`, or `gexfakercli load-range` — it materializes
-any archived days in the span first, then loads them together). The playback cursor
+cross-day dataset (`POST /load` with `{from,to}`, or `gexfakercli load --from/--to` —
+it materializes any archived days in the span first, then loads them together). The
+playback cursor
 then rolls from one day's last snapshot straight into the next, and `seek` resolves
 anywhere in the span. See [gexfakercli](gexfakercli.md) and
 [point a client](point-a-client.md).
@@ -440,17 +441,17 @@ export GEXBOT_API_KEY=test123   # the faker accepts any key
 
 `Basic`, `Bearer`, and a bare token are all accepted. A **missing** header on a
 data route returns `400 {"error":"Authorization header not found."}`. Read-only
-discovery (`/tickers`, `/health`, `/available-dates`, …) needs no header.
+discovery (`/tickers`, `/health`, `/dates`, …) needs no header.
 
 ### Control routes and the Studio token
 
-The **mutating** control routes — `reload-date`, `reset-cache`, `load-range` —
-change global server state, so they're gated behind the server's **Studio auth
-token** (`STUDIO_AUTH_TOKEN`) **when one is set** (typical for a LAN/remote faker):
-present it as `Basic`/`Bearer` or you get `401 {"error":"control route requires the
-Studio auth token"}`. An **unset** token (local dev) leaves them open. Reads and the
-per-client `seek-to-timestamp` are never gated. From the CLI, pass the token with
-`--token` / `GEXFAKER_TOKEN` (see [gexfakercli](gexfakercli.md)).
+The faker-only control plane ([REST API](rest-api.md)) has two **mutating** routes —
+`load` and `reset` — that change global server state, so they're gated behind the
+server's **Studio auth token** (`STUDIO_AUTH_TOKEN`) **when one is set** (typical for a
+LAN/remote faker): present it as `Basic`/`Bearer` or you get `401 {"error":"control
+route requires the Studio auth token"}`. An **unset** token (local dev) leaves them
+open. Reads and the per-client `seek` are never gated. From the CLI, pass the token
+with `--token` / `GEXFAKER_TOKEN` (see [gexfakercli](gexfakercli.md)).
 
 ## 3. Understand per-key playback
 
@@ -465,17 +466,17 @@ distinct key walks the loaded day's snapshots independently:
   `404 {"error":"No more data available"}`.
 - `cache_mode=rotation`: the cursor wraps to the start instead of 404.
 
-Control the cursor with `POST /reset-cache` (rewind) and `POST /seek-to-timestamp`
-(jump to a time) — or via [gexfakercli](gexfakercli.md) (`reset`, `seek`).
+Control the cursor with `POST /reset` (rewind) and `POST /seek` (jump to a time) —
+or via [gexfakercli](gexfakercli.md) (`reset`, `seek`).
 
 ## 4. Multi-day range replay
 
 A client can load a **contiguous span of days** as one cross-day dataset with
-`POST /load-range` (`{from,to}` or `{dates[]}`), so the cursor rolls from one day's
-last snapshot into the next instead of ending at a session boundary, and
-`seek-to-timestamp` resolves anywhere in the span (with `in_gap`/`clamped` for
-overnight gaps and span edges). See [gexfakercli](gexfakercli.md) (`load-range`,
-`current-range`, `coverage`) and [materialize & load](materialize-load.md).
+`POST /load` (`{from,to}` or `{dates[]}` — a single `{date}` loads one day), so the
+cursor rolls from one day's last snapshot into the next instead of ending at a session
+boundary, and `seek` resolves anywhere in the span (with `in_gap`/`clamped` for
+overnight gaps and span edges). See [gexfakercli](gexfakercli.md) (`load`,
+`current-load`, `coverage`) and [materialize & load](materialize-load.md).
 
 ## What to read next
 
@@ -520,8 +521,8 @@ Data pulls replay the day in order; each pull advances a **per-`--key` cursor**
 - `cache_mode=exhaust` → `404 "No more data"` at the end; `rotation` → wraps.
 - `gexfakercli reset` rewinds the active key's cursor (`--all` resets every key).
 - `gexfakercli seek <unix-ts>` jumps to the first snapshot at/after a timestamp.
-- **Multi-day:** with a span loaded (`load-range`, below), the cursor rolls from one
-  day's last snapshot into the next, and `seek` resolves across the whole span.
+- **Multi-day:** with a span loaded (`load --from/--to`, below), the cursor rolls from
+  one day's last snapshot into the next, and `seek` resolves across the whole span.
 
 ## Common commands
 
@@ -547,33 +548,32 @@ Output control: `--fields a,b,c`, `--pretty`, `--url` / `GEXFAKER_URL`
 
 ## Multi-day replay
 
-Load a contiguous **span** of days as one continuous dataset so replay crosses day
-boundaries instead of dying at the first session end:
+`load` handles one day or a contiguous **span** — a span is served as one continuous
+dataset so replay crosses day boundaries instead of dying at the first session end:
 
 ```bash
 gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # per-day tickers + union/intersection (pre-load)
-gexfakercli load-range --from 2026-08-06 --to 2026-08-10 # materialize + load the span (async; waits to done)
-gexfakercli load-range --dates 2026-08-06,2026-08-07     # or an explicit list
-gexfakercli current-range                                # confirm the loaded span
+gexfakercli load --from 2026-08-06 --to 2026-08-10        # materialize + load the span (async; waits to done)
+gexfakercli load --dates 2026-08-06,2026-08-07            # or an explicit list
+gexfakercli current-load                                 # confirm what's loaded
 ```
 
-`load-range` is asynchronous — it polls the job to completion (progress on stderr);
-`--no-wait` returns the job id immediately, `--timeout <sec>` bounds the wait. Once a
-span is loaded, `seek <unix-ts>` resolves across it — the response carries
-`resolved_ts`, `day`, `in_gap` (clamps forward through overnight/weekend gaps), and
-`clamped` (`start`/`end` at the span edges; after-end is `clamp` or `error` per the
-server's `RANGE_END_POLICY`). Data pulls then roll from one day's last row into the
-next.
+`load` is asynchronous whether one day or a span — it polls the job to completion
+(progress on stderr); `--no-wait` returns the job id immediately, `--timeout <sec>`
+bounds the wait. Once a span is loaded, `seek <unix-ts>` resolves across it — the
+response carries `resolved_ts`, `day`, `in_gap` (clamps forward through
+overnight/weekend gaps), and `clamped` (`start`/`end` at the span edges; after-end is
+`clamp` or `error` per the server's `RANGE_END_POLICY`). Data pulls then roll from one
+day's last row into the next.
 
 ## Control-route auth
 
-The **mutating** control routes — `load`, `reset`, `load-range` — require the
-faker's **Studio auth token** when the server has one set (`STUDIO_AUTH_TOKEN`, e.g.
-a LAN box). Present it with `--token` or `GEXFAKER_TOKEN` (sent as Bearer); a `401`
-with the hint "requires the faker's Studio auth token" means you need it. Read-only
-routes (`status`, `dates`, `coverage`, `current-range`, `seek`, data pulls) never
-need it, and an unset token means everything is open (local dev). See
-[point a client](point-a-client.md).
+The **mutating** control routes — `load` and `reset` — require the faker's **Studio
+auth token** when the server has one set (`STUDIO_AUTH_TOKEN`, e.g. a LAN box). Present
+it with `--token` or `GEXFAKER_TOKEN` (sent as Bearer); a `401` with the hint "requires
+the faker's Studio auth token" means you need it. Read-only routes (`status`, `dates`,
+`coverage`, `current-load`, `seek`, data pulls) never need it, and an unset token means
+everything is open (local dev). See [point a client](point-a-client.md).
 
 ## Install it as an agent skill
 
@@ -605,7 +605,21 @@ The full, always-current reference is the **Swagger UI at `/docs`**
 **`/openapi.yaml`**. This page is the map; use Swagger for exact schemas and
 try-it-out.
 
-## Market-data pulls (auth header required; advance the cursor)
+## Parity vs faker-only
+
+Every endpoint is one of two kinds — Swagger tags them exactly this way:
+
+- **GexBot parity** — behaves like the real GexBot API. A client written against
+  GexBot works against the faker unchanged: same paths, shapes, and header auth.
+  These are the market-data pulls and the discovery/history routes that mirror
+  production.
+- **Faker control plane** — **faker-only**. These drive the mock — load data for a
+  day or span, move the replay cursor, inspect what's loaded. **The real GexBot API
+  has none of them**; they're how you operate the faker.
+
+## Real-GexBot parity
+
+### Market-data pulls (auth header required; advance the cursor)
 
 | Endpoint | Returns |
 | --- | --- |
@@ -620,43 +634,59 @@ try-it-out.
 Each successful pull returns the current snapshot and advances that key's cursor;
 see [point a client](point-a-client.md) for the auth + cursor model.
 
-## Discovery (no auth)
+### Discovery (no auth)
 
 | Endpoint | Returns |
 | --- | --- |
 | `GET /tickers` · `GET /tickers/quant` | Available tickers |
 | `GET /{package}/categories` | Categories in a package |
-| `GET /available-dates` | Materialized dates ready to load |
-| `GET /available-data/{date}` | Data tree for a date (materializes on demand) |
-| `GET /current-date` | The currently loaded date |
-| `GET /current-range` | The currently loaded span, in multi-day range mode |
-| `GET /range-coverage?from=&to=` | Per-day tickers + union/intersection for a span (works pre-load) |
-| `GET /load-range/status/{job_id}` | Progress of an async range load |
-| `GET /health` | Status, loaded date, data/cache mode |
 
-## Control
+The historical download routes (`GET /hist/...`, `GET /download/{date}/{ticker}/...`)
+also mirror GexBot's layout.
 
-Mutating routes (`reload-date`, `reset-cache`, `load-range`) require the **Studio
-auth token** — `STUDIO_AUTH_TOKEN`, presented as Basic/Bearer — **only when the
-server has one set** (401 `{"error":"control route requires the Studio auth token"}`
-otherwise); an unset token leaves them open (local dev). Reads above and
-`seek-to-timestamp` (per-client) are never gated. See
-[point a client](point-a-client.md).
+## Faker control plane
+
+**Faker-only** — not present on the real GexBot API. The vocabulary matches the
+[gexfakercli](gexfakercli.md) subcommands 1:1.
+
+Mutating routes (`load`, `reset`) require the **Studio auth token** —
+`STUDIO_AUTH_TOKEN`, presented as Basic/Bearer — **only when the server has one set**
+(401 `{"error":"control route requires the Studio auth token"}` otherwise); an unset
+token leaves them open (local dev). The reads below and `seek` (per-client) are never
+gated. See [point a client](point-a-client.md).
+
+### Load & inspect
 
 | Endpoint | Effect |
 | --- | --- |
-| `POST /reload-date` `{date}` | Load a single date (materializes if needed); 409 if a reload is in progress · *token-gated* |
-| `POST /load-range` `{from,to}` or `{dates[]}` | Load a span of days as one cross-day dataset (async → `job_id`) · *token-gated* |
-| `POST /reset-cache?key=` | Rewind a key's cursor (all keys if no `key`) · *token-gated* |
-| `POST /seek-to-timestamp` `{timestamp,key}` | Seek a key to a unix timestamp; in range mode resolves across the span (`resolved_ts`, `day`, `in_gap`, `clamped`) |
+| `POST /load` `{date}` \| `{from,to}` \| `{dates[]}` | Load a day or a span as one cross-day dataset. Async → `{job_id}`; single day = span-of-1 · *token-gated* |
+| `GET /load/status/{job_id}` | Progress of an async load job |
+| `GET /current-load` | What's loaded: `dates[]`, `from`, `to`, `files_loaded`, `loaded_at` |
+| `GET /dates` | Materialized dates ready to load |
+| `GET /available/{date}` | Data tree for a date (materializes on demand) |
+| `GET /coverage?from=&to=` | Per-day tickers + union/intersection for a span (works pre-load) |
+
+`POST /load` is **async-uniform**: it always returns a `job_id`; poll
+`/load/status/{job_id}` until `state=done` (a single-day load just completes fast).
+
+### Playback cursor
+
+| Endpoint | Effect |
+| --- | --- |
+| `POST /reset?key=` | Rewind a key's cursor (all keys if no `key`) · *token-gated* |
+| `POST /seek` `{timestamp,key}` | Seek a key to a unix timestamp; in range mode resolves across the span (`resolved_ts`, `day`, `in_gap`, `clamped`) |
+
+### Health
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /health` | Status, loaded date, data/cache mode |
 
 ## Related
 
 - `GET /negotiate` and the `/ws/*` hubs → [WebSocket streaming](websockets.md).
 - `GET /sync/stream` (SSE market-time broadcast) → see the README's Sync Broadcast
   section.
-- The download link endpoints (`/download/{date}/{ticker}/...`) mirror GexBot's
-  historical layout.
 
 For request/response bodies and examples, open **`/docs`**.
 
@@ -669,6 +699,12 @@ The faker streams live-style data over an **Azure Web PubSub-compatible**
 WebSocket protocol with Protobuf + Zstd frames — the same protocol as production.
 Full protocol detail (message schemas, encoding pipeline) is in the repo's
 `WEBSOCKET.md`; this is the working reference.
+
+> **GexBot parity.** The `/negotiate` handshake, the hub routes, the subprotocols,
+> the frame format, and the group-naming convention all mirror the real GexBot
+> API — a production WebSocket client connects unchanged. The only faker-only
+> knobs are the group `prefix` (`WS_GROUP_PREFIX`, default `blue`) and the
+> broadcast cadence (`WS_STREAM_INTERVAL`); see [configuration](configuration.md).
 
 ## The five hubs
 
@@ -764,7 +800,7 @@ starting point (`cp gexbot.example.env .env`).
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`reload-date`/`reset-cache`/`load-range`); empty = open |
+| `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`load`/`reset`); empty = open |
 | `LOKI_URL` | http://loki:3100 | Loki endpoint for the Logs screen |
 | `PROMETHEUS_URL` | http://prometheus:9090 | Prometheus endpoint for Monitoring |
 
@@ -876,7 +912,7 @@ variable list in [configuration](configuration.md).
 ## "Data not found for TICKER/…"
 
 The loaded date doesn't have that ticker/package/category. Check what's actually
-loaded with `gexfakercli available <date>` (or `GET /available-data/{date}`). A
+loaded with `gexfakercli available <date>` (or `GET /available/{date}`). A
 loaded day only contains the tickers you downloaded — e.g. it may have QQQ but not
 SPX. Download the ticker you want, then reload.
 
@@ -904,7 +940,7 @@ token — the faker doesn't validate it (`export GEXBOT_API_KEY=test123`, or
 ## `404 {"error":"No more data available"}`
 
 The key's playback cursor reached the end of the day in `exhaust` mode. Rewind it
-with `gexfakercli reset` (or `POST /reset-cache`), or run the server with
+with `gexfakercli reset` (or `POST /reset`), or run the server with
 `CACHE_MODE=rotation` to loop instead of 404.
 
 ## The Download screen says "set GEXBOT_API_KEY"

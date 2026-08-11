@@ -171,7 +171,7 @@ func composeFilePresent() bool {
 }
 
 // ensureDate makes sure a date is loaded and returns it. It prefers the already-
-// loaded date, then a chosen date loaded via the keyless /reload-date path.
+// loaded date, then a chosen date loaded via the keyless /load path (async; waits to done).
 func ensureDate(ctx context.Context, c *apiClient, o setupOpts, h health) (string, error) {
 	// Already loaded and no explicit override → nothing to do.
 	if o.date == "" {
@@ -199,31 +199,37 @@ func ensureDate(ctx context.Context, c *apiClient, o setupOpts, h health) (strin
 		}
 	}
 
-	progress("ensure-date", "loading date via /reload-date (materializes if needed)", "date", date)
-	body := generated.ReloadDateRequest{Date: date}
-	if _, err := c.postControlJSON(ctx, "/reload-date", body); err != nil {
+	progress("ensure-date", "loading date via /load (materializes if needed)", "date", date)
+	if _, err := loadAndWait(ctx, c, map[string]any{"date": date}); err != nil {
 		return "", err
 	}
 	return date, nil
 }
 
+// currentDate returns the loaded span's anchor day (from/first date), empty if nothing loaded.
 func currentDate(ctx context.Context, c *apiClient) string {
-	raw, err := c.get(ctx, "/current-date", false, nil)
+	raw, err := c.get(ctx, "/current-load", false, nil)
 	if err != nil {
 		return ""
 	}
-	var m generated.CurrentDateResponse
-	if json.Unmarshal(raw, &m) == nil && m.CurrentDate != nil {
-		return *m.CurrentDate
+	var m generated.CurrentLoadResponse
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	if m.From != nil && *m.From != "" {
+		return *m.From
+	}
+	if m.Dates != nil && len(*m.Dates) > 0 {
+		return (*m.Dates)[0]
 	}
 	return ""
 }
 
-// pickDate chooses a date to load: newest from /available-dates, else newest EOD
+// pickDate chooses a date to load: newest from /dates, else newest EOD
 // archive directory under <dataDir>/eod.
 func pickDate(ctx context.Context, c *apiClient, dataDir string) string {
-	if raw, err := c.get(ctx, "/available-dates", false, nil); err == nil {
-		var r generated.AvailableDatesResponse
+	if raw, err := c.get(ctx, "/dates", false, nil); err == nil {
+		var r generated.DatesResponse
 		if json.Unmarshal(raw, &r) == nil && r.Dates != nil && len(*r.Dates) > 0 {
 			d := append([]string{}, *r.Dates...)
 			sort.Strings(d)
@@ -275,7 +281,7 @@ func verifyPull(ctx context.Context, c *apiClient) ([]string, error) {
 	// The sample pull advanced this key's cursor; rewind it so the agent really
 	// starts at index 0. If the rewind fails we must not report a clean ready
 	// state — propagate the error.
-	if _, err := c.postControlJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), nil); err != nil {
+	if _, err := c.postControlJSON(ctx, "/reset?key="+url.QueryEscape(c.key), nil); err != nil {
 		var ae *apiError
 		if !errors.As(err, &ae) {
 			ae = &apiError{Msg: err.Error()}

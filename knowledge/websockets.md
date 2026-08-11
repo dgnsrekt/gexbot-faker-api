@@ -13,6 +13,12 @@ WebSocket protocol with Protobuf + Zstd frames — the same protocol as producti
 Full protocol detail (message schemas, encoding pipeline) is in the repo's
 `WEBSOCKET.md`; this is the working reference.
 
+> **GexBot parity.** The `/negotiate` handshake, the hub routes, the subprotocols,
+> the frame format, and the group-naming convention all mirror the real GexBot
+> API — a production WebSocket client connects unchanged. The only faker-only
+> knobs are the group `prefix` (`WS_GROUP_PREFIX`, default `blue`) and the
+> broadcast cadence (`WS_STREAM_INTERVAL`); see [configuration](configuration.md).
+
 ## The five hubs
 
 | Hub | Route | Data |

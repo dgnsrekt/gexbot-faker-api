@@ -22,15 +22,15 @@ func serveControl(token, path, authHeader string) int {
 }
 
 func TestIsMutatingControlPath(t *testing.T) {
-	mutating := []string{"/load-range", "/reload-date", "/reset-cache", "load-range"}
+	mutating := []string{"/load", "/reset", "load"}
 	for _, p := range mutating {
 		if !isMutatingControlPath(p) {
 			t.Errorf("isMutatingControlPath(%q) = false, want true", p)
 		}
 	}
 	open := []string{
-		"/current-range", "/range-coverage", "/available-dates", "/current-date",
-		"/load-range/status/range-1", "/seek-to-timestamp", "/health", "/SPX/classic/gex_zero",
+		"/current-load", "/coverage", "/dates", "/available/2026-08-07",
+		"/load/status/range-1", "/seek", "/health", "/SPX/classic/gex_zero",
 	}
 	for _, p := range open {
 		if isMutatingControlPath(p) {
@@ -41,28 +41,28 @@ func TestIsMutatingControlPath(t *testing.T) {
 
 func TestControlAuthMiddleware(t *testing.T) {
 	// No token configured → mutating routes are open (local dev).
-	if c := serveControl("", "/load-range", ""); c != http.StatusOK {
-		t.Errorf("no token, /load-range → %d, want 200", c)
+	if c := serveControl("", "/load", ""); c != http.StatusOK {
+		t.Errorf("no token, /load → %d, want 200", c)
 	}
 
 	// Token set, no/incorrect credential → 401 on a mutating route.
-	if c := serveControl("secret", "/load-range", ""); c != http.StatusUnauthorized {
-		t.Errorf("token set, no auth, /load-range → %d, want 401", c)
+	if c := serveControl("secret", "/load", ""); c != http.StatusUnauthorized {
+		t.Errorf("token set, no auth, /load → %d, want 401", c)
 	}
-	if c := serveControl("secret", "/reload-date", "Bearer nope"); c != http.StatusUnauthorized {
-		t.Errorf("token set, wrong bearer, /reload-date → %d, want 401", c)
+	if c := serveControl("secret", "/load", "Bearer nope"); c != http.StatusUnauthorized {
+		t.Errorf("token set, wrong bearer, /load → %d, want 401", c)
 	}
 
 	// Token set, correct Bearer/Basic → passes.
-	if c := serveControl("secret", "/load-range", "Bearer secret"); c != http.StatusOK {
-		t.Errorf("token set, correct bearer, /load-range → %d, want 200", c)
+	if c := serveControl("secret", "/load", "Bearer secret"); c != http.StatusOK {
+		t.Errorf("token set, correct bearer, /load → %d, want 200", c)
 	}
-	if c := serveControl("secret", "/reset-cache", basic("anyuser", "secret")); c != http.StatusOK {
-		t.Errorf("token set, correct basic, /reset-cache → %d, want 200", c)
+	if c := serveControl("secret", "/reset", basic("anyuser", "secret")); c != http.StatusOK {
+		t.Errorf("token set, correct basic, /reset → %d, want 200", c)
 	}
 
 	// Token set, but a read-only / non-mutating route is never gated (even without a credential).
-	for _, p := range []string{"/current-range", "/range-coverage", "/available-dates", "/load-range/status/range-1", "/seek-to-timestamp"} {
+	for _, p := range []string{"/current-load", "/coverage", "/dates", "/load/status/range-1", "/seek"} {
 		if c := serveControl("secret", p, ""); c != http.StatusOK {
 			t.Errorf("token set, open route %s → %d, want 200 (not gated)", p, c)
 		}

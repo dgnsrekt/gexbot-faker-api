@@ -687,7 +687,7 @@ func PruneTicker(root, date, ticker string) error {
 	}
 	// Drop the parent date dir once the last ticker is pruned. os.Remove only
 	// succeeds on an empty dir, so a date still holding other tickers is left
-	// intact. Without this, the empty leftover makes GetAvailableData report the
+	// intact. Without this, the empty leftover makes GetAvailable report the
 	// date as having no data instead of re-materializing it from the archive.
 	_ = os.Remove(filepath.Join(root, date))
 	return nil

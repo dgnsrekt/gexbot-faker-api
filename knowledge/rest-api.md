@@ -1,8 +1,8 @@
 ---
 type: Reference
 title: REST API reference
-description: The faker's REST endpoint surface — market-data pulls, discovery, control, and health — plus the interactive Swagger UI at /docs and the OpenAPI spec at /openapi.yaml.
-tags: [rest, api, endpoints, openapi, swagger, reference]
+description: The faker's REST endpoint surface, split into real-GexBot parity routes and the faker-only control plane — market-data pulls, discovery, the load/cursor control routes, and health — plus the Swagger UI at /docs and the OpenAPI spec at /openapi.yaml.
+tags: [rest, api, endpoints, openapi, swagger, parity, reference]
 timestamp: 2026-08-11T00:00:00Z
 ---
 
@@ -13,7 +13,21 @@ The full, always-current reference is the **Swagger UI at `/docs`**
 **`/openapi.yaml`**. This page is the map; use Swagger for exact schemas and
 try-it-out.
 
-## Market-data pulls (auth header required; advance the cursor)
+## Parity vs faker-only
+
+Every endpoint is one of two kinds — Swagger tags them exactly this way:
+
+- **GexBot parity** — behaves like the real GexBot API. A client written against
+  GexBot works against the faker unchanged: same paths, shapes, and header auth.
+  These are the market-data pulls and the discovery/history routes that mirror
+  production.
+- **Faker control plane** — **faker-only**. These drive the mock — load data for a
+  day or span, move the replay cursor, inspect what's loaded. **The real GexBot API
+  has none of them**; they're how you operate the faker.
+
+## Real-GexBot parity
+
+### Market-data pulls (auth header required; advance the cursor)
 
 | Endpoint | Returns |
 | --- | --- |
@@ -28,42 +42,58 @@ try-it-out.
 Each successful pull returns the current snapshot and advances that key's cursor;
 see [point a client](point-a-client.md) for the auth + cursor model.
 
-## Discovery (no auth)
+### Discovery (no auth)
 
 | Endpoint | Returns |
 | --- | --- |
 | `GET /tickers` · `GET /tickers/quant` | Available tickers |
 | `GET /{package}/categories` | Categories in a package |
-| `GET /available-dates` | Materialized dates ready to load |
-| `GET /available-data/{date}` | Data tree for a date (materializes on demand) |
-| `GET /current-date` | The currently loaded date |
-| `GET /current-range` | The currently loaded span, in multi-day range mode |
-| `GET /range-coverage?from=&to=` | Per-day tickers + union/intersection for a span (works pre-load) |
-| `GET /load-range/status/{job_id}` | Progress of an async range load |
-| `GET /health` | Status, loaded date, data/cache mode |
 
-## Control
+The historical download routes (`GET /hist/...`, `GET /download/{date}/{ticker}/...`)
+also mirror GexBot's layout.
 
-Mutating routes (`reload-date`, `reset-cache`, `load-range`) require the **Studio
-auth token** — `STUDIO_AUTH_TOKEN`, presented as Basic/Bearer — **only when the
-server has one set** (401 `{"error":"control route requires the Studio auth token"}`
-otherwise); an unset token leaves them open (local dev). Reads above and
-`seek-to-timestamp` (per-client) are never gated. See
-[point a client](point-a-client.md).
+## Faker control plane
+
+**Faker-only** — not present on the real GexBot API. The vocabulary matches the
+[gexfakercli](gexfakercli.md) subcommands 1:1.
+
+Mutating routes (`load`, `reset`) require the **Studio auth token** —
+`STUDIO_AUTH_TOKEN`, presented as Basic/Bearer — **only when the server has one set**
+(401 `{"error":"control route requires the Studio auth token"}` otherwise); an unset
+token leaves them open (local dev). The reads below and `seek` (per-client) are never
+gated. See [point a client](point-a-client.md).
+
+### Load & inspect
 
 | Endpoint | Effect |
 | --- | --- |
-| `POST /reload-date` `{date}` | Load a single date (materializes if needed); 409 if a reload is in progress · *token-gated* |
-| `POST /load-range` `{from,to}` or `{dates[]}` | Load a span of days as one cross-day dataset (async → `job_id`) · *token-gated* |
-| `POST /reset-cache?key=` | Rewind a key's cursor (all keys if no `key`) · *token-gated* |
-| `POST /seek-to-timestamp` `{timestamp,key}` | Seek a key to a unix timestamp; in range mode resolves across the span (`resolved_ts`, `day`, `in_gap`, `clamped`) |
+| `POST /load` `{date}` \| `{from,to}` \| `{dates[]}` | Load a day or a span as one cross-day dataset. Async → `{job_id}`; single day = span-of-1 · *token-gated* |
+| `GET /load/status/{job_id}` | Progress of an async load job |
+| `GET /current-load` | What's loaded: `dates[]`, `from`, `to`, `files_loaded`, `loaded_at` |
+| `GET /dates` | Materialized dates ready to load |
+| `GET /available/{date}` | Data tree for a date (materializes on demand) |
+| `GET /coverage?from=&to=` | Per-day tickers + union/intersection for a span (works pre-load) |
+
+`POST /load` is **async-uniform**: it always returns a `job_id`; poll
+`/load/status/{job_id}` until `state=done` (a single-day load just completes fast).
+
+### Playback cursor
+
+| Endpoint | Effect |
+| --- | --- |
+| `POST /reset?key=` | Rewind a key's cursor (all keys if no `key`) · *token-gated* |
+| `POST /seek` `{timestamp,key}` | Seek a key to a unix timestamp; in range mode resolves across the span (`resolved_ts`, `day`, `in_gap`, `clamped`) |
+
+### Health
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /health` | Status, loaded date, data/cache mode |
 
 ## Related
 
 - `GET /negotiate` and the `/ws/*` hubs → [WebSocket streaming](websockets.md).
 - `GET /sync/stream` (SSE market-time broadcast) → see the README's Sync Broadcast
   section.
-- The download link endpoints (`/download/{date}/{ticker}/...`) mirror GexBot's
-  historical layout.
 
 For request/response bodies and examples, open **`/docs`**.

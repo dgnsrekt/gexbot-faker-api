@@ -58,10 +58,10 @@ func TestNewestArchive(t *testing.T) {
 	}
 }
 
-// pickDate prefers the newest date from /available-dates over local archives.
+// pickDate prefers the newest date from /dates over local archives.
 func TestPickDateNewest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/available-dates" {
+		if r.URL.Path == "/dates" {
 			_, _ = w.Write([]byte(`{"dates":["2026-08-03","2026-08-10","2026-08-05"],"count":3}`))
 			return
 		}
