@@ -206,6 +206,31 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 	return nil
 }
 
+// PackAndMark packs any missing/stale archives for date (see PackMissingArchives)
+// and then marks each ticker materialized. Use it after an individual /hist
+// download, whose auto-convert leaves the JSONL tree on disk: without the marker
+// the date would show "archived"/Materialize in the Library even though its data
+// is already present (and re-materializing would be a no-op that never writes the
+// marker). eod.MarkMaterialized no-ops for a ticker with no data dir (e.g. an
+// all-404 ticker); a real write failure is surfaced so a caller never reports a
+// date "ready" that isn't marked. This is the single shared path for both the
+// Studio download worker and the daemon's fallback/backfill runs.
+func PackAndMark(cfg *config.Config, date string) error {
+	if err := PackMissingArchives(cfg, date); err != nil {
+		return err
+	}
+	tickers := cfg.Tickers
+	if len(tickers) == 0 {
+		tickers = config.DefaultTickers()
+	}
+	for _, ticker := range tickers {
+		if err := eod.MarkMaterialized(cfg.Output.Directory, date, ticker); err != nil {
+			return fmt.Errorf("mark %s materialized: %w", ticker, err)
+		}
+	}
+	return nil
+}
+
 // manifestCoversJSONL reports whether man already contains every package/category
 // JSONL present under <root>/<date>/<ticker>.
 func manifestCoversJSONL(root, date, ticker string, man *eod.Manifest) bool {

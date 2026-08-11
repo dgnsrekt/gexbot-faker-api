@@ -259,7 +259,10 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 			fbCtx, fbCancel := context.WithTimeout(ctx, runTimeout)
 			result, err = downloadjob.ExecuteDownload(fbCtx, cfg, today, logger, nil)
 			if err == nil && result.Failed == 0 {
-				err = downloadjob.PackMissingArchives(cfg, today)
+				// PackAndMark (not PackMissingArchives) so the fallback's
+				// auto-converted JSONL is marked materialized and the date shows
+				// "ready", matching the Studio download path.
+				err = downloadjob.PackAndMark(cfg, today)
 			}
 			fbCancel()
 		}
@@ -342,7 +345,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 			defer cancel()
 			result, err = downloadjob.ExecuteDownload(runCtx, cfg, date, logger, nil)
 			if err == nil && result.Failed == 0 { // ExecuteDownload returns a non-nil error on zero tasks
-				err = downloadjob.PackMissingArchives(cfg, date)
+				err = downloadjob.PackAndMark(cfg, date) // mark materialized → date shows "ready"
 			}
 			return nil // work-level errors carried in err
 		})
