@@ -21,12 +21,23 @@ export default defineConfig({
       title: 'GEX Faker',
       description:
         'Mock server that replays historical GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio) and an agent CLI (gexfakercli).',
-      // Unified with the GEX Faker Studio: green accent, near-black theme, brand
-      // dot, JetBrains Mono, mono-glyph cards.
-      customCss: ['./src/styles/theme.css'],
+      // GEX Faker Studio brand system: the Reflection mark + Space Grotesk
+      // wordmark, green accent on the near-black Studio palette, the stripe
+      // texture, JetBrains Mono, mono-glyph cards. Fonts are self-hosted
+      // (@fontsource) so the embedded /guides build stays offline.
+      customCss: [
+        '@fontsource/space-grotesk/400.css',
+        '@fontsource/space-grotesk/500.css',
+        '@fontsource/space-grotesk/700.css',
+        '@fontsource/jetbrains-mono/400.css',
+        '@fontsource/jetbrains-mono/500.css',
+        '@fontsource/jetbrains-mono/700.css',
+        './src/styles/theme.css',
+      ],
       favicon: '/favicon.svg',
-      // Prepend a per-topic mono glyph to the page title (see PageTitle.astro).
       components: {
+        // The Reflection mark + wordmark lockup, and per-topic title glyphs.
+        SiteTitle: './src/components/SiteTitle.astro',
         PageTitle: './src/components/PageTitle.astro',
       },
       social: [

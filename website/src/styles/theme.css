@@ -7,7 +7,10 @@
 
 :root {
   --guides-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --guides-wordmark: 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --guides-radius: 8px;
+  /* The stripe (brand doc §03): the surface texture for "the faker". */
+  --guides-stripe: repeating-linear-gradient(45deg, #16211b, #16211b 7px, #1a2b21 7px, #1a2b21 14px);
 
   /* Green accent (Studio --green / --green-2), works on light + dark. */
   --sl-color-accent-low: #16211b;
@@ -49,18 +52,40 @@
   --sl-color-hairline-shade: #ececef;
 }
 
-/* Brand: a green square dot before the wordmark, matching the Studio's brand. */
-a.site-title {
-  gap: 0.55rem;
+/* Brand lockup: the Reflection mark + the "GEX Faker Studio" wordmark (see
+ * SiteTitle.astro). Strokes use theme vars so the mark reads on light + dark. */
+.guide-lockup {
+  gap: 0.6rem;
+  color: var(--sl-color-white);
 }
-a.site-title::before {
-  content: '';
-  width: 11px;
-  height: 11px;
+.guide-mark {
+  height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
+  width: auto;
   flex: none;
-  border-radius: 3px;
-  background: var(--sl-color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sl-color-accent) 18%, transparent);
+}
+.guide-mark__real {
+  stroke: var(--sl-color-white);
+}
+.guide-mark__water {
+  fill: var(--sl-color-gray-4);
+}
+.guide-mark__copy {
+  stroke: var(--sl-color-accent);
+}
+.guide-wordmark {
+  font-family: var(--guides-wordmark);
+  font-weight: 400;
+  font-size: var(--sl-text-h4);
+  letter-spacing: -0.01em;
+  color: var(--sl-color-white);
+  overflow: hidden;
+}
+.guide-wordmark b {
+  font-weight: 700;
+}
+.guide-wordmark__studio {
+  font-weight: 400;
+  color: var(--sl-color-gray-3);
 }
 
 /* Active sidebar item: a soft green pill (our take on LM Studio's current-page). */
@@ -111,14 +136,22 @@ site-search button[data-open-modal] {
 
 /* --- Landing hero band ----------------------------------------------------- */
 
+/* The hero wears the stripe texture (brand doc §03) — brand texture for "the
+ * faker", not a live-data signal. The stripe is very low-contrast, so title and
+ * button text stay legible; a green-border edge matches the brand's surface. */
 .guide-hero {
   margin: 0.5rem 0 2.25rem;
   padding: 20px 22px;
-  border: 1px solid var(--sl-color-hairline);
+  border: 1px solid var(--sl-color-accent-low);
+  border-left: 3px solid var(--sl-color-accent);
   border-radius: 14px;
+  background: var(--guides-stripe);
+}
+:root:not([data-theme='dark']) .guide-hero {
+  /* Keep the striped texture dark-tinted; overlay a light wash for readability. */
   background:
-    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--sl-color-accent) 10%, transparent), transparent 55%),
-    var(--sl-color-bg-nav);
+    linear-gradient(color-mix(in srgb, var(--sl-color-bg) 82%, transparent), color-mix(in srgb, var(--sl-color-bg) 82%, transparent)),
+    var(--guides-stripe);
 }
 .guide-hero__tagline {
   margin: 0;
