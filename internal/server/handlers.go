@@ -540,8 +540,12 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
 
-	// Get all loaded data keys
+	// Get all loaded data keys. Sort them so iteration order is deterministic — the representative
+	// top-level resolution below is the first stream by key order, and streams can have different
+	// day-coverage (a ticker absent on some days), so an unsorted (map-order) pick would be
+	// nondeterministic. Every stream's own resolution is reported per-key in details[].
 	dataKeys := s.loader.GetLoadedKeys()
+	sort.Strings(dataKeys)
 
 	// Range-aware resolver: ReloadableLoader implements RangeSeeker (cross-day resolution +
 	// gap/clamp/end-policy in range mode; identical to FindIndexByTimestamp for a single day).
@@ -602,10 +606,23 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 			haveRep = true
 		}
 		dk, idx, ts := dataKey, res.Index, res.ResolvedTs
+		dDay := res.Date
+		if dDay == "" {
+			dDay = s.reloadManager.CurrentDate()
+		}
+		dInGap := res.InGap
+		dClampVal := res.Clamped
+		if dClampVal == "" {
+			dClampVal = "none"
+		}
+		dClamped := generated.SeekPositionDetailClamped(dClampVal)
 		details = append(details, generated.SeekPositionDetail{
 			DataKey:   &dk,
 			Index:     &idx,
 			Timestamp: &ts,
+			Day:       &dDay,
+			InGap:     &dInGap,
+			Clamped:   &dClamped,
 		})
 	}
 

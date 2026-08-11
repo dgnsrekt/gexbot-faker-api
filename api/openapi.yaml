@@ -1292,11 +1292,11 @@ components:
         resolved_ts:
           type: integer
           format: int64
-          description: Timestamp the cursor landed on for the representative stream (may differ from requested when clamped or across a gap)
+          description: Representative resolved timestamp (the first stream by sorted key order; see details[] for every stream's own resolution). May differ from requested when clamped or across a gap.
           example: 1732900005
         day:
           type: string
-          description: The loaded day the resolved row belongs to (range mode)
+          description: The loaded day the representative resolved row belongs to (range mode; per-stream in details[])
           example: '2026-08-07'
         in_gap:
           type: boolean
@@ -1328,6 +1328,19 @@ components:
           format: int64
           description: The actual timestamp at that index
           example: 1732900005
+        day:
+          type: string
+          description: The loaded day this stream's resolved row belongs to (range mode)
+          example: '2026-08-07'
+        in_gap:
+          type: boolean
+          description: This stream's requested timestamp fell in an inter-session gap and was clamped forward
+          example: false
+        clamped:
+          type: string
+          enum: [none, start, end]
+          description: Whether this stream's seek was clamped to the span bounds
+          example: none
 
     LoadRangeRequest:
       type: object

@@ -223,9 +223,13 @@ func (rm *ReloadManager) createLoader(date string) (data.DataLoader, error) {
 	}
 }
 
-// createRangeLoader builds a cross-day RangeLoader over the given dates using the configured mode.
+// createRangeLoader builds a cross-day RangeLoader over the given dates. Range loads always use
+// stream mode regardless of DATA_MODE: a multi-day span in memory mode would hold every day's JSONL
+// in RAM (200-540 MB/day), defeating the bounded-RAM property multi-day replay depends on. Stream
+// mode holds only per-day offset slices + file handles. Single-day /reload-date still honors
+// DATA_MODE via createLoader.
 func (rm *ReloadManager) createRangeLoader(dates []string) (data.DataLoader, error) {
-	return data.NewRangeLoader(rm.config.DataDir, dates, rm.config.DataMode, rm.logger)
+	return data.NewRangeLoader(rm.config.DataDir, dates, "stream", rm.logger)
 }
 
 // ReloadRange loads a contiguous span of dates as one continuous dataset (materializing any missing
