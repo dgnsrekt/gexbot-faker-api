@@ -201,7 +201,7 @@ func ensureDate(ctx context.Context, c *apiClient, o setupOpts, h health) (strin
 
 	progress("ensure-date", "loading date via /reload-date (materializes if needed)", "date", date)
 	body := generated.ReloadDateRequest{Date: date}
-	if _, err := c.postJSON(ctx, "/reload-date", false, body); err != nil {
+	if _, err := c.postControlJSON(ctx, "/reload-date", body); err != nil {
 		return "", err
 	}
 	return date, nil
@@ -275,7 +275,7 @@ func verifyPull(ctx context.Context, c *apiClient) ([]string, error) {
 	// The sample pull advanced this key's cursor; rewind it so the agent really
 	// starts at index 0. If the rewind fails we must not report a clean ready
 	// state — propagate the error.
-	if _, err := c.postJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), false, nil); err != nil {
+	if _, err := c.postControlJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), nil); err != nil {
 		var ae *apiError
 		if !errors.As(err, &ae) {
 			ae = &apiError{Msg: err.Error()}

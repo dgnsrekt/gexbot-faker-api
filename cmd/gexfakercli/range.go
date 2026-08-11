@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/url"
 	"time"
@@ -33,6 +34,9 @@ func loadRangeCmd() *cobra.Command {
 			default:
 				return fail(&apiError{Msg: "provide --from and --to, or --dates"})
 			}
+			if !noWait && timeoutSec <= 0 {
+				return fail(&apiError{Msg: "--timeout must be a positive number of seconds"})
+			}
 
 			c := newClient()
 			raw, err := c.postControlJSON(cmd.Context(), "/load-range", body)
@@ -47,29 +51,45 @@ func loadRangeCmd() *cobra.Command {
 				return emit(raw)
 			}
 
-			// Poll the job to a terminal state. Status is read-only (open route).
-			deadline := time.Now().Add(time.Duration(timeoutSec) * time.Second)
+			// Bound the WHOLE polling phase (including any in-flight status GET) by --timeout, so a
+			// small --timeout can't be swallowed by the HTTP client's own longer timeout.
+			timedOut := func() error {
+				return fail(&apiError{Msg: "load-range did not finish before --timeout", Hint: "increase --timeout or check the faker logs; the job keeps running server-side"})
+			}
+			pollCtx, cancel := context.WithTimeout(cmd.Context(), time.Duration(timeoutSec)*time.Second)
+			defer cancel()
 			for {
-				st, err := c.get(cmd.Context(), "/load-range/status/"+job.JobID, false, nil)
+				st, err := c.get(pollCtx, "/load-range/status/"+job.JobID, false, nil)
 				if err != nil {
+					if cmd.Context().Err() == nil && pollCtx.Err() != nil {
+						return timedOut() // our --timeout fired (not a parent cancel)
+					}
 					return fail(err)
 				}
 				var s struct {
 					State string `json:"state"`
 					Done  int    `json:"done"`
 					Total int    `json:"total"`
+					Error string `json:"error"`
 				}
 				_ = json.Unmarshal(st, &s)
 				progress("load-range", "loading span", "state", s.State, "done", s.Done, "total", s.Total)
-				if s.State == "done" || s.State == "error" {
+				switch s.State {
+				case "done":
 					return emit(st)
-				}
-				if time.Now().After(deadline) {
-					return fail(&apiError{Msg: "load-range did not finish before --timeout", Hint: "increase --timeout or check the faker logs; the job keeps running server-side"})
+				case "error":
+					msg := s.Error
+					if msg == "" {
+						msg = "load-range job failed"
+					}
+					return fail(&apiError{Msg: msg, Hint: "check the faker logs; the requested day(s) may not be archived"})
 				}
 				select {
-				case <-cmd.Context().Done():
-					return fail(&apiError{Msg: cmd.Context().Err().Error()})
+				case <-pollCtx.Done():
+					if cmd.Context().Err() != nil {
+						return fail(&apiError{Msg: cmd.Context().Err().Error()})
+					}
+					return timedOut()
 				case <-time.After(500 * time.Millisecond):
 				}
 			}

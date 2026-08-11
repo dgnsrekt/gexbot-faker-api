@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -108,6 +110,101 @@ func TestCurrentRangeAndCoverage(t *testing.T) {
 	}
 	if coverageQuery != "from=2026-08-06&to=2026-08-10" {
 		t.Errorf("coverage query = %q, want from=2026-08-06&to=2026-08-10", coverageQuery)
+	}
+}
+
+// A job that ends in the error state must exit nonzero (not emit + exit 0).
+func TestLoadRangeErrorStateFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/load-range" {
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"job_id":"range-1","state":"queued","total":1}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"job_id":"range-1","state":"error","error":"no archived dates in range"}`))
+	}))
+	defer srv.Close()
+
+	c := rootCmd()
+	c.SetArgs([]string{"--url", srv.URL, "--quiet", "load-range", "--dates", "2026-08-06"})
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+	if err := c.Execute(); err == nil {
+		t.Fatal("load-range whose job ends in error should exit nonzero")
+	}
+}
+
+// A non-positive --timeout is rejected up front, before any request is made.
+func TestLoadRangeRejectsNonPositiveTimeout(t *testing.T) {
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := rootCmd()
+	c.SetArgs([]string{"--url", srv.URL, "--quiet", "load-range", "--dates", "2026-08-06", "--timeout", "0"})
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+	if err := c.Execute(); err == nil {
+		t.Fatal("--timeout 0 should error")
+	}
+	if hits != 0 {
+		t.Errorf("made %d request(s) with an invalid --timeout, want 0 (validated before the POST)", hits)
+	}
+}
+
+// setup's internal load/rewind steps must present the control token, so `setup --token` works
+// against a token-gated faker (both /reload-date and /reset-cache are gated on the server).
+func TestSetupSendsControlToken(t *testing.T) {
+	var reloadAuth, resetAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/health":
+			_, _ = w.Write([]byte(`{"status":"ok","data_date":"","cache_mode":"exhaust","data_mode":"stream"}`))
+		case r.URL.Path == "/available-dates":
+			_, _ = w.Write([]byte(`{"dates":["2026-08-10"]}`))
+		case r.URL.Path == "/reload-date":
+			reloadAuth = r.Header.Get("Authorization")
+			if reloadAuth == "" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"control route requires the Studio auth token"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"files_loaded":1}`))
+		case r.URL.Path == "/current-date":
+			_, _ = w.Write([]byte(`{"current_date":"2026-08-10"}`))
+		case r.URL.Path == "/tickers":
+			_, _ = w.Write([]byte(`{"stocks":["QQQ"]}`))
+		case strings.HasSuffix(r.URL.Path, "/classic/gex_zero"):
+			_, _ = w.Write([]byte(`{"timestamp":1,"ticker":"QQQ"}`))
+		case r.URL.Path == "/reset-cache":
+			resetAuth = r.Header.Get("Authorization")
+			if resetAuth == "" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"control route requires the Studio auth token"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	defer srv.Close()
+
+	prevURL, prevKey, prevToken, prevQuiet := flagURL, flagKey, flagToken, flagQuiet
+	flagURL, flagKey, flagToken, flagQuiet = srv.URL, "k", "tok", true
+	t.Cleanup(func() { flagURL, flagKey, flagToken, flagQuiet = prevURL, prevKey, prevToken, prevQuiet })
+
+	if err := runSetup(context.Background(), setupOpts{dataDir: t.TempDir(), date: "2026-08-10"}); err != nil {
+		t.Fatalf("setup with --token against a gated faker failed: %v", err)
+	}
+	if reloadAuth != "Bearer tok" {
+		t.Errorf("/reload-date Authorization = %q, want %q", reloadAuth, "Bearer tok")
+	}
+	if resetAuth != "Bearer tok" {
+		t.Errorf("/reset-cache Authorization = %q, want %q", resetAuth, "Bearer tok")
 	}
 }
 
