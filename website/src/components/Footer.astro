@@ -1,0 +1,41 @@
+---
+// Extends Starlight's Footer: on the synced Spanish topic pages, add a
+// "help improve this translation" notice linking to the exact knowledge/es/
+// source file (GitHub web editor → propose changes, no clone) and to a
+// pre-filled translation issue.
+import Default from '@astrojs/starlight/components/Footer.astro'
+
+const route = Astro.locals.starlightRoute
+const fp = route.entry?.filePath ?? ''
+
+// Only the translated topic pages: source under src/content/docs/es/, a synced
+// .md (not the hand-authored .mdx landing), and not an English-fallback page.
+const isEsTopic =
+  fp.startsWith('src/content/docs/es/') && fp.endsWith('.md') && !route.isFallback
+
+const repo = 'https://github.com/dgnsrekt/gexbot-faker-api'
+const src = fp.replace('src/content/docs/', 'knowledge/') // knowledge/es/<slug>.md
+const slug = fp.replace('src/content/docs/es/', '').replace(/\.md$/, '')
+const editUrl = `${repo}/edit/main/${src}`
+const issueUrl = `${repo}/issues/new?labels=translation&title=${encodeURIComponent(
+  `Traducción: ${slug}`,
+)}`
+---
+
+{
+  isEsTopic && (
+    <aside class="guide-tx-help">
+      <span class="guide-tx-help__glyph" aria-hidden="true">
+        ✎
+      </span>
+      <span>¿Ves un error en esta traducción?</span>
+      <a href={editUrl}>Edítala en GitHub</a>
+      <span class="guide-tx-help__sep" aria-hidden="true">
+        ·
+      </span>
+      <a href={issueUrl}>o abre un issue</a>
+    </aside>
+  )
+}
+
+<Default />
