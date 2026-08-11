@@ -14,8 +14,13 @@ export async function copyText(text: string): Promise<boolean> {
       // fall through to the legacy path
     }
   }
+  // Preserve focus: selecting the temporary textarea steals it from the button,
+  // and removing the textarea would otherwise drop focus to <body>, disorienting
+  // keyboard users. Teardown lives in finally so the textarea is always removed
+  // and focus restored even if execCommand throws.
+  const prevFocus = document.activeElement as HTMLElement | null
+  const ta = document.createElement('textarea')
   try {
-    const ta = document.createElement('textarea')
     ta.value = text
     ta.setAttribute('readonly', '')
     ta.style.position = 'fixed'
@@ -23,10 +28,11 @@ export async function copyText(text: string): Promise<boolean> {
     ta.style.opacity = '0'
     document.body.appendChild(ta)
     ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
+    return document.execCommand('copy')
   } catch {
     return false
+  } finally {
+    ta.remove()
+    prevFocus?.focus?.()
   }
 }
