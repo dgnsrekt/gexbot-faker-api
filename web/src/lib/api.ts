@@ -145,6 +145,25 @@ export const api = {
   download: (dates: string[], tickers: string[], packages: string[]) =>
     postJSON<DownloadJob[]>('/studio/api/download', { dates, tickers, packages }),
   downloadStatus: () => getJSON<DownloadJob[]>('/studio/api/download'),
+  metricsQuery: (query: string) =>
+    getJSON<PromResponse>(`/studio/api/metrics/query?query=${encodeURIComponent(query)}`),
+}
+
+// PromResponse mirrors Prometheus's query API envelope (proxied server-side).
+export interface PromResponse {
+  status: 'success' | 'error'
+  error?: string
+  data?: { resultType: string; result: PromSample[] }
+}
+export interface PromSample {
+  metric: Record<string, string>
+  value?: [number, string] // instant query: [unixSeconds, sampleValue]
+}
+
+// promScalar returns the single sample value of an instant query, or null.
+export function promScalar(r: PromResponse): number | null {
+  const v = r.data?.result?.[0]?.value?.[1]
+  return v === undefined ? null : Number(v)
 }
 
 export function fmtBytes(n: number): string {

@@ -6,9 +6,10 @@
   import Streams from './screens/Streams.svelte'
   import Settings from './screens/Settings.svelte'
   import Logs from './screens/Logs.svelte'
+  import Monitoring from './screens/Monitoring.svelte'
   import Download from './screens/Download.svelte'
 
-  type ScreenId = 'download' | 'library' | 'server' | 'streams' | 'logs' | 'settings'
+  type ScreenId = 'download' | 'library' | 'server' | 'streams' | 'logs' | 'monitoring' | 'settings'
 
   const nav: { id: ScreenId; label: string; glyph: string }[] = [
     { id: 'download', label: 'Download data', glyph: '↓' },
@@ -16,6 +17,7 @@
     { id: 'server', label: 'Local server', glyph: '◉' },
     { id: 'streams', label: 'Live streams', glyph: '≈' },
     { id: 'logs', label: 'Logs', glyph: '≡' },
+    { id: 'monitoring', label: 'Monitoring', glyph: '▦' },
     { id: 'settings', label: 'Settings', glyph: '⚙' },
   ]
   const titles: Record<ScreenId, [string, string]> = {
@@ -24,6 +26,7 @@
     server: ['Local server', 'What your clients are talking to'],
     streams: ['Live streams', 'Five WebSocket hubs'],
     logs: ['Logs', 'Server, downloader and daemon'],
+    monitoring: ['Monitoring', 'Metrics from Prometheus'],
     settings: ['Settings', 'Every environment variable, in plain language'],
   }
 
@@ -139,6 +142,8 @@
         <Download onchanged={refreshStatus} />
       {:else if screen === 'logs'}
         <Logs />
+      {:else if screen === 'monitoring'}
+        <Monitoring />
       {/if}
     </div>
   </main>

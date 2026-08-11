@@ -29,11 +29,14 @@ services:
       - GEXBOT_API_KEY=${GEXBOT_API_KEY:-}
       # Studio Logs screen reads logs from Loki over the compose network.
       - LOKI_URL=${LOKI_URL:-http://loki:3100}
+      # Studio Monitoring screen queries Prometheus over the compose network.
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-http://prometheus:9090}
       # Set to require HTTP Basic auth on /studio (any user, password = token).
       # Empty = open; set this whenever the API port is reachable beyond a trusted host.
       - STUDIO_AUTH_TOKEN=${STUDIO_AUTH_TOKEN:-}
     depends_on:
       - loki
+      - prometheus
     labels:
       - observability.logs=true
       - observability.service=gex-faker-api
@@ -88,9 +91,11 @@ services:
       - GEXBOT_API_KEY=${GEXBOT_API_KEY}
       - GEXBOT_DOWNLOADER_CONFIG=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
 
+  # Prometheus, Loki, and Alloy run in the DEFAULT stack. Studio queries
+  # Prometheus (metrics) and Loki (logs) server-side over the compose network —
+  # the browser never talks to them. None are host-published.
   prometheus:
     image: prom/prometheus:latest
-    profiles: [observability]
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -100,10 +105,6 @@ services:
       - prometheus_data:/prometheus
     restart: unless-stopped
 
-  # Loki + Alloy run in the DEFAULT stack (not the observability profile): the
-  # Studio Logs screen queries Loki over the compose network. Alloy tails the
-  # observability.logs=true containers and ships their logs. Loki has no host
-  # port — only the API and the opt-in Caddy gateway reach it internally.
   loki:
     image: grafana/loki:latest
     command: -config.file=/etc/loki/config.yml
@@ -122,54 +123,7 @@ services:
     depends_on: [loki]
     restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana:latest
-    profiles: [observability]
-    environment:
-      - GF_SECURITY_ADMIN_USER=${OBSERVABILITY_USERNAME:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${OBSERVABILITY_PASSWORD:-}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - NTFY_SERVER=${NTFY_SERVER:-https://ntfy.sh}
-      - NTFY_TOPIC=${NTFY_TOPIC:-}
-      - NTFY_TOKEN=${NTFY_TOKEN:-}
-    volumes:
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana_data:/var/lib/grafana
-    depends_on: [prometheus, loki]
-    restart: unless-stopped
-
-  uptime-kuma:
-    image: louislam/uptime-kuma:latest
-    profiles: [observability]
-    volumes:
-      - uptime_kuma_data:/app/data
-    restart: unless-stopped
-
-  observability-gateway:
-    image: caddy:2-alpine
-    profiles: [observability]
-    environment:
-      - OBSERVABILITY_AUTH_ENABLED=${OBSERVABILITY_AUTH_ENABLED:-true}
-      - OBSERVABILITY_USERNAME=${OBSERVABILITY_USERNAME:-admin}
-      - OBSERVABILITY_PASSWORD=${OBSERVABILITY_PASSWORD:-}
-    entrypoint: ["/bin/sh", "/etc/caddy/entrypoint.sh"]
-    ports:
-      - "${GRAFANA_PORT:-3006}:3000"
-      - "${PROMETHEUS_PORT:-9095}:9090"
-      - "${LOKI_PORT:-3101}:3100"
-      - "${UPTIME_KUMA_PORT:-3012}:3001"
-      - "${DIAGNOSTICS_PORT:-9096}:9096"
-    volumes:
-      - ./observability/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./observability/caddy/entrypoint.sh:/etc/caddy/entrypoint.sh:ro
-    depends_on: [grafana, prometheus, loki, uptime-kuma, gex-faker-api]
-    restart: unless-stopped
-
 volumes:
   prometheus_data:
   loki_data:
   alloy_data:
-  grafana_data:
-  uptime_kuma_data:
