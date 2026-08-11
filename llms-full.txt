@@ -1,0 +1,832 @@
+# GEX Faker API — full knowledge base
+
+Generated from knowledge/*.md. Source of truth: https://github.com/dgnsrekt/gexbot-faker-api/blob/main/knowledge/
+
+
+========================================================================
+
+# GEX Faker knowledge base
+
+OKF v0.1 bundle for the GEX Faker API — a mock server that replays historical
+GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio)
+and an agent CLI (`gexfakercli`). Start here, or point an agent at this directory
+to answer setup, usage, and integration questions from the source itself.
+
+## Use it
+
+* [Overview](overview.md) — what the faker is, what it replays, and the pieces at a glance
+* [Quick start](quick-start.md) — from clone to a live stream in the Studio (the golden path)
+* [Studio](studio.md) — the seven screens of the web UI and what each one does
+* [Download data](download-data.md) — the two ways data arrives (EOD archive vs `/hist`) and the API key
+* [Materialize & load](materialize-load.md) — the archived → ready → loaded lifecycle (the #1 confusion)
+* [Docker & observability](docker-observability.md) — the compose stack, Prometheus/Loki, and the Monitoring screen
+
+## Build with it
+
+* [Point a client at the faker](point-a-client.md) — base URL, header auth, and per-key playback
+* [gexfakercli](gexfakercli.md) — the JSON-first agent CLI (`setup`, `describe`, data pulls, cursor)
+* [REST API](rest-api.md) — the endpoint surface, Swagger UI, and the OpenAPI spec
+* [WebSocket streaming](websockets.md) — the five hubs, `/negotiate`, group naming, and the frame format
+* [Configuration](configuration.md) — every server and downloader environment variable
+* [Daemon](daemon.md) — scheduled downloads, coverage alerts, and ntfy push notifications
+
+## When something is wrong
+
+* [Troubleshooting](troubleshooting.md) — no data, `archived` vs `ready`, auth 400s, exhausted cursors
+
+
+========================================================================
+
+# What the GEX Faker is
+
+The **GEX Faker API** is a Go server that **replays historical GexBot market
+data** — options gamma exposure (GEX), Greek profiles, and orderflow — over the
+same REST and WebSocket surface as the real [GexBot](https://www.gexbot.com) API.
+Point a client, dashboard, or trading tool at the faker instead of production and
+it replays a recorded market day, snapshot by snapshot, with no live API quota
+and fully deterministic output.
+
+## Why it exists
+
+- **Develop and test offline.** Build against a stable, repeatable data feed
+  instead of the live market. The same day replays identically every run.
+- **No production key needed to *serve*.** Downloading real history needs a
+  GexBot Quant key, but once a day is on disk the faker replays it for any client
+  and accepts **any** token (see [point a client](point-a-client.md)).
+- **Parity with production.** The REST paths, WebSocket hubs, and payload shapes
+  mirror the real API, so a client that works against the faker works against
+  GexBot.
+
+## The pieces
+
+| Piece | What it is |
+| --- | --- |
+| **API server** (`cmd/server`) | Serves REST + WebSocket + the Studio UI; replays a loaded date |
+| **Studio** | Embedded web UI at `/studio` for downloading, loading, and watching data without curl |
+| **Downloader** (`cmd/downloader`) | CLI that fetches historical days from GexBot into local archives |
+| **Daemon** (`cmd/daemon`) | Long-running scheduler that auto-downloads each market day |
+| **gexfakercli** (`cmd/gexfakercli`) | JSON-first CLI made for LLM agents to drive the faker |
+
+## How data flows
+
+1. **Download** a market day from GexBot (CLI, daemon, or the Studio) → it lands
+   as a compressed **EOD archive** on disk.
+2. **Materialize** the archive → per-category JSONL files the server can replay.
+3. **Load** a date → the server serves its snapshots over REST and WebSocket.
+4. A client **pulls** data; each API key walks the day's snapshots in order.
+
+The download → materialize → load lifecycle is the one thing worth understanding
+up front — see [materialize & load](materialize-load.md). To get running now, go
+to the [quick start](quick-start.md).
+
+
+========================================================================
+
+# Quick start
+
+Goal: a running faker replaying a real market day, with data visible in the
+Studio — in a few minutes. This is the golden path; each step links to deeper
+detail if you need it.
+
+## Prerequisites
+
+- [Go 1.24+](https://go.dev/doc/install) (`go version`)
+- [just](https://github.com/casey/just#installation) (`just --version`)
+- [Docker](https://docs.docker.com/get-docker/) (`docker --version`)
+- A [GexBot API key](https://www.gexbot.com/pricing) with a **Quant Subscription**
+  — required only to **download** history, not to replay it.
+
+## 1. Clone and add your key
+
+```bash
+git clone git@github.com:dgnsrekt/gexbot-faker-api.git
+cd gexbot-faker-api
+cp gexbot.example.env .env
+# edit .env: set GEXBOT_API_KEY=your_key
+```
+
+## 2. Download a day of data
+
+```bash
+just download-lookback 7   # last 7 market days (weekends/holidays skipped)
+```
+
+This stores compressed **EOD archives** under `data/eod/YYYY-MM-DD/`. See
+[download data](download-data.md) for other ways to fetch (single date, custom
+tickers, or the Studio's point-and-click screen).
+
+## 3. Start the server
+
+```bash
+just up      # API server + daemon in Docker
+just logs    # follow the logs
+```
+
+Or run locally without Docker: `just serve-gex-faker`.
+
+## 4. Open the Studio and load the date
+
+Open **http://localhost:8080/studio**.
+
+- Go to **Data library**. A freshly downloaded date shows **`archived`** —
+  click **Materialize** to unpack it, then **Load**. (Why two steps?
+  See [materialize & load](materialize-load.md).)
+- The header shows the server is now replaying that date.
+
+## 5. Watch a live stream
+
+Go to **Live streams**. Pick a ticker and a feed, copy the generated group name,
+and connect a WebSocket client — or just watch the hub client counts light up as
+consumers subscribe. See [WebSocket streaming](websockets.md) to wire a client.
+
+## First win reached
+
+You now have a faker replaying a real day. Next:
+
+- Pull data from the command line or an agent → [gexfakercli](gexfakercli.md).
+- Point an existing client at it → [point a client](point-a-client.md).
+- Explore every screen → [Studio](studio.md).
+
+
+========================================================================
+
+# The GEX Faker Studio
+
+**GEX Faker Studio** is a web UI embedded in the server at **`/studio`** — an
+LM-Studio-style control panel for running the faker without curl or environment
+variables. It is served by the same binary (no separate process) and reads/writes
+through the server's control-plane endpoints.
+
+Open it at **http://localhost:8080/studio**. The sidebar shows live server status
+(running/stopped, the date being replayed, disk used) and the reachable base URL.
+
+## The seven screens
+
+### Server
+The default screen: what your clients are talking to. Server status, the loaded
+date, data/cache modes, and the base URL to hand to a client.
+
+### Download data
+Fetch historical market days from GexBot — a calendar plus a batch builder. It
+needs `GEXBOT_API_KEY` set on the server and **degrades gracefully** ("set
+GEXBOT_API_KEY") when it is unset. Downloads land as EOD archives; see
+[download data](download-data.md).
+
+### Data library
+The EOD archives on this machine. Each date shows a state — **`archived`**,
+**`ready`**, or **`loaded`** — with a **Materialize** or **Load** button. This is
+where you turn a downloaded archive into a served date; see
+[materialize & load](materialize-load.md). It also shows a coverage sparkline and
+per-row deviation badge from the daemon's coverage checks.
+
+### Live streams
+The five WebSocket hubs with live client counts and active groups, plus a
+**group-name builder**: pick a ticker and feed, copy the exact group name your
+client subscribes to. See [WebSocket streaming](websockets.md).
+
+### Logs
+A live feed of server, downloader, and daemon logs. Backed by an SSE proxy that
+queries **Loki** server-side (`LOKI_URL`); the browser never talks to Loki. Shows
+a degrade message when `LOKI_URL` is unset (e.g. `go run`).
+
+### Monitoring
+Metrics from **Prometheus** (`PROMETHEUS_URL`), rendered as native time-series
+panels — no Grafana. Request rate/latency, WebSocket clients, per-ticker snapshot
+counts, and Prometheus alert-rule state. Degrades when Prometheus is unreachable.
+See [docker & observability](docker-observability.md).
+
+### Settings
+Every environment variable in plain language — the effective server config,
+explained. Read-only.
+
+## Remote access and auth
+
+By default Docker binds the API to `127.0.0.1`, so `docker compose up` never
+exposes the Studio to the LAN. For remote access set `HOST_BIND=0.0.0.0` **and**
+`STUDIO_AUTH_TOKEN` (and front it with TLS). The token gates all `/studio` routes
+behind HTTP Basic (any username, password = the token); empty = open (local dev).
+See [configuration](configuration.md).
+
+
+========================================================================
+
+# Downloading data
+
+Downloading real history from GexBot needs a **`GEXBOT_API_KEY`** with a Quant
+Subscription. (Replaying an already-downloaded day needs no key — see
+[point a client](point-a-client.md).) Data reaches the faker two ways, and they
+land in **different Library states**.
+
+## Path 1 — EOD report (daemon default + CLI)
+
+GexBot serves a pre-packed, per-ticker zip (`GET /v2/hist/eod/{ticker}`) whose
+members are the gzipped per-category datasets. The faker stores it as-is as the
+**canonical compressed archive** under `data/eod/YYYY-MM-DD/TICKER/`, plus a
+locally-generated `…zip.manifest.json` sidecar. Because it is archive-only (no
+JSONL yet), the date shows **`archived`** and must be **Materialized** before it
+can be **Loaded**. This keeps disk usage lean.
+
+Use the downloader CLI:
+
+```bash
+./bin/gexbot-downloader download 2025-11-14                     # single date
+./bin/gexbot-downloader download 2025-11-01 2025-11-14          # date range
+./bin/gexbot-downloader download --tickers SPX,NDX --packages state 2025-11-14
+./bin/gexbot-downloader download --dry-run 2025-11-14           # preview
+```
+
+Or the just shortcut: `just download-lookback 7` (last 7 market days; weekends
+and holidays are skipped automatically).
+
+## Path 2 — individual `/hist` (Studio Download screen)
+
+The Studio **Download** screen fetches per-category JSON from
+`GET /v2/hist/{ticker}/{package}/{category}/{date}`, auto-converts it to JSONL,
+and packs the same archive. The Studio worker **also writes the
+`.eod-materialized` marker**, so the date shows **`ready` / Load` immediately** —
+no separate Materialize step.
+
+> The daemon's after-hours fallback uses this same `/hist` path but does **not**
+> yet write the marker, so a daemon fallback leaves JSONL on disk while still
+> showing `archived` / Materialize (tracked in
+> [#38](https://github.com/dgnsrekt/gexbot-faker-api/issues/38)).
+
+## What you can download
+
+- **Tickers** — Indexes: SPX, NDX, RUT, VIX · ETFs: SPY, QQQ, IWM · Futures:
+  ES_SPX, NQ_NDX.
+- **Packages / categories** — `state` (gex_full/zero/one + delta/gamma/vanna/charm
+  in zero/one), `classic` (gex_full/zero/one), `orderflow` (orderflow).
+
+Select tickers, packages, and categories in `configs/custom.yaml` (copy from
+`configs/default.yaml`) for the CLI/daemon, or in the Studio's batch builder.
+
+Next: turn a downloaded archive into a served date →
+[materialize & load](materialize-load.md).
+
+
+========================================================================
+
+# The materialize & load lifecycle
+
+This is the single most common point of confusion: **a date you just downloaded
+often shows "Materialize", not "Load".** Here is why, and what each state means.
+
+## Two on-disk forms
+
+A market day exists on disk in one or both of two forms:
+
+1. **EOD archive** — a compressed per-ticker zip under
+   `data/eod/YYYY-MM-DD/TICKER/`. Compact, durable, the **canonical source of
+   truth**. This is what the daemon and downloader CLI produce.
+2. **Materialized JSONL** — uncompressed per-category files under
+   `data/YYYY-MM-DD/TICKER/PACKAGE/CATEGORY.jsonl`, with an `.eod-materialized`
+   marker. This is what the server actually **replays**. JSONL is uncompressed
+   because stream playback needs record offsets that gzip can't provide
+   efficiently.
+
+**Materialize** = unpack the archive's gzipped members into JSONL and write the
+marker. **Load** = start serving that JSONL over the API.
+
+## The three Library states
+
+| State | Button | Meaning |
+| --- | --- | --- |
+| `archived` | **Materialize** | Only the EOD archive is on disk (typical for daemon/CLI downloads) — unpack it first |
+| `ready` | **Load** | JSONL is materialized on disk — loading is instant |
+| `loaded` | *Loaded* | Currently being served by the API |
+
+So the flow is **archived → (Materialize) → ready → (Load) → loaded**. A date
+downloaded via the CLI or daemon starts at `archived`; a date downloaded via the
+Studio's `/hist` screen skips ahead to `ready` because that path writes the
+marker for you (see [download data](download-data.md)).
+
+## Materialize-on-demand
+
+You don't always have to click Materialize. The server **materializes a date on
+demand** when it loads one that isn't unpacked yet — including via
+`POST /reload-date` and `gexfakercli load <date>`. Materialize in the Library is
+just a way to do the unpack ahead of time (and in the background) so a later Load
+is instant.
+
+## TTL cleanup (optional, off by default)
+
+If `GEXBOT_OUTPUT_AUTO_CLEANUP=true` (window `GEXBOT_OUTPUT_CLEANUP_AFTER_DAYS`),
+the daemon evicts idle materialized JSONL back to archive-only after the window,
+reclaiming disk. The archive is untouched — a date can always be re-materialized.
+This is **disabled by default**.
+
+## Why the archive is the source of truth
+
+The zip is small and canonical; JSONL is a derived, regenerable replay cache.
+Keeping the archive as the durable form (and materializing on demand) is what lets
+the faker hold hundreds of days of history without the disk cost of keeping every
+day unpacked.
+
+If a date won't load or shows the wrong state, see
+[troubleshooting](troubleshooting.md).
+
+
+========================================================================
+
+# Docker & observability
+
+## The compose stack
+
+`docker compose up -d` (or `just up`) starts the **default stack**:
+
+| Service | Role |
+| --- | --- |
+| `gex-faker-api` | The API server + Studio |
+| `gex-daemon` | Scheduled downloads + coverage checks |
+| `prometheus` | Scrapes metrics from the API (`:9090`) and daemon (`:9091`) |
+| `loki` | Stores logs |
+| `alloy` | Ships container logs into Loki |
+
+Prometheus, Loki, and Alloy run in the **default** stack so the Studio's Logs and
+Monitoring screens work out of the box. Grafana, Uptime-Kuma, and a Caddy gateway
+were removed (issue #46) — the Studio is the single pane of glass.
+
+Common recipes: `just up`, `just down`, `just logs`, `just api-logs`,
+`just daemon-logs`, `just restart-api`, `just restart-daemon`.
+
+## Port binding and exposure
+
+The API port is bound to loopback by default:
+
+```
+"${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:8080"
+```
+
+So `docker compose up` never exposes the Studio to the LAN. For remote access set
+**`HOST_BIND=0.0.0.0`** and **`STUDIO_AUTH_TOKEN`** (and front it with TLS —
+Basic/Bearer over plain HTTP is plaintext). The container always listens on
+`8080` internally.
+
+## Server-side telemetry proxies
+
+The browser never talks to Loki or Prometheus directly — the server proxies both,
+so no extra ports need exposing and secrets stay server-side:
+
+- **Logs** — `GET /studio/api/logs` is an SSE proxy that queries Loki
+  (`LOKI_URL`, default `http://loki:3100`) and streams parsed lines. Log lines are
+  redacted for signed-URL query strings at the source (`internal/redact`) and
+  again in the proxy.
+- **Monitoring** — `GET /studio/api/metrics/{query,range,alerts}` proxy PromQL to
+  Prometheus (`PROMETHEUS_URL`, default `http://prometheus:9090`). The Monitoring
+  screen renders the panels natively.
+
+Both screens **degrade gracefully** with a message when their backend URL is unset
+or unreachable (e.g. running the server via `go run` without the stack).
+
+## Coverage metrics
+
+The daemon exports per-ticker coverage to Prometheus —
+`faker_daemon_snapshots{ticker}` (latest snapshot count) and
+`faker_daemon_coverage_findings_total{kind}` — surfaced on the Monitoring screen
+and as a sparkline in the Data Library. See [daemon](daemon.md) for the alerting
+side.
+
+
+========================================================================
+
+# Point a client at the faker
+
+The faker mirrors the real GexBot REST/WebSocket surface, so pointing an existing
+client at it is usually a one-line change.
+
+## 1. Change the base URL
+
+```
+https://api.gexbot.com   →   http://localhost:8080
+```
+
+For example, [quant-python-sockets](https://github.com/nfa-llc/quant-python-sockets)
+just needs `BASE_URL = "http://localhost:8080"`. The origin the Studio was reached
+on is also the API base, so copied URLs stay correct behind a reverse proxy.
+
+## 2. Auth: any non-empty token works
+
+Market-data routes require an `Authorization` header, but the faker **never
+validates the token** — any non-empty value authenticates:
+
+```bash
+export GEXBOT_API_KEY=test123   # the faker accepts any key
+```
+
+`Basic`, `Bearer`, and a bare token are all accepted. A **missing** header on a
+data route returns `400 {"error":"Authorization header not found."}`. Discovery
+and control routes (`/tickers`, `/health`, `/reload-date`, …) need no header at
+all.
+
+## 3. Understand per-key playback
+
+The token isn't just a passphrase — it **seeds a per-key playback cursor**. Each
+distinct key walks the loaded day's snapshots independently:
+
+- Every successful data pull returns the **current** snapshot, then **advances**
+  that key's cursor by one.
+- Two clients with different keys replay at their own pace; two with the same key
+  share one cursor.
+- `cache_mode=exhaust` (default): after the last snapshot, pulls return
+  `404 {"error":"No more data available"}`.
+- `cache_mode=rotation`: the cursor wraps to the start instead of 404.
+
+Control the cursor with `POST /reset-cache` (rewind) and `POST /seek-to-timestamp`
+(jump to a time) — or via [gexfakercli](gexfakercli.md) (`reset`, `seek`).
+
+## What to read next
+
+- The full endpoint list and Swagger UI → [REST API](rest-api.md).
+- Live streaming instead of polling → [WebSocket streaming](websockets.md).
+- A ready-made client for agents → [gexfakercli](gexfakercli.md).
+
+
+========================================================================
+
+# The gexfakercli agent CLI
+
+`gexfakercli` (`cmd/gexfakercli`) is a **JSON-first CLI over the faker, made for
+LLM agents**. Every command prints **one JSON document to stdout**; errors and
+progress go to **stderr** as JSON; the exit code is nonzero on failure. Build it
+with `just build-gexfakercli`.
+
+## First move: get to a ready state
+
+```bash
+gexfakercli setup
+```
+
+`setup` is a zero→ready bootstrap: it finds a running faker (or brings one up via
+`docker compose`), ensures a date is loaded by unpacking an on-disk EOD archive
+(**no API key needed** — the keyless [materialize & load](materialize-load.md)
+path), verifies with a sample pull, and prints the ready state
+(`{base_url, key, loaded_date, tickers, cache_mode, verified}`). It never
+downloads without `GEXBOT_API_KEY` and never hangs silently.
+
+Then learn the surface:
+
+```bash
+gexfakercli describe   # every command, endpoint, auth rule, and cursor rule as JSON
+```
+
+## The playback cursor
+
+Data pulls replay the day in order; each pull advances a **per-`--key` cursor**
+(default key `gexfakercli`, never validated — see [point a client](point-a-client.md)).
+
+- `cache_mode=exhaust` → `404 "No more data"` at the end; `rotation` → wraps.
+- `gexfakercli reset` rewinds the active key's cursor (`--all` resets every key).
+- `gexfakercli seek <unix-ts>` jumps to the first snapshot at/after a timestamp.
+
+## Common commands
+
+```bash
+gexfakercli status                      # is it up + which date is loaded
+gexfakercli tickers                     # stocks/indexes/futures (--quant for the quant set)
+gexfakercli dates                       # dates available to load
+gexfakercli load 2026-07-17             # load a date (materializes if needed)
+
+# data pulls (advance the cursor); --fields trims the payload for token thrift
+gexfakercli classic SPX gex_zero --fields timestamp,spot,zero_gamma
+gexfakercli state SPX gamma_zero
+gexfakercli orderflow SPX
+gexfakercli reset
+```
+
+Aggregations: `gex_full|gex_zero|gex_one`. State types: `gex_*` and greeks
+`delta|gamma|vanna|charm_zero` (0DTE) / `..._one` (1DTE+).
+
+Output control: `--fields a,b,c`, `--pretty`, `--url` / `GEXFAKER_URL`
+(default `http://127.0.0.1:8080`), `--key` / `GEXFAKER_KEY`.
+
+## Install it as an agent skill
+
+The binary embeds a `SKILL.md`; install it into Claude and/or Codex so an agent
+discovers it automatically:
+
+```bash
+gexfakercli skill install            # both agents if their dirs exist
+gexfakercli skill install --codex    # or target one
+```
+
+This writes to `~/.claude/skills/gexfakercli/` and/or
+`~/.codex/skills/gexfakercli/`.
+
+## WebSocket streaming
+
+Live streaming (the five hubs, protobuf/zstd) exists on the server but is **not
+yet wrapped** by this CLI — a planned fast-follow. `describe` lists the
+`/negotiate` details under `websocket`. To stream today, see
+[WebSocket streaming](websockets.md).
+
+
+========================================================================
+
+# REST API reference
+
+The full, always-current reference is the **Swagger UI at `/docs`**
+(http://localhost:8080/docs), generated from the OpenAPI spec served at
+**`/openapi.yaml`**. This page is the map; use Swagger for exact schemas and
+try-it-out.
+
+## Market-data pulls (auth header required; advance the cursor)
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /{ticker}/classic/{aggregation}` | Classic GEX chain (`gex_full`/`gex_zero`/`gex_one`) |
+| `GET /{ticker}/classic/{aggregation}/majors` | Classic majors summary |
+| `GET /{ticker}/classic/{aggregation}/maxchange` | Max GEX-change lookbacks |
+| `GET /{ticker}/state/{type}` | State GEX or greek profile (`gex_*`, `delta/gamma/vanna/charm_zero|one`) |
+| `GET /{ticker}/orderflow/orderflow` | Orderflow metrics |
+| `GET /options/{ticker}/expiries` | Option expiries within the horizon |
+| `GET /futures/conversion` | Futures→index affine conversion |
+
+Each successful pull returns the current snapshot and advances that key's cursor;
+see [point a client](point-a-client.md) for the auth + cursor model.
+
+## Discovery (no auth)
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /tickers` · `GET /tickers/quant` | Available tickers |
+| `GET /{package}/categories` | Categories in a package |
+| `GET /available-dates` | Materialized dates ready to load |
+| `GET /available-data/{date}` | Data tree for a date (materializes on demand) |
+| `GET /current-date` | The currently loaded date |
+| `GET /health` | Status, loaded date, data/cache mode |
+
+## Control (no auth)
+
+| Endpoint | Effect |
+| --- | --- |
+| `POST /reload-date` `{date}` | Load a date (materializes if needed); 409 if a reload is in progress |
+| `POST /reset-cache?key=` | Rewind a key's cursor (all keys if no `key`) |
+| `POST /seek-to-timestamp` `{timestamp,key}` | Seek a key to a unix timestamp |
+
+## Related
+
+- `GET /negotiate` and the `/ws/*` hubs → [WebSocket streaming](websockets.md).
+- `GET /sync/stream` (SSE market-time broadcast) → see the README's Sync Broadcast
+  section.
+- The download link endpoints (`/download/{date}/{ticker}/...`) mirror GexBot's
+  historical layout.
+
+For request/response bodies and examples, open **`/docs`**.
+
+
+========================================================================
+
+# WebSocket streaming
+
+The faker streams live-style data over an **Azure Web PubSub-compatible**
+WebSocket protocol with Protobuf + Zstd frames — the same protocol as production.
+Full protocol detail (message schemas, encoding pipeline) is in the repo's
+`WEBSOCKET.md`; this is the working reference.
+
+## The five hubs
+
+| Hub | Route | Data |
+| --- | --- | --- |
+| `orderflow` | `/ws/orderflow` | DEX, GEX, convexity, vanna, charm |
+| `classic` | `/ws/classic` | Traditional GEX chain |
+| `state_gex` | `/ws/state_gex` | GEX profiles |
+| `state_greeks_zero` | `/ws/state_greeks_zero` | Greeks (0DTE): delta, gamma, vanna, charm |
+| `state_greeks_one` | `/ws/state_greeks_one` | Greeks (1DTE+) |
+
+## Connection flow
+
+1. `GET /negotiate` with an `Authorization` header → returns the per-hub
+   `websocket_urls` and a group **`prefix`**.
+2. Connect to a hub URL with the `Sec-WebSocket-Protocol` subprotocol → receive a
+   `ConnectedMessage` with a connection id.
+3. Send a `JoinGroupMessage` for each group you want (built with the prefix from
+   step 1) → receive an `AckMessage`.
+4. Receive `DataMessage` broadcasts at the configured interval (`WS_STREAM_INTERVAL`).
+
+## Group naming
+
+All groups follow **`{prefix}_{TICKER}_{hub_type}_{category}`**, where `prefix`
+comes from `/negotiate` (default `blue`, set by `WS_GROUP_PREFIX`):
+
+| Hub | Group pattern | Example |
+| --- | --- | --- |
+| orderflow | `{prefix}_{TICKER}_orderflow_orderflow` | `blue_SPX_orderflow_orderflow` |
+| classic | `{prefix}_{TICKER}_classic_{category}` | `blue_SPX_classic_gex_zero` |
+| state_gex | `{prefix}_{TICKER}_state_{category}` | `blue_SPX_state_gex_zero` |
+| greeks (0DTE) | `{prefix}_{TICKER}_state_{category}` | `blue_SPX_state_gamma_zero` |
+| greeks (1DTE+) | `{prefix}_{TICKER}_state_{category}` | `blue_NDX_state_vanna_one` |
+
+The Studio's **Live streams** screen has a group-name builder that assembles these
+for you (see [Studio](studio.md)).
+
+## Subprotocols
+
+| Subprotocol | Frame format |
+| --- | --- |
+| `protobuf.webpubsub.azure.v1` | Binary protobuf (default) |
+| `json.reliable.webpubsub.azure.v1` | JSON text (reliable) |
+| `json.webpubsub.azure.v1` | JSON text |
+
+Binary frames wrap a Zstd-compressed protobuf payload in a `DataMessage`. Choose a
+`json.*` subprotocol if you'd rather parse text frames.
+
+## Keepalive & limits
+
+Server pings every 54s; the client must Pong within 60s. Send buffer 256
+messages/client, max frame 512KB, write timeout 10s.
+
+
+========================================================================
+
+# Configuration
+
+Everything is configured by environment variables (the Studio **Settings** screen
+shows the effective values in plain language). Copy `gexbot.example.env` to `.env`
+to start.
+
+## Server
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | 8080 | HTTP server port |
+| `DATA_DIR` | ./data | Data directory path |
+| `DATA_DATE` | latest | Date to load (`YYYY-MM-DD` or `latest`) |
+| `DATA_MODE` | memory | `memory` (fast) or `stream` (low RAM) |
+| `CACHE_MODE` | exhaust | `exhaust` (404 at end) or `rotation` (loop) |
+| `WS_ENABLED` | true | Enable WebSocket streaming |
+| `WS_STREAM_INTERVAL` | 1s | Broadcast interval |
+| `WS_GROUP_PREFIX` | blue | Prefix for WebSocket group names |
+| `SYNC_BROADCAST_SYSTEM_ENABLED` | false | Enable the SSE sync-broadcast endpoint |
+| `SYNC_BROADCAST_SYSTEM_ID` | hostname | Broadcaster identifier |
+| `SYNC_BROADCAST_SYSTEM_INTERVAL` | 1s | Position broadcast interval |
+
+## Exposure, auth & observability
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `HOST_BIND` | 127.0.0.1 | Docker host bind address (`0.0.0.0` for LAN) |
+| `HOST_PORT` | 8080 | Docker host port |
+| `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic gate for `/studio` (empty = open) |
+| `LOKI_URL` | http://loki:3100 | Loki endpoint for the Logs screen |
+| `PROMETHEUS_URL` | http://prometheus:9090 | Prometheus endpoint for Monitoring |
+
+## Daemon (scheduled downloads)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `DAEMON_SCHEDULE_HOUR` | 17 | First EOD attempt hour (ET) |
+| `DAEMON_SCHEDULE_MINUTE` | 5 | First EOD attempt minute |
+| `DAEMON_TIMEZONE` | America/New_York | Timezone |
+| `DAEMON_RUN_ON_STARTUP` | true | Check/download on start |
+
+## TTL cleanup (optional)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `GEXBOT_OUTPUT_AUTO_CLEANUP` | false | Evict idle materialized JSONL back to archive |
+| `GEXBOT_OUTPUT_CLEANUP_AFTER_DAYS` | — | Idle window before eviction |
+
+## Push notifications (ntfy)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `NTFY_ENABLED` | false | Enable push notifications |
+| `NTFY_SERVER` | https://ntfy.sh | ntfy server URL |
+| `NTFY_TOPIC` | *(required)* | Topic name |
+| `NTFY_PRIORITY` | default | min / low / default / high / urgent |
+| `NTFY_TAGS` | package | Comma-separated emoji tags |
+| `NTFY_TOKEN` | *(optional)* | Access token for private topics |
+
+## Downloader (`GEXBOT_API_KEY` + YAML)
+
+Downloading needs `GEXBOT_API_KEY`. Tickers/packages/categories and tuning live in
+`configs/custom.yaml` (copy from `configs/default.yaml`):
+
+```yaml
+api:
+  api_key: "${GEXBOT_API_KEY}"
+  timeout_sec: 300
+  retry_count: 3
+download:
+  workers: 3
+  rate_per_second: 2
+  resume_enabled: true
+output:
+  directory: "data"
+  auto_convert_to_jsonl: true
+```
+
+Never print or commit secret values (`GEXBOT_API_KEY`, `STUDIO_AUTH_TOKEN`,
+`NTFY_TOKEN`). See [daemon](daemon.md) for scheduling and [download data](download-data.md)
+for the download paths.
+
+
+========================================================================
+
+# The download daemon
+
+The daemon (`cmd/daemon`) is a long-running service that **downloads each market
+day automatically**, so a deployed faker always has fresh data without manual
+runs. It ships in the default docker stack as `gex-daemon`.
+
+## Scheduling
+
+Each market day it attempts the **EOD report** download starting at
+`DAEMON_SCHEDULE_HOUR:MINUTE` (default 17:05 ET), retrying every five minutes.
+**After 8:00 PM ET** it falls back to individual `/hist` downloads. It is
+market-day aware (skips weekends and holidays) and, with `DAEMON_RUN_ON_STARTUP`,
+checks/downloads on boot. See [configuration](configuration.md) for the schedule
+variables.
+
+> The after-hours `/hist` fallback writes JSONL but not the `.eod-materialized`
+> marker, so those dates still show `archived` / Materialize (issue #38). See
+> [materialize & load](materialize-load.md).
+
+## Coverage alerts
+
+After each successful download the data is checked for **coverage regressions**
+(`internal/coverage`); findings are logged, and a `high`-priority ntfy alert fires
+when notifications are enabled:
+
+- **Snapshot drop** — a ticker's intraday snapshot count falls >10% below its
+  20-day median (what a silent source change looks like — e.g. a feed thinning
+  SPX/NDX sampling).
+- **Session shape** — the day opens later than ~09:30 ET, closes earlier than
+  ~16:00 ET, or has an intraday gap over 120s (a truncated feed / outage).
+
+The snapshot metric is also exported to Prometheus
+(`faker_daemon_snapshots{ticker}`, `faker_daemon_coverage_findings_total{kind}`)
+and surfaced in the Studio Data Library (sparkline + deviation badge) and the
+Monitoring screen — see [docker & observability](docker-observability.md).
+
+## Push notifications (ntfy)
+
+Both the daemon and the CLI downloader can push to [ntfy.sh](https://ntfy.sh) on
+completion, failure, or a coverage finding. Enable with `NTFY_ENABLED=true` and a
+`NTFY_TOPIC`; subscribe at `https://ntfy.sh/<topic>` or in the ntfy app. Full
+variable list in [configuration](configuration.md).
+
+
+========================================================================
+
+# Troubleshooting
+
+## "Data not found for TICKER/…"
+
+The loaded date doesn't have that ticker/package/category. Check what's actually
+loaded with `gexfakercli available <date>` (or `GET /available-data/{date}`). A
+loaded day only contains the tickers you downloaded — e.g. it may have QQQ but not
+SPX. Download the ticker you want, then reload.
+
+## A date shows "Materialize", not "Load"
+
+Expected for CLI/daemon downloads: they land as `archived` (compressed archive
+only). Click **Materialize** to unpack it, then **Load** — or just `load` it
+(the server materializes on demand). Full explanation:
+[materialize & load](materialize-load.md).
+
+## A date has JSONL on disk but still shows "archived"
+
+The daemon's after-hours `/hist` fallback writes JSONL without the
+`.eod-materialized` marker (issue #38). Re-materialize it (Studio **Materialize**,
+`gexbot-downloader eod materialize <date>`, or a `load`) to write the marker and
+flip it to `ready`.
+
+## `400 {"error":"Authorization header not found."}`
+
+You hit a market-data route without an `Authorization` header. Send any non-empty
+token — the faker doesn't validate it (`export GEXBOT_API_KEY=test123`, or
+`--key` in gexfakercli). Discovery/control routes need no header. See
+[point a client](point-a-client.md).
+
+## `404 {"error":"No more data available"}`
+
+The key's playback cursor reached the end of the day in `exhaust` mode. Rewind it
+with `gexfakercli reset` (or `POST /reset-cache`), or run the server with
+`CACHE_MODE=rotation` to loop instead of 404.
+
+## The Download screen says "set GEXBOT_API_KEY"
+
+Downloading real history needs a key. Set `GEXBOT_API_KEY` on the server and
+restart. Replaying already-downloaded data needs no key.
+
+## Logs / Monitoring show "unavailable"
+
+Those screens proxy Loki (`LOKI_URL`) and Prometheus (`PROMETHEUS_URL`), which
+run in the docker stack. Running the server via `go run` without the stack leaves
+them unset, so the screens degrade with a message — expected. Use `just up` for
+the full stack. See [docker & observability](docker-observability.md).
+
+## An agent's first `gexfakercli` call fails with "operation not permitted"
+
+Some agent sandboxes (e.g. Codex) block localhost by default; the first call to
+`127.0.0.1:8080` is denied by the sandbox, not the faker. Approve local network
+access and retry — the structured error distinguishes a sandbox denial from the
+service being down.
+
+## Studio not built (running `go run`)
+
+`/studio` shows a "UI hasn't been built" hint if `web/dist` is empty. Run
+`just studio-build` (or `just serve-gex-faker`, which builds it) and restart. The
+same applies to `/guides` — run `just docs-build`.
