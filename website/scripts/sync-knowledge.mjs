@@ -12,6 +12,27 @@ import path from 'node:path'
 const SRC = path.resolve('../knowledge')
 const OUT = path.resolve('src/content/docs')
 
+// Per-topic hero glyphs, reusing the GEX Faker Studio's nav icon language. Kept
+// here (not in the OKF frontmatter) so knowledge/ stays a clean plain-Markdown
+// source; injected into each synced doc's frontmatter and rendered by the
+// PageTitle override. Mirrors the landing's card glyphs.
+const GLYPHS = {
+  overview: '⬡',
+  'quick-start': '▸',
+  studio: '▣',
+  'download-data': '↓',
+  'materialize-load': '⇡',
+  'docker-observability': '▦',
+  'point-a-client': '⇆',
+  gexfakercli: '❯',
+  'rest-api': '⧉',
+  websockets: '≈',
+  configuration: '⚙',
+  daemon: '⟳',
+  troubleshooting: '⚠',
+  log: '≡',
+}
+
 function splitFrontmatter(text) {
   const m = text.match(/^---\n([\s\S]*?)\n---\n?/)
   if (!m) return { fm: null, body: text }
@@ -50,6 +71,8 @@ for (const f of files) {
 
   const front = [`title: ${JSON.stringify(title)}`]
   if (description) front.push(`description: ${JSON.stringify(description)}`)
+  const glyph = GLYPHS[f.replace(/\.md$/, '')]
+  if (glyph) front.push(`glyph: ${JSON.stringify(glyph)}`)
   await writeFile(path.join(OUT, f), `---\n${front.join('\n')}\n---\n\n${out}`)
 }
 console.log(`synced ${files.length} docs -> src/content/docs`)

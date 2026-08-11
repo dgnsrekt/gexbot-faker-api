@@ -87,6 +87,122 @@ site-search button[data-open-modal] {
   border-color: var(--sl-color-hairline);
 }
 
+/* --- Per-topic hero glyph on the page title ------------------------------- */
+
+.guide-page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.guide-page-title__glyph {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 10px;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent);
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 22%, transparent);
+  font-family: var(--guides-mono);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* --- Landing hero band ----------------------------------------------------- */
+
+.guide-hero {
+  margin: 0.5rem 0 2.25rem;
+  padding: 20px 22px;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--sl-color-accent) 10%, transparent), transparent 55%),
+    var(--sl-color-bg-nav);
+}
+.guide-hero__tagline {
+  margin: 0;
+  font-size: var(--sl-text-lg);
+  line-height: 1.55;
+  color: var(--sl-color-gray-2);
+}
+.guide-hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+.guide-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--guides-radius);
+  border: 1px solid var(--sl-color-hairline-light);
+  background: var(--sl-color-bg);
+  color: var(--sl-color-gray-1);
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.guide-hero__cta:hover {
+  border-color: var(--sl-color-accent);
+  transform: translateY(-1px);
+}
+.guide-hero__cta--primary {
+  background: var(--sl-color-accent);
+  border-color: var(--sl-color-accent);
+  color: #0d1a12; /* --green-ink */
+}
+.guide-hero__cta--primary:hover {
+  background: var(--sl-color-accent-high);
+  border-color: var(--sl-color-accent-high);
+}
+.guide-hero__note {
+  margin: 14px 0 0;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+}
+
+/* --- Custom 404 (splash) --------------------------------------------------- */
+
+.guide-404 {
+  max-width: 34rem;
+  margin: 2rem auto;
+  text-align: center;
+}
+.guide-404__glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 16px;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent);
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 22%, transparent);
+  font-family: var(--guides-mono);
+  font-size: 2rem;
+}
+.guide-404__code {
+  margin-top: 1rem;
+  font-family: var(--guides-mono);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--sl-color-white);
+  letter-spacing: 0.05em;
+}
+.guide-404__msg {
+  margin: 0.5rem 0 1.5rem;
+  color: var(--sl-color-gray-3);
+}
+.guide-404__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: center;
+}
+
 /* --- Guide cards (our own component, mono-glyph icons) --------------------- */
 
 .guide-grid {

@@ -25,6 +25,10 @@ export default defineConfig({
       // dot, JetBrains Mono, mono-glyph cards.
       customCss: ['./src/styles/theme.css'],
       favicon: '/favicon.svg',
+      // Prepend a per-topic mono glyph to the page title (see PageTitle.astro).
+      components: {
+        PageTitle: './src/components/PageTitle.astro',
+      },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/dgnsrekt/gexbot-faker-api' },
       ],

@@ -5,11 +5,22 @@ description: Mock server that replays historical GexBot options/GEX market data 
 
 import GuideCard from '../../components/GuideCard.astro';
 
-The **GEX Faker** replays historical GexBot options/GEX market data over REST and
-WebSocket — a drop-in mock for its primary data surface, with a web UI (Studio)
-and an agent CLI (`gexfakercli`). New here? Start with the
-[quick start](quick-start/). Building an agent? Point it at
-[`llms.txt`](llms.txt) or `knowledge/index.md`.
+<div class="guide-hero">
+  <p class="guide-hero__tagline">
+    Replays historical GexBot options/GEX market data over REST and WebSocket — a
+    drop-in mock for its primary data surface, with a web UI (Studio) and an agent
+    CLI (<code>gexfakercli</code>).
+  </p>
+  <div class="guide-hero__ctas">
+    <a class="guide-hero__cta guide-hero__cta--primary" href={import.meta.env.BASE_URL + '/quick-start/'}>Quick start &rarr;</a>
+    <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/gexfakercli/'}>❯ gexfakercli</a>
+    <a class="guide-hero__cta" href={import.meta.env.BASE_URL + '/rest-api/'}>REST API</a>
+    <a class="guide-hero__cta" href="https://github.com/dgnsrekt/gexbot-faker-api">GitHub &#8599;</a>
+  </div>
+  <p class="guide-hero__note">
+    Agents: start at <a href={import.meta.env.BASE_URL + '/llms.txt'}><code>llms.txt</code></a> or <code>knowledge/index.md</code>.
+  </p>
+</div>
 
 {/* Card hrefs are BASE_URL + "/slug/". BASE_URL has no trailing slash in either
     build ("/guides", "/gexbot-faker-api"), so the leading slash is in the literal.
