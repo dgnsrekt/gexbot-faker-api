@@ -9,15 +9,20 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
 )
 
-// Control commands are unauthenticated. They steer playback (reset/seek) and swap
-// the loaded date (load). reset/seek default to the CLI's --key so a plain
-// `gexfakercli reset` rewinds the same cursor the data pulls advance.
+// Control commands steer playback (reset/seek) and what data is loaded (load / load-range).
+// reset/seek default to the CLI's --key so a plain `gexfakercli reset` rewinds the same cursor the
+// data pulls advance. The MUTATING routes (reset, load, load-range) present the --token/GEXFAKER_TOKEN
+// as Bearer when set, so they work against a token-gated faker; seek and the read-only range queries
+// stay open.
 
 func controlCmds() []*cobra.Command {
 	return []*cobra.Command{
 		resetCmd(),
 		seekCmd(),
 		loadCmd(),
+		loadRangeCmd(),
+		currentRangeCmd(),
+		coverageCmd(),
 	}
 }
 
@@ -36,7 +41,7 @@ func resetCmd() *cobra.Command {
 			if !all {
 				q = url.Values{"key": {flagKey}}
 			}
-			raw, err := newClient().postJSON(cmd.Context(), "/reset-cache?"+q.Encode(), false, nil)
+			raw, err := newClient().postControlJSON(cmd.Context(), "/reset-cache?"+q.Encode(), nil)
 			if err != nil {
 				return fail(err)
 			}
@@ -81,7 +86,7 @@ func loadCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body := generated.ReloadDateRequest{Date: args[0]}
-			raw, err := newClient().postJSON(cmd.Context(), "/reload-date", false, body)
+			raw, err := newClient().postControlJSON(cmd.Context(), "/reload-date", body)
 			if err != nil {
 				return fail(err)
 			}

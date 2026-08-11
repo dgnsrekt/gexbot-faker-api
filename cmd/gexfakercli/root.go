@@ -12,6 +12,7 @@ import (
 var (
 	flagURL    string
 	flagKey    string
+	flagToken  string
 	flagFields string
 	flagPretty bool
 	flagQuiet  bool
@@ -45,6 +46,13 @@ func defaultKeyEnv() string {
 	return defaultKey
 }
 
+// defaultTokenEnv resolves the Studio/control auth token from env. Empty by default
+// (open, local dev); required only when the faker sets STUDIO_AUTH_TOKEN and thus
+// gates the mutating control routes (load-range, load, reset).
+func defaultTokenEnv() string {
+	return os.Getenv("GEXFAKER_TOKEN")
+}
+
 func rootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "gexfakercli",
@@ -61,6 +69,8 @@ func rootCmd() *cobra.Command {
 		"faker base URL (env GEXFAKER_URL, else HOST_BIND/HOST_PORT)")
 	root.PersistentFlags().StringVar(&flagKey, "key", defaultKeyEnv(),
 		"playback key sent on data routes (env GEXFAKER_KEY; any non-empty token works)")
+	root.PersistentFlags().StringVar(&flagToken, "token", defaultTokenEnv(),
+		"Studio/control auth token for mutating control routes (env GEXFAKER_TOKEN; needed only when the faker sets STUDIO_AUTH_TOKEN)")
 	root.PersistentFlags().StringVar(&flagFields, "fields", "",
 		"comma-separated top-level keys to keep in the output (token thrift)")
 	root.PersistentFlags().BoolVar(&flagPretty, "pretty", false, "pretty-print JSON output")
