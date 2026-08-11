@@ -68,15 +68,26 @@
       ]
 
       // Charts (range queries). Snapshots trend over a week; the API/WS series
-      // over the last hour. Each is isolated: one failing range query must only
-      // empty its own panel, not blank the daemon tiles or the other charts.
-      await Promise.allSettled([
-        api.metricsRange('faker_daemon_snapshots', 7 * 24 * 60, 3600).then((r) => (snapshots = promToSeries(r, 'ticker'))),
-        api.metricsRange('sum(rate(faker_http_requests_total[5m]))', 60, 60).then((r) => (reqRate = promToSeries(r, undefined, 'requests'))),
+      // over the last hour. Each is isolated: a failing range query must only
+      // empty its own panel — never blank the daemon tiles or the other charts,
+      // and never leave the panel showing a prior refresh's stale data.
+      const chart = (
+        q: string,
+        minutes: number,
+        step: number,
+        set: (s: Series[]) => void,
+        label?: string,
+        fallback?: string,
+      ) =>
         api
-          .metricsRange('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60)
-          .then((r) => (latency = promToSeries(r, undefined, 'p95'))),
-        api.metricsRange('faker_ws_connections', 60, 60).then((r) => (wsConns = promToSeries(r, 'hub'))),
+          .metricsRange(q, minutes, step)
+          .then((r) => set(promToSeries(r, label, fallback)))
+          .catch(() => set([]))
+      await Promise.all([
+        chart('faker_daemon_snapshots', 7 * 24 * 60, 3600, (s) => (snapshots = s), 'ticker'),
+        chart('sum(rate(faker_http_requests_total[5m]))', 60, 60, (s) => (reqRate = s), undefined, 'requests'),
+        chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
+        chart('faker_ws_connections', 60, 60, (s) => (wsConns = s), 'hub'),
       ])
     } catch (e) {
       degraded = String(e)
