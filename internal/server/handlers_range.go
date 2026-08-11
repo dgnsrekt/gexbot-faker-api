@@ -1,0 +1,193 @@
+package server
+
+import (
+	"context"
+	"sort"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/api/generated"
+	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+)
+
+// loadRangeStatusToAPI maps an internal job to the generated wire type.
+func loadRangeStatusToAPI(j rangeLoadJob) generated.LoadRangeStatus {
+	st := generated.LoadRangeStatusState(j.State)
+	out := generated.LoadRangeStatus{
+		JobId: ptr(j.ID),
+		Dates: ptr(j.Dates),
+		State: &st,
+		Done:  ptr(j.Done),
+		Total: ptr(j.Total),
+	}
+	if j.Error != "" {
+		out.Error = ptr(j.Error)
+	}
+	if j.LoadedRange != nil {
+		out.LoadedRange = &generated.LoadedRange{
+			From:  ptr(j.LoadedRange.From),
+			To:    ptr(j.LoadedRange.To),
+			Dates: ptr(j.LoadedRange.Dates),
+		}
+	}
+	return out
+}
+
+// LoadRange starts an asynchronous multi-day span load. Provide from+to (the available archived
+// days in that inclusive span are loaded) or an explicit dates list. Returns 202 + a job to poll.
+func (s *Server) LoadRange(ctx context.Context, request generated.LoadRangeRequestObject) (generated.LoadRangeResponseObject, error) {
+	if request.Body == nil {
+		return generated.LoadRange400JSONResponse{Error: ptr("missing request body")}, nil
+	}
+	b := request.Body
+
+	var dates []string
+	switch {
+	case b.Dates != nil && len(*b.Dates) > 0:
+		dates = *b.Dates
+	case b.From != nil && b.To != nil && *b.From != "" && *b.To != "":
+		from, to := *b.From, *b.To
+		if !isValidDateFormat(from) || !isValidDateFormat(to) {
+			return generated.LoadRange400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
+		}
+		if from > to {
+			from, to = to, from
+		}
+		archives, err := eod.ListArchives(s.config.DataDir)
+		if err != nil {
+			return generated.LoadRange400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
+		}
+		for _, a := range archives {
+			if a.Date >= from && a.Date <= to {
+				dates = append(dates, a.Date)
+			}
+		}
+		if len(dates) == 0 {
+			return generated.LoadRange400JSONResponse{Error: ptr("no archived dates in range " + from + " to " + to)}, nil
+		}
+	default:
+		return generated.LoadRange400JSONResponse{Error: ptr("provide from+to or a non-empty dates list")}, nil
+	}
+
+	dates = normalizeDates(dates)
+	for _, d := range dates {
+		if !isValidDateFormat(d) {
+			return generated.LoadRange400JSONResponse{Error: ptr("invalid date format: " + d)}, nil
+		}
+	}
+	if len(dates) == 0 {
+		return generated.LoadRange400JSONResponse{Error: ptr("no dates to load")}, nil
+	}
+
+	job := s.rangeLoad.start(dates)
+	return generated.LoadRange202JSONResponse(loadRangeStatusToAPI(job)), nil
+}
+
+// GetLoadRangeStatus polls a load-range job.
+func (s *Server) GetLoadRangeStatus(ctx context.Context, request generated.GetLoadRangeStatusRequestObject) (generated.GetLoadRangeStatusResponseObject, error) {
+	job, ok := s.rangeLoad.status(request.JobId)
+	if !ok {
+		return generated.GetLoadRangeStatus404JSONResponse{Error: ptr("unknown job id: " + request.JobId)}, nil
+	}
+	return generated.GetLoadRangeStatus200JSONResponse(loadRangeStatusToAPI(job)), nil
+}
+
+// GetRangeCoverage reports, from the archive inventory (no load needed), which tickers each day in
+// [from, to] covers, plus the union and intersection across the span.
+func (s *Server) GetRangeCoverage(ctx context.Context, request generated.GetRangeCoverageRequestObject) (generated.GetRangeCoverageResponseObject, error) {
+	from, to := request.Params.From, request.Params.To
+	if !isValidDateFormat(from) || !isValidDateFormat(to) {
+		return generated.GetRangeCoverage400JSONResponse{Error: ptr("invalid from/to date format (YYYY-MM-DD)")}, nil
+	}
+	if from > to {
+		from, to = to, from
+	}
+	archives, err := eod.ListArchives(s.config.DataDir)
+	if err != nil {
+		return generated.GetRangeCoverage400JSONResponse{Error: ptr("failed to list archives: " + err.Error())}, nil
+	}
+
+	type dayCov struct {
+		date    string
+		tickers []string
+	}
+	var sel []dayCov
+	for _, a := range archives {
+		if a.Date >= from && a.Date <= to {
+			tks := append([]string(nil), a.Tickers...)
+			sort.Strings(tks)
+			sel = append(sel, dayCov{date: a.Date, tickers: tks})
+		}
+	}
+	sort.Slice(sel, func(i, j int) bool { return sel[i].date < sel[j].date })
+
+	days := make([]generated.RangeCoverageDay, 0, len(sel))
+	unionSet := map[string]struct{}{}
+	perDay := make([][]string, 0, len(sel))
+	for _, d := range sel {
+		days = append(days, generated.RangeCoverageDay{Date: ptr(d.date), Tickers: ptr(d.tickers)})
+		for _, t := range d.tickers {
+			unionSet[t] = struct{}{}
+		}
+		perDay = append(perDay, d.tickers)
+	}
+
+	return generated.GetRangeCoverage200JSONResponse{
+		From:         ptr(from),
+		To:           ptr(to),
+		Days:         &days,
+		Union:        ptr(sortedSetKeys(unionSet)),
+		Intersection: ptr(intersectAll(perDay)),
+	}, nil
+}
+
+// GetCurrentRange reports the currently loaded span (one day for a single-day load).
+func (s *Server) GetCurrentRange(ctx context.Context, request generated.GetCurrentRangeRequestObject) (generated.GetCurrentRangeResponseObject, error) {
+	dates := s.reloadManager.LoadedDates()
+	filesLoaded := len(s.loader.GetLoadedKeys())
+	loadedAt := s.reloadManager.LoadedAt()
+
+	resp := generated.GetCurrentRange200JSONResponse{
+		Dates:       ptr(dates),
+		FilesLoaded: ptr(filesLoaded),
+		LoadedAt:    ptr(loadedAt),
+	}
+	if len(dates) > 0 {
+		resp.From = ptr(dates[0])
+		resp.To = ptr(dates[len(dates)-1])
+	}
+	return resp, nil
+}
+
+func sortedSetKeys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// intersectAll returns the tickers present on every day (empty when there are no days).
+func intersectAll(sets [][]string) []string {
+	if len(sets) == 0 {
+		return []string{}
+	}
+	counts := map[string]int{}
+	for _, s := range sets {
+		seen := map[string]struct{}{}
+		for _, t := range s {
+			if _, ok := seen[t]; ok {
+				continue
+			}
+			seen[t] = struct{}{}
+			counts[t]++
+		}
+	}
+	out := make([]string, 0)
+	for t, c := range counts {
+		if c == len(sets) {
+			out = append(out, t)
+		}
+	}
+	sort.Strings(out)
+	return out
+}

@@ -15,6 +15,11 @@ type ServerConfig struct {
 	DataMode          string // "memory" or "stream"
 	CacheMode         string // "exhaust" or "rotation"
 	EndpointCacheMode string // "shared" or "independent"
+	// RangeEndPolicy decides how a seek past the end of a loaded multi-day span is
+	// handled: "clamp" (land on the last row, better replay UX) or "error" (return
+	// timestamp-out-of-range, matching single-day behavior). Single-day loads are
+	// unaffected.
+	RangeEndPolicy string // "clamp" or "error"
 	// WebSocket configuration
 	WSEnabled        bool
 	WSStreamInterval time.Duration
@@ -84,6 +89,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 		DataMode:          getEnvOrDefault("DATA_MODE", "memory"),
 		CacheMode:         getEnvOrDefault("CACHE_MODE", "exhaust"),
 		EndpointCacheMode: getEnvOrDefault("ENDPOINT_CACHE_MODE", "shared"),
+		RangeEndPolicy:    getEnvOrDefault("RANGE_END_POLICY", "clamp"),
 		WSEnabled:         getEnvOrDefault("WS_ENABLED", "true") == "true",
 		WSStreamInterval:  wsInterval,
 		WSGroupPrefix:     getEnvOrDefault("WS_GROUP_PREFIX", "blue"),
@@ -105,6 +111,9 @@ func LoadServerConfig() (*ServerConfig, error) {
 	}
 	if cfg.EndpointCacheMode != "shared" && cfg.EndpointCacheMode != "independent" {
 		return nil, fmt.Errorf("invalid ENDPOINT_CACHE_MODE: %s (must be 'shared' or 'independent')", cfg.EndpointCacheMode)
+	}
+	if cfg.RangeEndPolicy != "clamp" && cfg.RangeEndPolicy != "error" {
+		return nil, fmt.Errorf("invalid RANGE_END_POLICY: %s (must be 'clamp' or 'error')", cfg.RangeEndPolicy)
 	}
 
 	return cfg, nil
