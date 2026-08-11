@@ -56,6 +56,10 @@ func TestListArchives(t *testing.T) {
 	if newest.Records != 6 { // 2 + 4
 		t.Errorf("2026-08-07 records = %d, want 6", newest.Records)
 	}
+	// Snapshots = average per-ticker max-member records = (SPX 2 + NDX 4) / 2 = 3.
+	if newest.Snapshots != 3 {
+		t.Errorf("2026-08-07 snapshots = %d, want 3", newest.Snapshots)
+	}
 	if len(newest.Packages) != 1 || newest.Packages[0] != "classic" {
 		t.Errorf("2026-08-07 packages = %v, want [classic]", newest.Packages)
 	}

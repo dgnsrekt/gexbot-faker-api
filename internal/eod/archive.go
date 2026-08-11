@@ -355,6 +355,13 @@ type ArchiveInfo struct {
 	// materialized on disk (the .eod-materialized marker present). When it equals
 	// len(Tickers) the date can be loaded instantly; when 0 it is archive-only.
 	Materialized int `json:"materialized"`
+	// Snapshots is the average per-ticker intraday snapshot count for the date.
+	// Each category has one row per snapshot, so a ticker's snapshot count is its
+	// max member record count; this averages that across tickers. Unlike Records
+	// it is comparable across dates regardless of ticker/package count, making it
+	// the coverage signal for spotting collection drops (e.g. a source that thins
+	// SPX/NDX sampling). ~23,400 ≈ a full 1/sec session.
+	Snapshots int `json:"snapshots"`
 }
 
 // HasArchive reports whether date has at least one completed EOD archive zip on
@@ -407,6 +414,7 @@ func ListArchives(root string) ([]ArchiveInfo, error) {
 		tickerSet := map[string]bool{}
 		pkgSet := map[string]bool{}
 		hasArchive := false
+		snapSum, snapTickers := 0, 0 // for the average per-ticker snapshot count
 		for _, te := range tickerEntries {
 			if !te.IsDir() {
 				continue
@@ -434,15 +442,24 @@ func ListArchives(root string) ([]ArchiveInfo, error) {
 				info.Status = "corrupt"
 				continue
 			}
+			tickerMax := 0
 			for _, m := range man.Members {
 				info.Records += m.Records
+				if m.Records > tickerMax {
+					tickerMax = m.Records // all categories share timestamps → max = snapshot count
+				}
 				if m.Package != "" {
 					pkgSet[m.Package] = true
 				}
 			}
+			snapSum += tickerMax
+			snapTickers++
 		}
 		if !hasArchive {
 			continue
+		}
+		if snapTickers > 0 {
+			info.Snapshots = snapSum / snapTickers
 		}
 		info.Tickers = sortedKeys(tickerSet)
 		info.Packages = sortedKeys(pkgSet)

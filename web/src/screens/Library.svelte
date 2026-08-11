@@ -62,6 +62,55 @@
     if (!r.total) return '0%'
     return Math.round((r.materialized / r.total) * 100) + '%'
   }
+
+  // --- Coverage: snapshots/ticker is comparable across dates, so a sustained
+  // drop (e.g. a source thinning SPX/NDX sampling) is a real signal. Baseline is
+  // the median of the most recent 20 days, so anomalies stand out against the
+  // current normal rather than a mixed-regime average.
+  function median(xs: number[]): number {
+    const v = xs.filter((n) => n > 0).sort((a, b) => a - b)
+    if (!v.length) return 0
+    const m = Math.floor(v.length / 2)
+    return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2)
+  }
+  const baseline = $derived(median(rows.slice(0, 20).map((r) => r.snapshots)))
+  function dev(r: LibraryRow): number {
+    return baseline && r.snapshots ? (r.snapshots - baseline) / baseline : 0
+  }
+  function devClass(r: LibraryRow): string {
+    const d = dev(r)
+    if (Math.abs(d) < 0.08) return ''
+    if (d <= -0.2) return 'dev big'
+    return d < 0 ? 'dev' : 'dev up'
+  }
+  function devText(r: LibraryRow): string {
+    const d = Math.round(dev(r) * 100)
+    return (d > 0 ? '+' : '') + d + '%'
+  }
+  // Sparkline (chronological: oldest → newest) of snapshots/ticker.
+  const SPARK_W = 240
+  const SPARK_H = 30
+  const sparkPoints = $derived.by(() => {
+    const s = rows.map((r) => r.snapshots).reverse()
+    if (s.length < 2) return ''
+    const lo = Math.min(...s)
+    const hi = Math.max(...s)
+    const span = hi - lo || 1
+    return s
+      .map((v, i) => {
+        const x = (i / (s.length - 1)) * SPARK_W
+        const y = SPARK_H - ((v - lo) / span) * (SPARK_H - 4) - 2
+        return `${x.toFixed(1)},${y.toFixed(1)}`
+      })
+      .join(' ')
+  })
+  const baseY = $derived.by(() => {
+    const s = rows.map((r) => r.snapshots)
+    const lo = Math.min(...s.filter((n) => n > 0))
+    const hi = Math.max(...s)
+    const span = hi - lo || 1
+    return SPARK_H - ((baseline - lo) / span) * (SPARK_H - 4) - 2
+  })
 </script>
 
 <div class="wrap">
@@ -84,6 +133,19 @@
     <b>Materialize</b> unpacks one to JSONL, then <b>Load</b> serves it. Dates fetched from the
     <b>Download</b> screen are materialized already and show <b>Load</b> directly.
   </div>
+
+  {#if baseline > 0 && rows.length >= 3}
+    <div class="coverage">
+      <div class="cov-head mono">
+        COVERAGE
+        <span class="dim">snapshots/ticker · median {fmtInt(baseline)} (~{Math.round((baseline / 23400) * 100)}% of a full 1/s session)</span>
+      </div>
+      <svg class="spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
+        <line class="base" x1="0" x2={SPARK_W} y1={baseY} y2={baseY} />
+        <polyline points={sparkPoints} />
+      </svg>
+    </div>
+  {/if}
 
   <div class="card table">
     <div class="thead mono">
@@ -110,7 +172,15 @@
             {#each r.packages as p (p)}<span class="pill">{p}</span>{/each}
           </div>
           <div class="mono dim">{fmtBytes(r.size_bytes)}</div>
-          <div class="mono dim">{fmtInt(r.records)}</div>
+          <div class="mono dim records">
+            {fmtInt(r.records)}
+            {#if devClass(r)}
+              <span
+                class={devClass(r)}
+                title="{fmtInt(r.snapshots)} snapshots/ticker vs median {fmtInt(baseline)}"
+              >{devText(r)}</span>
+            {/if}
+          </div>
           <div class="actions">
             {#if r.status === 'corrupt'}
               <span class="badge corrupt">corrupt</span>
@@ -167,6 +237,63 @@
     color: var(--text-2);
     border-left: 2px solid var(--border);
     padding: 2px 0 2px 10px;
+  }
+  .coverage {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel, #111214);
+  }
+  .cov-head {
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-1);
+    white-space: nowrap;
+  }
+  .cov-head .dim {
+    margin-left: 8px;
+    color: var(--muted-2);
+    letter-spacing: 0;
+  }
+  .spark {
+    flex: 1;
+    height: 30px;
+    min-width: 120px;
+  }
+  .spark polyline {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 1.4;
+    vector-effect: non-scaling-stroke;
+  }
+  .spark .base {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .records {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dev {
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    color: var(--amber, #e0b164);
+    background: color-mix(in srgb, var(--amber, #e0b164) 14%, transparent);
+  }
+  .dev.up {
+    color: var(--muted-2);
+    background: color-mix(in srgb, var(--muted-2, #888) 14%, transparent);
+  }
+  .dev.big {
+    color: var(--red, #e08080);
+    background: color-mix(in srgb, var(--red, #e08080) 16%, transparent);
   }
   .legend b {
     color: var(--text-1);
