@@ -35,11 +35,33 @@ const (
 	Stream HealthResponseDataMode = "stream"
 )
 
+// Defines values for LoadRangeStatusState.
+const (
+	Done    LoadRangeStatusState = "done"
+	Error   LoadRangeStatusState = "error"
+	Queued  LoadRangeStatusState = "queued"
+	Running LoadRangeStatusState = "running"
+)
+
 // Defines values for PackageDataName.
 const (
 	PackageDataNameClassic   PackageDataName = "classic"
 	PackageDataNameOrderflow PackageDataName = "orderflow"
 	PackageDataNameState     PackageDataName = "state"
+)
+
+// Defines values for SeekPositionDetailClamped.
+const (
+	SeekPositionDetailClampedEnd   SeekPositionDetailClamped = "end"
+	SeekPositionDetailClampedNone  SeekPositionDetailClamped = "none"
+	SeekPositionDetailClampedStart SeekPositionDetailClamped = "start"
+)
+
+// Defines values for SeekToTimestampResponseClamped.
+const (
+	SeekToTimestampResponseClampedEnd   SeekToTimestampResponseClamped = "end"
+	SeekToTimestampResponseClampedNone  SeekToTimestampResponseClamped = "none"
+	SeekToTimestampResponseClampedStart SeekToTimestampResponseClamped = "start"
 )
 
 // Defines values for DownloadClassicGexParamsAggregation.
@@ -187,6 +209,15 @@ type CurrentDateResponse struct {
 
 	// LoadedAt Timestamp when data was loaded
 	LoadedAt *time.Time `json:"loaded_at,omitempty"`
+}
+
+// CurrentRangeResponse defines model for CurrentRangeResponse.
+type CurrentRangeResponse struct {
+	Dates       *[]string  `json:"dates,omitempty"`
+	FilesLoaded *int       `json:"files_loaded,omitempty"`
+	From        *string    `json:"from,omitempty"`
+	LoadedAt    *time.Time `json:"loaded_at,omitempty"`
+	To          *string    `json:"to,omitempty"`
 }
 
 // DataSummary defines model for DataSummary.
@@ -341,6 +372,38 @@ type HistSnapshotResponse struct {
 	Url string `json:"url"`
 }
 
+// LoadRangeRequest Provide from+to (inclusive span; the available archived days are loaded) or an explicit dates list.
+type LoadRangeRequest struct {
+	Dates *[]string `json:"dates,omitempty"`
+	From  *string   `json:"from,omitempty"`
+	To    *string   `json:"to,omitempty"`
+}
+
+// LoadRangeStatus defines model for LoadRangeStatus.
+type LoadRangeStatus struct {
+	Dates *[]string `json:"dates,omitempty"`
+
+	// Done Days materialized so far
+	Done        *int                  `json:"done,omitempty"`
+	Error       *string               `json:"error,omitempty"`
+	JobId       *string               `json:"job_id,omitempty"`
+	LoadedRange *LoadedRange          `json:"loaded_range,omitempty"`
+	State       *LoadRangeStatusState `json:"state,omitempty"`
+
+	// Total Days in the span
+	Total *int `json:"total,omitempty"`
+}
+
+// LoadRangeStatusState defines model for LoadRangeStatus.State.
+type LoadRangeStatusState string
+
+// LoadedRange defines model for LoadedRange.
+type LoadedRange struct {
+	Dates *[]string `json:"dates,omitempty"`
+	From  *string   `json:"from,omitempty"`
+	To    *string   `json:"to,omitempty"`
+}
+
 // OrderflowData defines model for OrderflowData.
 type OrderflowData struct {
 	AggCallDex    *float32 `json:"agg_call_dex,omitempty"`
@@ -403,6 +466,21 @@ type QuantTickersResponse struct {
 	Stocks *[]string `json:"stocks,omitempty"`
 }
 
+// RangeCoverageDay defines model for RangeCoverageDay.
+type RangeCoverageDay struct {
+	Date    *string   `json:"date,omitempty"`
+	Tickers *[]string `json:"tickers,omitempty"`
+}
+
+// RangeCoverageResponse defines model for RangeCoverageResponse.
+type RangeCoverageResponse struct {
+	Days         *[]RangeCoverageDay `json:"days,omitempty"`
+	From         *string             `json:"from,omitempty"`
+	Intersection *[]string           `json:"intersection,omitempty"`
+	To           *string             `json:"to,omitempty"`
+	Union        *[]string           `json:"union,omitempty"`
+}
+
 // ReloadDateRequest defines model for ReloadDateRequest.
 type ReloadDateRequest struct {
 	// Date New date to load (YYYY-MM-DD format)
@@ -437,8 +515,17 @@ type ResetCacheResponse struct {
 
 // SeekPositionDetail defines model for SeekPositionDetail.
 type SeekPositionDetail struct {
+	// Clamped Whether this stream's seek was clamped to the span bounds
+	Clamped *SeekPositionDetailClamped `json:"clamped,omitempty"`
+
 	// DataKey The data key (ticker/pkg/category)
 	DataKey *string `json:"data_key,omitempty"`
+
+	// Day The loaded day this stream's resolved row belongs to (range mode)
+	Day *string `json:"day,omitempty"`
+
+	// InGap This stream's requested timestamp fell in an inter-session gap and was clamped forward
+	InGap *bool `json:"in_gap,omitempty"`
 
 	// Index The index position set
 	Index *int `json:"index,omitempty"`
@@ -446,6 +533,9 @@ type SeekPositionDetail struct {
 	// Timestamp The actual timestamp at that index
 	Timestamp *int64 `json:"timestamp,omitempty"`
 }
+
+// SeekPositionDetailClamped Whether this stream's seek was clamped to the span bounds
+type SeekPositionDetailClamped string
 
 // SeekToTimestampRequest defines model for SeekToTimestampRequest.
 type SeekToTimestampRequest struct {
@@ -458,14 +548,32 @@ type SeekToTimestampRequest struct {
 
 // SeekToTimestampResponse defines model for SeekToTimestampResponse.
 type SeekToTimestampResponse struct {
+	// Clamped Whether the seek was clamped to the span bounds
+	Clamped *SeekToTimestampResponseClamped `json:"clamped,omitempty"`
+
+	// Day The loaded day the representative resolved row belongs to (range mode; per-stream in details[])
+	Day *string `json:"day,omitempty"`
+
 	// Details Details of each position that was set
 	Details *[]SeekPositionDetail `json:"details,omitempty"`
-	Message *string               `json:"message,omitempty"`
+
+	// InGap The requested timestamp fell in an inter-session gap; the cursor was clamped forward to the next session open
+	InGap   *bool   `json:"in_gap,omitempty"`
+	Message *string `json:"message,omitempty"`
 
 	// PositionsSet Number of cache positions that were set
-	PositionsSet *int    `json:"positions_set,omitempty"`
-	Status       *string `json:"status,omitempty"`
+	PositionsSet *int `json:"positions_set,omitempty"`
+
+	// Reason Human-readable note when clamped or in a gap
+	Reason *string `json:"reason,omitempty"`
+
+	// ResolvedTs Representative resolved timestamp (the first stream by sorted key order; see details[] for every stream's own resolution). May differ from requested when clamped or across a gap.
+	ResolvedTs *int64  `json:"resolved_ts,omitempty"`
+	Status     *string `json:"status,omitempty"`
 }
+
+// SeekToTimestampResponseClamped Whether the seek was clamped to the span bounds
+type SeekToTimestampResponseClamped string
 
 // TickerData defines model for TickerData.
 type TickerData struct {
@@ -532,6 +640,12 @@ type GetHistSnapshotParams struct {
 // GetHistSnapshotParamsPackage defines parameters for GetHistSnapshot.
 type GetHistSnapshotParamsPackage string
 
+// GetRangeCoverageParams defines parameters for GetRangeCoverage.
+type GetRangeCoverageParams struct {
+	From string `form:"from" json:"from"`
+	To   string `form:"to" json:"to"`
+}
+
 // ResetCacheParams defines parameters for ResetCache.
 type ResetCacheParams struct {
 	// Key Reset only this API key (omit for all)
@@ -559,6 +673,9 @@ type GetStateGexMajorsParamsType string
 // GetStateGexMaxChangeParamsType defines parameters for GetStateGexMaxChange.
 type GetStateGexMaxChangeParamsType string
 
+// LoadRangeJSONRequestBody defines body for LoadRange for application/json ContentType.
+type LoadRangeJSONRequestBody = LoadRangeRequest
+
 // ReloadDateJSONRequestBody defines body for ReloadDate for application/json ContentType.
 type ReloadDateJSONRequestBody = ReloadDateRequest
 
@@ -576,6 +693,9 @@ type ServerInterface interface {
 	// Get current date
 	// (GET /current-date)
 	GetCurrentDate(w http.ResponseWriter, r *http.Request)
+	// The currently loaded span
+	// (GET /current-range)
+	GetCurrentRange(w http.ResponseWriter, r *http.Request)
 	// Download classic GEX dataset
 	// (GET /download/{date}/{ticker}/classic/{aggregation})
 	DownloadClassicGex(w http.ResponseWriter, r *http.Request, date string, ticker string, aggregation DownloadClassicGexParamsAggregation)
@@ -600,9 +720,18 @@ type ServerInterface interface {
 	// Historical snapshot download link
 	// (GET /hist/{ticker}/{package}/{category}/{date})
 	GetHistSnapshot(w http.ResponseWriter, r *http.Request, ticker string, pPackage GetHistSnapshotParamsPackage, category string, date string, params GetHistSnapshotParams)
+	// Load a contiguous span of trading days for continuous replay
+	// (POST /load-range)
+	LoadRange(w http.ResponseWriter, r *http.Request)
+	// Poll a load-range job
+	// (GET /load-range/status/{jobId})
+	GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string)
 	// List valid option expiries
 	// (GET /options/{ticker}/expiries)
 	GetOptionsExpiries(w http.ResponseWriter, r *http.Request, ticker string)
+	// Ticker coverage across a date span (pre-load)
+	// (GET /range-coverage)
+	GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams)
 	// Hot reload data for a different date
 	// (POST /reload-date)
 	ReloadDate(w http.ResponseWriter, r *http.Request)
@@ -666,6 +795,12 @@ func (_ Unimplemented) GetCurrentDate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The currently loaded span
+// (GET /current-range)
+func (_ Unimplemented) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Download classic GEX dataset
 // (GET /download/{date}/{ticker}/classic/{aggregation})
 func (_ Unimplemented) DownloadClassicGex(w http.ResponseWriter, r *http.Request, date string, ticker string, aggregation DownloadClassicGexParamsAggregation) {
@@ -714,9 +849,27 @@ func (_ Unimplemented) GetHistSnapshot(w http.ResponseWriter, r *http.Request, t
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Load a contiguous span of trading days for continuous replay
+// (POST /load-range)
+func (_ Unimplemented) LoadRange(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Poll a load-range job
+// (GET /load-range/status/{jobId})
+func (_ Unimplemented) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List valid option expiries
 // (GET /options/{ticker}/expiries)
 func (_ Unimplemented) GetOptionsExpiries(w http.ResponseWriter, r *http.Request, ticker string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Ticker coverage across a date span (pre-load)
+// (GET /range-coverage)
+func (_ Unimplemented) GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -862,6 +1015,20 @@ func (siw *ServerInterfaceWrapper) GetCurrentDate(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentDate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentRange operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentRange(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1184,6 +1351,45 @@ func (siw *ServerInterfaceWrapper) GetHistSnapshot(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// LoadRange operation middleware
+func (siw *ServerInterfaceWrapper) LoadRange(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LoadRange(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLoadRangeStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "jobId" -------------
+	var jobId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "jobId", chi.URLParam(r, "jobId"), &jobId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jobId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLoadRangeStatus(w, r, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOptionsExpiries operation middleware
 func (siw *ServerInterfaceWrapper) GetOptionsExpiries(w http.ResponseWriter, r *http.Request) {
 
@@ -1200,6 +1406,55 @@ func (siw *ServerInterfaceWrapper) GetOptionsExpiries(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOptionsExpiries(w, r, ticker)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRangeCoverage operation middleware
+func (siw *ServerInterfaceWrapper) GetRangeCoverage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRangeCoverageParams
+
+	// ------------- Required query parameter "from" -------------
+
+	if paramValue := r.URL.Query().Get("from"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "from", r.URL.Query(), &params.From)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	if paramValue := r.URL.Query().Get("to"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "to", r.URL.Query(), &params.To)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRangeCoverage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1669,6 +1924,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/current-date", wrapper.GetCurrentDate)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/current-range", wrapper.GetCurrentRange)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/download/{date}/{ticker}/classic/{aggregation}", wrapper.DownloadClassicGex)
 	})
 	r.Group(func(r chi.Router) {
@@ -1693,7 +1951,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/hist/{ticker}/{package}/{category}/{date}", wrapper.GetHistSnapshot)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/load-range", wrapper.LoadRange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/load-range/status/{jobId}", wrapper.GetLoadRangeStatus)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/options/{ticker}/expiries", wrapper.GetOptionsExpiries)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/range-coverage", wrapper.GetRangeCoverage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/reload-date", wrapper.ReloadDate)
@@ -1782,6 +2049,22 @@ type GetCurrentDateResponseObject interface {
 type GetCurrentDate200JSONResponse CurrentDateResponse
 
 func (response GetCurrentDate200JSONResponse) VisitGetCurrentDateResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetCurrentRangeRequestObject struct {
+}
+
+type GetCurrentRangeResponseObject interface {
+	VisitGetCurrentRangeResponse(w http.ResponseWriter) error
+}
+
+type GetCurrentRange200JSONResponse CurrentRangeResponse
+
+func (response GetCurrentRange200JSONResponse) VisitGetCurrentRangeResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
@@ -2050,6 +2333,58 @@ func (response GetHistSnapshot404JSONResponse) VisitGetHistSnapshotResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
+type LoadRangeRequestObject struct {
+	Body *LoadRangeJSONRequestBody
+}
+
+type LoadRangeResponseObject interface {
+	VisitLoadRangeResponse(w http.ResponseWriter) error
+}
+
+type LoadRange202JSONResponse LoadRangeStatus
+
+func (response LoadRange202JSONResponse) VisitLoadRangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LoadRange400JSONResponse ErrorResponse
+
+func (response LoadRange400JSONResponse) VisitLoadRangeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetLoadRangeStatusRequestObject struct {
+	JobId string `json:"jobId"`
+}
+
+type GetLoadRangeStatusResponseObject interface {
+	VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error
+}
+
+type GetLoadRangeStatus200JSONResponse LoadRangeStatus
+
+func (response GetLoadRangeStatus200JSONResponse) VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetLoadRangeStatus404JSONResponse ErrorResponse
+
+func (response GetLoadRangeStatus404JSONResponse) VisitGetLoadRangeStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetOptionsExpiriesRequestObject struct {
 	Ticker string `json:"ticker"`
 }
@@ -2081,6 +2416,32 @@ type GetOptionsExpiries404JSONResponse ErrorResponse
 func (response GetOptionsExpiries404JSONResponse) VisitGetOptionsExpiriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRangeCoverageRequestObject struct {
+	Params GetRangeCoverageParams
+}
+
+type GetRangeCoverageResponseObject interface {
+	VisitGetRangeCoverageResponse(w http.ResponseWriter) error
+}
+
+type GetRangeCoverage200JSONResponse RangeCoverageResponse
+
+func (response GetRangeCoverage200JSONResponse) VisitGetRangeCoverageResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetRangeCoverage400JSONResponse ErrorResponse
+
+func (response GetRangeCoverage400JSONResponse) VisitGetRangeCoverageResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -2548,6 +2909,9 @@ type StrictServerInterface interface {
 	// Get current date
 	// (GET /current-date)
 	GetCurrentDate(ctx context.Context, request GetCurrentDateRequestObject) (GetCurrentDateResponseObject, error)
+	// The currently loaded span
+	// (GET /current-range)
+	GetCurrentRange(ctx context.Context, request GetCurrentRangeRequestObject) (GetCurrentRangeResponseObject, error)
 	// Download classic GEX dataset
 	// (GET /download/{date}/{ticker}/classic/{aggregation})
 	DownloadClassicGex(ctx context.Context, request DownloadClassicGexRequestObject) (DownloadClassicGexResponseObject, error)
@@ -2572,9 +2936,18 @@ type StrictServerInterface interface {
 	// Historical snapshot download link
 	// (GET /hist/{ticker}/{package}/{category}/{date})
 	GetHistSnapshot(ctx context.Context, request GetHistSnapshotRequestObject) (GetHistSnapshotResponseObject, error)
+	// Load a contiguous span of trading days for continuous replay
+	// (POST /load-range)
+	LoadRange(ctx context.Context, request LoadRangeRequestObject) (LoadRangeResponseObject, error)
+	// Poll a load-range job
+	// (GET /load-range/status/{jobId})
+	GetLoadRangeStatus(ctx context.Context, request GetLoadRangeStatusRequestObject) (GetLoadRangeStatusResponseObject, error)
 	// List valid option expiries
 	// (GET /options/{ticker}/expiries)
 	GetOptionsExpiries(ctx context.Context, request GetOptionsExpiriesRequestObject) (GetOptionsExpiriesResponseObject, error)
+	// Ticker coverage across a date span (pre-load)
+	// (GET /range-coverage)
+	GetRangeCoverage(ctx context.Context, request GetRangeCoverageRequestObject) (GetRangeCoverageResponseObject, error)
 	// Hot reload data for a different date
 	// (POST /reload-date)
 	ReloadDate(ctx context.Context, request ReloadDateRequestObject) (ReloadDateResponseObject, error)
@@ -2713,6 +3086,30 @@ func (sh *strictHandler) GetCurrentDate(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentDateResponseObject); ok {
 		if err := validResponse.VisitGetCurrentDateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCurrentRange operation middleware
+func (sh *strictHandler) GetCurrentRange(w http.ResponseWriter, r *http.Request) {
+	var request GetCurrentRangeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCurrentRange(ctx, request.(GetCurrentRangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCurrentRange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCurrentRangeResponseObject); ok {
+		if err := validResponse.VisitGetCurrentRangeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2936,6 +3333,63 @@ func (sh *strictHandler) GetHistSnapshot(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// LoadRange operation middleware
+func (sh *strictHandler) LoadRange(w http.ResponseWriter, r *http.Request) {
+	var request LoadRangeRequestObject
+
+	var body LoadRangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LoadRange(ctx, request.(LoadRangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LoadRange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoadRangeResponseObject); ok {
+		if err := validResponse.VisitLoadRangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLoadRangeStatus operation middleware
+func (sh *strictHandler) GetLoadRangeStatus(w http.ResponseWriter, r *http.Request, jobId string) {
+	var request GetLoadRangeStatusRequestObject
+
+	request.JobId = jobId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLoadRangeStatus(ctx, request.(GetLoadRangeStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLoadRangeStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLoadRangeStatusResponseObject); ok {
+		if err := validResponse.VisitGetLoadRangeStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetOptionsExpiries operation middleware
 func (sh *strictHandler) GetOptionsExpiries(w http.ResponseWriter, r *http.Request, ticker string) {
 	var request GetOptionsExpiriesRequestObject
@@ -2955,6 +3409,32 @@ func (sh *strictHandler) GetOptionsExpiries(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetOptionsExpiriesResponseObject); ok {
 		if err := validResponse.VisitGetOptionsExpiriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRangeCoverage operation middleware
+func (sh *strictHandler) GetRangeCoverage(w http.ResponseWriter, r *http.Request, params GetRangeCoverageParams) {
+	var request GetRangeCoverageRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRangeCoverage(ctx, request.(GetRangeCoverageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRangeCoverage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRangeCoverageResponseObject); ok {
+		if err := validResponse.VisitGetRangeCoverageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3315,108 +3795,127 @@ func (sh *strictHandler) GetStateGexMaxChange(w http.ResponseWriter, r *http.Req
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"CSVCcmPBe942ma3Xp9f/FwAA//8QlEnO16AAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

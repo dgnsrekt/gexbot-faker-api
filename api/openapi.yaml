@@ -696,6 +696,108 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /load-range:
+    post:
+      operationId: loadRange
+      summary: Load a contiguous span of trading days for continuous replay
+      description: |
+        Materializes (if needed) and loads a range of days as one continuous dataset so seek/replay
+        can cross day boundaries. Asynchronous: returns a job id immediately; poll
+        GET /load-range/status/{jobId} until state=done. Provide either from+to (the available
+        archived days within the span are loaded) or an explicit dates list.
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadRangeRequest'
+      responses:
+        '202':
+          description: Load-range job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadRangeStatus'
+        '400':
+          description: Invalid request or no archived dates in range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /load-range/status/{jobId}:
+    get:
+      operationId: getLoadRangeStatus
+      summary: Poll a load-range job
+      tags: [admin]
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadRangeStatus'
+        '404':
+          description: Unknown job id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /range-coverage:
+    get:
+      operationId: getRangeCoverage
+      summary: Ticker coverage across a date span (pre-load)
+      description: |
+        Reports, from the archive inventory (no load required), which tickers each day in [from, to]
+        covers, plus the union and intersection across the span — so a client can warn before loading
+        that a ticker isn't present on every day.
+      tags: [admin]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Coverage across the span
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RangeCoverageResponse'
+        '400':
+          description: Invalid date range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /current-range:
+    get:
+      operationId: getCurrentRange
+      summary: The currently loaded span
+      tags: [admin]
+      responses:
+        '200':
+          description: Currently loaded range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentRangeResponse'
+
   /reload-date:
     post:
       operationId: reloadDate
@@ -1187,6 +1289,28 @@ components:
           description: Details of each position that was set
           items:
             $ref: '#/components/schemas/SeekPositionDetail'
+        resolved_ts:
+          type: integer
+          format: int64
+          description: Representative resolved timestamp (the first stream by sorted key order; see details[] for every stream's own resolution). May differ from requested when clamped or across a gap.
+          example: 1732900005
+        day:
+          type: string
+          description: The loaded day the representative resolved row belongs to (range mode; per-stream in details[])
+          example: '2026-08-07'
+        in_gap:
+          type: boolean
+          description: The requested timestamp fell in an inter-session gap; the cursor was clamped forward to the next session open
+          example: false
+        clamped:
+          type: string
+          description: Whether the seek was clamped to the span bounds
+          enum: [none, start, end]
+          example: none
+        reason:
+          type: string
+          description: Human-readable note when clamped or in a gap
+          example: ''
 
     SeekPositionDetail:
       type: object
@@ -1204,6 +1328,118 @@ components:
           format: int64
           description: The actual timestamp at that index
           example: 1732900005
+        day:
+          type: string
+          description: The loaded day this stream's resolved row belongs to (range mode)
+          example: '2026-08-07'
+        in_gap:
+          type: boolean
+          description: This stream's requested timestamp fell in an inter-session gap and was clamped forward
+          example: false
+        clamped:
+          type: string
+          enum: [none, start, end]
+          description: Whether this stream's seek was clamped to the span bounds
+          example: none
+
+    LoadRangeRequest:
+      type: object
+      description: Provide from+to (inclusive span; the available archived days are loaded) or an explicit dates list.
+      properties:
+        from:
+          type: string
+          example: '2026-08-06'
+        to:
+          type: string
+          example: '2026-08-10'
+        dates:
+          type: array
+          items:
+            type: string
+          example: ['2026-08-06', '2026-08-07']
+
+    LoadedRange:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        dates:
+          type: array
+          items:
+            type: string
+
+    LoadRangeStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          example: range-1
+        dates:
+          type: array
+          items:
+            type: string
+        state:
+          type: string
+          enum: [queued, running, done, error]
+        done:
+          type: integer
+          description: Days materialized so far
+        total:
+          type: integer
+          description: Days in the span
+        loaded_range:
+          $ref: '#/components/schemas/LoadedRange'
+        error:
+          type: string
+
+    RangeCoverageDay:
+      type: object
+      properties:
+        date:
+          type: string
+        tickers:
+          type: array
+          items:
+            type: string
+
+    RangeCoverageResponse:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/RangeCoverageDay'
+        union:
+          type: array
+          items:
+            type: string
+        intersection:
+          type: array
+          items:
+            type: string
+
+    CurrentRangeResponse:
+      type: object
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+        from:
+          type: string
+        to:
+          type: string
+        files_loaded:
+          type: integer
+        loaded_at:
+          type: string
+          format: date-time
 
     GexMajorsData:
       type: object

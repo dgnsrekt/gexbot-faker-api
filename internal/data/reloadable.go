@@ -79,5 +79,26 @@ func (r *ReloadableLoader) FindIndexByTimestamp(ctx context.Context, ticker, pkg
 	return r.current.FindIndexByTimestamp(ctx, ticker, pkg, category, targetTimestamp)
 }
 
+// SeekResolve gives the seek handler a single, range-aware call path. When the underlying loader is
+// a RangeLoader it resolves across the span (gap/clamp/end-policy detail); otherwise (single-day
+// loader) it falls back to FindIndexByTimestamp with default fields — identical to the pre-range
+// behavior (after-span still errors), so the single-day seek path is unchanged. Date is left empty
+// for the fallback; the handler fills it from the currently-loaded date.
+func (r *ReloadableLoader) SeekResolve(ctx context.Context, ticker, pkg, category string, target int64, endPolicy string) (SeekResult, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if rs, ok := r.current.(RangeSeeker); ok {
+		return rs.SeekResolve(ctx, ticker, pkg, category, target, endPolicy)
+	}
+	idx, ts, err := r.current.FindIndexByTimestamp(ctx, ticker, pkg, category, target)
+	if err != nil {
+		return SeekResult{}, err
+	}
+	return SeekResult{Index: idx, ResolvedTs: ts, Clamped: "none"}, nil
+}
+
 // Compile-time interface verification
-var _ DataLoader = (*ReloadableLoader)(nil)
+var (
+	_ DataLoader  = (*ReloadableLoader)(nil)
+	_ RangeSeeker = (*ReloadableLoader)(nil)
+)

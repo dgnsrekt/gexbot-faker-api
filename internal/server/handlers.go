@@ -47,6 +47,7 @@ type Server struct {
 	logger        *zap.Logger
 	loadedAt      time.Time
 	reloadManager *ReloadManager
+	rangeLoad     *rangeLoadManager
 }
 
 func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.ServerConfig, logger *zap.Logger, reloadManager *ReloadManager) *Server {
@@ -57,6 +58,7 @@ func NewServer(loader data.DataLoader, cache *data.IndexCache, cfg *config.Serve
 		logger:        logger,
 		loadedAt:      time.Now(),
 		reloadManager: reloadManager,
+		rangeLoad:     newRangeLoadManager(cfg.DataDir, reloadManager, logger),
 	}
 }
 
@@ -538,12 +540,22 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 		zap.String("apiKey", maskAPIKey(apiKey)),
 	)
 
-	// Get all loaded data keys
+	// Get all loaded data keys. Sort them so iteration order is deterministic — the representative
+	// top-level resolution below is the first stream by key order, and streams can have different
+	// day-coverage (a ticker absent on some days), so an unsorted (map-order) pick would be
+	// nondeterministic. Every stream's own resolution is reported per-key in details[].
 	dataKeys := s.loader.GetLoadedKeys()
+	sort.Strings(dataKeys)
+
+	// Range-aware resolver: ReloadableLoader implements RangeSeeker (cross-day resolution +
+	// gap/clamp/end-policy in range mode; identical to FindIndexByTimestamp for a single day).
+	seeker, _ := s.loader.(data.RangeSeeker)
 
 	var details []generated.SeekPositionDetail
 	var outOfRangeCount int
 	positionsSet := 0
+	var repRes data.SeekResult // representative resolution → top-level resolved_ts/day/in_gap/clamped
+	haveRep := false
 
 	for _, dataKey := range dataKeys {
 		// Parse ticker/pkg/category from key (format: "ticker/pkg/category")
@@ -552,8 +564,17 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 			continue
 		}
 
-		// Find index for this data stream
-		idx, actualTs, err := s.loader.FindIndexByTimestamp(ctx, ticker, pkg, category, targetTs)
+		// Resolve the seek for this stream (range-aware when a span is loaded).
+		var res data.SeekResult
+		var err error
+		if seeker != nil {
+			res, err = seeker.SeekResolve(ctx, ticker, pkg, category, targetTs, s.config.RangeEndPolicy)
+		} else {
+			var idx int
+			var ts int64
+			idx, ts, err = s.loader.FindIndexByTimestamp(ctx, ticker, pkg, category, targetTs)
+			res = data.SeekResult{Index: idx, ResolvedTs: ts, Clamped: "none"}
+		}
 		if err != nil {
 			if errors.Is(err, data.ErrTimestampOutOfRange) {
 				outOfRangeCount++
@@ -569,21 +590,39 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 			cacheKey = data.CacheKey(ticker, pkg, category, apiKey)
 		}
 
-		s.cache.SetIndex(cacheKey, idx)
+		s.cache.SetIndex(cacheKey, res.Index)
 		positionsSet++
 
 		// Also update WebSocket positions for this data stream
 		wsHubs := mapDataKeyToWSHubs(pkg, category)
 		for _, hub := range wsHubs {
 			wsCacheKey := data.WSCacheKey(hub, ticker, category, apiKey)
-			s.cache.SetIndex(wsCacheKey, idx)
+			s.cache.SetIndex(wsCacheKey, res.Index)
 			positionsSet++
 		}
 
+		if !haveRep {
+			repRes = res
+			haveRep = true
+		}
+		dk, idx, ts := dataKey, res.Index, res.ResolvedTs
+		dDay := res.Date
+		if dDay == "" {
+			dDay = s.reloadManager.CurrentDate()
+		}
+		dInGap := res.InGap
+		dClampVal := res.Clamped
+		if dClampVal == "" {
+			dClampVal = "none"
+		}
+		dClamped := generated.SeekPositionDetailClamped(dClampVal)
 		details = append(details, generated.SeekPositionDetail{
-			DataKey:   &dataKey,
+			DataKey:   &dk,
 			Index:     &idx,
-			Timestamp: &actualTs,
+			Timestamp: &ts,
+			Day:       &dDay,
+			InGap:     &dInGap,
+			Clamped:   &dClamped,
 		})
 	}
 
@@ -614,12 +653,44 @@ func (s *Server) SeekToTimestamp(ctx context.Context, request generated.SeekToTi
 		zap.Int("positionsSet", positionsSet),
 	)
 
+	resolvedTs := repRes.ResolvedTs
+	day := repRes.Date
+	if day == "" {
+		day = s.reloadManager.CurrentDate() // single-day fallback → the loaded date
+	}
+	inGap := repRes.InGap
+	clampVal := repRes.Clamped
+	if clampVal == "" {
+		clampVal = "none"
+	}
+	clamped := generated.SeekToTimestampResponseClamped(clampVal)
+	reason := seekReason(repRes)
+
 	return generated.SeekToTimestamp200JSONResponse{
 		Status:       &status,
 		Message:      &message,
 		PositionsSet: &positionsSet,
 		Details:      &details,
+		ResolvedTs:   &resolvedTs,
+		Day:          &day,
+		InGap:        &inGap,
+		Clamped:      &clamped,
+		Reason:       &reason,
 	}, nil
+}
+
+// seekReason gives a short human note for a clamped/gap resolution (empty on a clean in-session hit).
+func seekReason(r data.SeekResult) string {
+	switch {
+	case r.InGap:
+		return "between sessions — clamped to next open"
+	case r.Clamped == "start":
+		return "before loaded span — clamped to start"
+	case r.Clamped == "end":
+		return "after loaded span — clamped to end"
+	default:
+		return ""
+	}
 }
 
 // parseDataKey splits a data key into ticker, pkg, and category
