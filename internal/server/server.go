@@ -113,6 +113,10 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 		// Auth runs before request validation so a missing Authorization header
 		// fails with the real API's error before any path/param check.
 		apiRouter.Use(authMiddleware)
+		// Gate the state-changing faker control routes behind the Studio auth token
+		// (no-op when the token is unset — local dev). Runs before validation so an
+		// unauthorized mutating request is rejected before its body is parsed.
+		apiRouter.Use(controlAuthMiddleware(server.config.StudioAuthToken))
 		apiRouter.Use(oapimiddleware.OapiRequestValidator(swagger))
 
 		strictHandler := generated.NewStrictHandler(server, nil)
@@ -144,6 +148,39 @@ func authMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), authKeyCtxKey, token)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// isMutatingControlPath reports whether path is a state-changing faker control route that Part B
+// gates behind the Studio auth token. These mutate global server state (what data is loaded, cursor
+// positions), so on a LAN they should require the token. Read-only discovery (/available-dates,
+// /current-date, /current-range, /range-coverage, /available-data, /tickers, /load-range/status,
+// /health), the market-data routes (their own any-token auth), and per-client playback
+// (/seek-to-timestamp) stay open.
+func isMutatingControlPath(path string) bool {
+	switch strings.Trim(path, "/") {
+	case "load-range", "reload-date", "reset-cache":
+		return true
+	}
+	return false
+}
+
+// controlAuthMiddleware gates the mutating control routes behind the Studio auth token. It reuses
+// STUDIO_AUTH_TOKEN and the same Basic/Bearer check as the Studio UI (studioTokenOK), so a client
+// (e.g. gexsync) presents one token for both. Empty token = pass-through (local dev), matching
+// studioAuthMiddleware; everything except the mutating control routes is untouched.
+func controlAuthMiddleware(token string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if token != "" && isMutatingControlPath(r.URL.Path) && !studioTokenOK(r, token) {
+				w.Header().Set("WWW-Authenticate", `Basic realm="GEX Faker control"`)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"control route requires the Studio auth token"}`))
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(r.Context()))
+		})
+	}
 }
 
 // parseAuthToken extracts the credential from "Basic <token>" or "Bearer <token>"

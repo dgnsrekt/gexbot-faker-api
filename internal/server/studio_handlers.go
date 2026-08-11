@@ -156,9 +156,16 @@ func (h *StudioHandlers) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		}
 		return "off"
 	}
+	// Surface the control-auth STATE, not the secret: the token is set via env and already known to
+	// whoever set it — the Settings screen just confirms whether the gate is active.
+	controlAuth := "not set — /studio and control routes are open (local dev)"
+	if cfg.StudioAuthToken != "" {
+		controlAuth = "set — /studio and the mutating control routes require this token"
+	}
 	groups := []settingGroup{
 		{Title: "Replay", Sub: "How the faker hands data to clients", Rows: []settingRow{
 			{Label: "When a client reaches the end", Help: "Stop and return 404 (exhaust), or loop back to the open (rotation).", Env: "CACHE_MODE", Value: cfg.CacheMode},
+			{Label: "When seeking past a loaded range", Help: "Clamp to the last row (clamp), or return timestamp-out-of-range (error). Multi-day only.", Env: "RANGE_END_POLICY", Value: cfg.RangeEndPolicy},
 			{Label: "Positions across endpoints", Help: "Share one position, or track each endpoint separately.", Env: "ENDPOINT_CACHE_MODE", Value: cfg.EndpointCacheMode},
 			{Label: "Memory use", Help: "Load the whole day into RAM, or read from disk as you go.", Env: "DATA_MODE", Value: cfg.DataMode},
 			{Label: "Date loaded", Help: "The market day currently being replayed.", Env: "DATA_DATE", Value: h.currentDate()},
@@ -166,6 +173,7 @@ func (h *StudioHandlers) handleConfig(w http.ResponseWriter, _ *http.Request) {
 		{Title: "Server", Sub: "Where clients reach it", Rows: []settingRow{
 			{Label: "Port", Help: "", Env: "PORT", Value: cfg.Port},
 			{Label: "Data folder", Help: "Where EOD archives and materialized JSONL live.", Env: "DATA_DIR", Value: cfg.DataDir},
+			{Label: "Studio & control auth", Help: "When set, /studio and the mutating control routes (load-range, reload-date, reset-cache) require this token via Basic or Bearer. Present it from clients like gexsync.", Env: "STUDIO_AUTH_TOKEN", Value: controlAuth},
 		}},
 		{Title: "Streaming", Sub: "WebSocket hubs", Rows: []settingRow{
 			{Label: "WebSocket streaming", Help: "Turn the five hubs on or off.", Env: "WS_ENABLED", Value: onOff(cfg.WSEnabled)},
