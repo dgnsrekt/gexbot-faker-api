@@ -1,0 +1,77 @@
+/* LM Studio-flavored theme for the GEX Faker guides.
+ *
+ * Overrides Starlight's CSS custom properties: a violet accent (both themes) and
+ * a near-black, low-contrast dark palette that matches LM Studio's docs and the
+ * GEX Faker Studio SPA. Structure (grouped sidebar, right TOC, ⌘K search) is
+ * Starlight's own and already close. */
+
+:root {
+  /* Violet accent, tuned to read well on light and dark. */
+  --sl-color-accent-low: #322659;
+  --sl-color-accent: #7c5cff;
+  --sl-color-accent-high: #c9bcff;
+
+  --sl-color-text-accent: #7c5cff;
+
+  /* Slightly tighter radius, LM-Studio-ish. */
+  --guides-radius: 7px;
+}
+
+/* Dark theme — near-black background, cool-neutral grays, violet accent. */
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #241a45;
+  --sl-color-accent: #8b6dff;
+  --sl-color-accent-high: #d3c8ff;
+  --sl-color-text-accent: #b7a4ea;
+
+  --sl-color-white: #f4f5f6;
+  --sl-color-gray-1: #e7e8ea;
+  --sl-color-gray-2: #c2c4c9;
+  --sl-color-gray-3: #9aa0a6;
+  --sl-color-gray-4: #6b7178;
+  --sl-color-gray-5: #33363b;
+  --sl-color-gray-6: #1c1e22;
+  --sl-color-gray-7: #16171a;
+  --sl-color-black: #0d0e10;
+
+  /* Surfaces: page a touch darker than the chrome, like LM Studio. */
+  --sl-color-bg: #0d0e10;
+  --sl-color-bg-nav: #121317;
+  --sl-color-bg-sidebar: #0f1013;
+  --sl-color-bg-inline-code: #1b1d21;
+  --sl-color-hairline: #1e2024;
+  --sl-color-hairline-light: #26282d;
+  --sl-color-hairline-shade: #17181b;
+}
+
+/* Light theme — keep it clean, warm-neutral, same violet accent. */
+:root:not([data-theme='dark']) {
+  --sl-color-bg-sidebar: #fbfbfc;
+  --sl-color-hairline-shade: #ececef;
+}
+
+/* Active sidebar item: a soft violet pill, the way LM Studio highlights the
+ * current page rather than a plain accent-colored label. */
+nav.sidebar a[aria-current='page'],
+.sidebar-content a[aria-current='page'] {
+  background: color-mix(in srgb, var(--sl-color-accent) 16%, transparent);
+  color: var(--sl-color-white);
+  border-radius: var(--guides-radius);
+  font-weight: 600;
+}
+
+/* Sidebar group headings: quieter, uppercase, like LM Studio's section labels. */
+.sidebar-content summary,
+.sidebar-content > ul > li > details > summary,
+.sidebar-content h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--sl-text-xs);
+  color: var(--sl-color-gray-3);
+}
+
+/* Search box: match the rounded, muted LM Studio field. */
+site-search button[data-open-modal] {
+  border-radius: var(--guides-radius);
+  border-color: var(--sl-color-hairline);
+}
