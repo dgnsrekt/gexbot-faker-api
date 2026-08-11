@@ -157,7 +157,11 @@ func sessionShape(dataDir, date, ticker string, et *time.Location, logger *zap.L
 		return nil
 	}
 	if len(ts) < 2 {
-		return nil
+		// A representative member with 0–1 snapshots is an extreme truncation
+		// (near-empty session). Surface it as a finding so it alerts instead of
+		// reporting a clean run.
+		return []Finding{{ticker, "sparse-session",
+			fmt.Sprintf("only %d snapshot(s) in %s/%s", len(ts), pkg, cat)}}
 	}
 	sort.Slice(ts, func(i, j int) bool { return ts[i] < ts[j] })
 	first := time.Unix(ts[0], 0).In(et)
