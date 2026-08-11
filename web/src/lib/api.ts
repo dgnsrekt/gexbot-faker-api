@@ -154,6 +154,29 @@ export const api = {
     const qs = `query=${encodeURIComponent(query)}&start=${start}&end=${end}&step=${step}`
     return getJSON<PromResponse>(`/studio/api/metrics/range?${qs}`)
   },
+  // metricsAlerts returns Prometheus's active alerts (from the rule set).
+  metricsAlerts: () => getJSON<PromAlertsResponse>('/studio/api/metrics/alerts'),
+}
+
+// Prometheus /api/v1/alerts.
+export interface PromAlert {
+  labels: Record<string, string>
+  annotations: Record<string, string>
+  state: 'firing' | 'pending' | 'inactive'
+  activeAt?: string
+}
+export interface PromAlertsResponse {
+  status: 'success' | 'error'
+  error?: string
+  data?: { alerts: PromAlert[] }
+}
+
+// activeAlerts returns firing/pending alerts, firing first.
+export function activeAlerts(r: PromAlertsResponse): PromAlert[] {
+  if (r.status !== 'success' || !r.data?.alerts) return []
+  return r.data.alerts
+    .filter((a) => a.state === 'firing' || a.state === 'pending')
+    .sort((a, b) => (a.state === b.state ? 0 : a.state === 'firing' ? -1 : 1))
 }
 
 // PromResponse mirrors Prometheus's query API envelope (proxied server-side).

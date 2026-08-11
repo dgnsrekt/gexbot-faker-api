@@ -21,9 +21,11 @@ None are published to the host — Studio reaches them internally.
 ## In Studio
 
 - **Logs** — live log feed proxied from Loki (`LOKI_URL`, default `http://loki:3100`).
-- **Monitoring** — metric panels proxied from Prometheus (`PROMETHEUS_URL`, default
-  `http://prometheus:9090`). Both degrade with a clear message if the backend is
-  unset or unreachable (e.g. under `go run` without the stack).
+- **Monitoring** — daemon-health tiles, native metric charts, and the active
+  alerts from the Prometheus rule set (`observability/prometheus/rules.yml`), all
+  proxied from Prometheus (`PROMETHEUS_URL`, default `http://prometheus:9090`).
+  Both Logs and Monitoring degrade with a clear message if the backend is unset
+  or unreachable (e.g. under `go run` without the stack).
 
 Reach the Studio at `http://<host>:${HOST_PORT:-8080}/studio` (gate it with
 `STUDIO_AUTH_TOKEN` and set `HOST_BIND=0.0.0.0` for LAN access — see the README).

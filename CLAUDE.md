@@ -101,7 +101,7 @@ faker without curl/env-vars.
   the server queries Loki (`LOKI_URL`, default `http://loki:3100`) over the compose
   network and streams parsed lines, so the browser never talks to Loki. If `LOKI_URL`
   is unset (e.g. `go run`), Logs shows a degrade message.
-- **Monitoring** (`internal/server/studio_metrics.go`): `GET /studio/api/metrics/{query,range}`
+- **Monitoring** (`internal/server/studio_metrics.go`): `GET /studio/api/metrics/{query,range,alerts}`
   proxy PromQL to Prometheus (`PROMETHEUS_URL`, default `http://prometheus:9090`) — same
   server-side model as Logs; the browser never talks to Prometheus. The Monitoring screen
   renders panels natively (no Grafana). Degrades when `PROMETHEUS_URL` is unset/unreachable.
