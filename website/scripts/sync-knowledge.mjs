@@ -35,7 +35,9 @@ for (const f of await readdir(OUT).catch(() => [])) {
   if (f.endsWith('.md')) await rm(path.join(OUT, f))
 }
 
-const files = (await readdir(SRC)).filter((f) => f.endsWith('.md'))
+// knowledge/index.md is the OKF hub for agents/llms; the site home is instead a
+// hand-authored card-grid landing (src/content/docs/index.mdx), so skip it here.
+const files = (await readdir(SRC)).filter((f) => f.endsWith('.md') && f !== 'index.md')
 for (const f of files) {
   const raw = await readFile(path.join(SRC, f), 'utf8')
   const { fm, body } = splitFrontmatter(raw)

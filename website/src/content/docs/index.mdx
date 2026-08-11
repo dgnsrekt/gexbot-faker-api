@@ -1,0 +1,42 @@
+---
+title: GEX Faker knowledge base
+description: Mock server that replays historical GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio) and an agent CLI (gexfakercli).
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+export const base = import.meta.env.BASE_URL;
+
+The **GEX Faker** replays historical GexBot options/GEX market data over REST and
+WebSocket — a drop-in mock for its primary data surface, with a web UI (Studio)
+and an agent CLI (`gexfakercli`). New here? Start with the
+[quick start](quick-start/). Building an agent? Point it at
+[`llms.txt`](llms.txt) or `knowledge/index.md`.
+
+## Use it
+
+<CardGrid>
+  <LinkCard title="Overview" description="What the faker is, what it replays, and the pieces at a glance." href={base + 'overview/'} />
+  <LinkCard title="Quick start" description="From clone to a live stream in the Studio — the golden path." href={base + 'quick-start/'} />
+  <LinkCard title="Studio" description="The seven screens of the web UI and what each one does." href={base + 'studio/'} />
+  <LinkCard title="Download data" description="The two ways data arrives (EOD archive vs /hist) and the API key." href={base + 'download-data/'} />
+  <LinkCard title="Materialize & load" description="The archived → ready → loaded lifecycle (the #1 confusion)." href={base + 'materialize-load/'} />
+  <LinkCard title="Docker & observability" description="The compose stack, Prometheus/Loki, and the Monitoring screen." href={base + 'docker-observability/'} />
+</CardGrid>
+
+## Build with it
+
+<CardGrid>
+  <LinkCard title="Point a client" description="Base URL, header auth, and per-key playback." href={base + 'point-a-client/'} />
+  <LinkCard title="gexfakercli" description="The JSON-first agent CLI — setup, describe, data pulls, cursor." href={base + 'gexfakercli/'} />
+  <LinkCard title="REST API" description="The endpoint surface, Swagger UI, and the OpenAPI spec." href={base + 'rest-api/'} />
+  <LinkCard title="WebSocket streaming" description="The five hubs, /negotiate, group naming, and the frame format." href={base + 'websockets/'} />
+  <LinkCard title="Configuration" description="The environment variables that configure the faker." href={base + 'configuration/'} />
+  <LinkCard title="Daemon" description="Scheduled downloads, coverage alerts, and ntfy push." href={base + 'daemon/'} />
+</CardGrid>
+
+## When something is wrong
+
+<CardGrid>
+  <LinkCard title="Troubleshooting" description="No data, archived vs ready, auth 400s, exhausted cursors." href={base + 'troubleshooting/'} />
+</CardGrid>
