@@ -7,8 +7,8 @@
   "scripts": {
     "gen": "node scripts/sync-knowledge.mjs && node scripts/gen-llms.mjs",
     "dev": "npm run gen && astro dev",
-    "build:embed": "npm run gen && DOCS_BASE=/guides astro build --outDir dist",
-    "build:pages": "npm run gen && DOCS_BASE=/gexbot-faker-api DOCS_SITE=https://dgnsrekt.github.io astro build --outDir dist-pages",
+    "build:embed": "DOCS_BASE=/guides npm run gen && DOCS_BASE=/guides astro build --outDir dist",
+    "build:pages": "DOCS_BASE=/gexbot-faker-api npm run gen && DOCS_BASE=/gexbot-faker-api DOCS_SITE=https://dgnsrekt.github.io astro build --outDir dist-pages",
     "build": "npm run build:embed",
     "preview": "astro preview",
     "check": "npm run gen && astro check"
