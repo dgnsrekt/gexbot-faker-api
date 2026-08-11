@@ -18,6 +18,8 @@ help:
     @echo ""
     @echo "  just build-gex-faker              Build the GEX Faker server binary"
     @echo "  just studio-build                 Build the GEX Faker Studio web UI (/studio)"
+    @echo "  just docs-build                   Build the guides docs site (/guides, from knowledge/)"
+    @echo "  just docs-dev                     Run the guides docs site in dev mode"
     @echo "  just serve-gex-faker              Run the GEX Faker server (development)"
     @echo "  just generate-gex-faker-api-spec  Generate API code from OpenAPI spec"
     @echo "  just generate-protos              Generate protobuf code for WebSocket"
@@ -75,8 +77,21 @@ generate-protos:
 studio-build:
     cd web && npm ci && npm run build && touch dist/.gitkeep
 
-# Build the GEX Faker server binary (embeds the Studio UI built by studio-build)
-build-gex-faker: generate-gex-faker-api-spec studio-build
+# Regenerate llms.txt / llms-full.txt from the knowledge/ OKF bundle.
+docs-llms:
+    cd website && npm ci && npm run gen
+
+# Build the Starlight docs site (embedded into the server via //go:embed at
+# /guides). Re-create dist/.gitkeep afterwards for the same reason as studio-build.
+docs-build:
+    cd website && npm ci && npm run build:embed && touch dist/.gitkeep
+
+# Run the docs site in dev mode (hot-reloads knowledge/ edits via the sync step).
+docs-dev:
+    cd website && npm ci && npm run dev
+
+# Build the GEX Faker server binary (embeds the Studio UI and the docs site)
+build-gex-faker: generate-gex-faker-api-spec studio-build docs-build
     go build -o bin/gexbot-server ./cmd/server
 
 # Run the GEX Faker server (development)

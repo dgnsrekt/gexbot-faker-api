@@ -6,6 +6,17 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build && touch dist/.gitkeep
 
+# Guides docs site build stage — produces website/dist (the Starlight site served
+# at /guides), embedded into the server binary. The build syncs from ../knowledge,
+# so the knowledge/ bundle is copied in before building.
+FROM node:22-alpine AS guides
+WORKDIR /app/website
+COPY website/package.json website/package-lock.json ./
+RUN npm ci
+COPY website/ ./
+COPY knowledge/ /app/knowledge/
+RUN npm run build:embed && touch dist/.gitkeep
+
 # Build stage
 FROM golang:1.24-alpine AS builder
 
@@ -21,9 +32,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Overlay the built Studio UI so //go:embed picks up the real assets (not the
-# checked-in .gitkeep placeholder).
+# Overlay the built Studio UI and docs site so //go:embed picks up the real
+# assets (not the checked-in .gitkeep placeholders).
 COPY --from=studio /app/web/dist ./web/dist
+COPY --from=guides /app/website/dist ./website/dist
 
 # Generate API code and build all binaries
 RUN go generate ./api && \

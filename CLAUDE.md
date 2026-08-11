@@ -121,6 +121,23 @@ faker without curl/env-vars.
   rebuild the UI. New backend accessors added for the UI: `ws.Hub.ClientCount()`,
   `data.IndexCache.AllPositions()`, `eod.ListArchives()`.
 
+### Documentation (knowledge bundle + guides site)
+- **`knowledge/`** is the OKF v0.1 Markdown **source of truth** for docs (humans +
+  agents). Edit topics there; keep the OKF frontmatter (`type`/`title`/
+  `description`/`tags`/`timestamp`) and update `knowledge/log.md`.
+- **`llms.txt` / `llms-full.txt`** (repo root, committed, also served at
+  `/llms.txt`) are **generated** from `knowledge/` by
+  `website/scripts/gen-llms.mjs` — run `just docs-llms` after editing topics; do
+  not hand-edit them.
+- **`website/`** is an Astro Starlight site that renders `knowledge/`. A prebuild
+  step (`sync-knowledge.mjs`) copies `knowledge/*.md` into `website/src/content/
+  docs/` (strips the body H1, keeps frontmatter title). Two builds from one
+  source via `DOCS_BASE`: `npm run build:embed` (base `/guides`, embedded via
+  `website/embed.go` + served by `internal/server/guides.go` at `/guides`) and
+  `npm run build:pages` (base `/gexbot-faker-api`, deployed to GitHub Pages by
+  `.github/workflows/docs.yml`). `just docs-build` builds the embedded variant and
+  is folded into `build-gex-faker`.
+
 ### Key Packages
 - `internal/server/` - HTTP router, handlers, Swagger UI, Studio UI + endpoints
 - `internal/ws/` - WebSocket hubs, streamers, negotiate handler, protobuf encoding

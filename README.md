@@ -10,6 +10,19 @@ NOTE: This only downloads and replays GexBot market data.
 
 Optional authenticated monitoring is documented in [OBSERVABILITY.md](OBSERVABILITY.md).
 
+## Documentation
+
+- **Guides site** — the full docs, published at
+  [dgnsrekt.github.io/gexbot-faker-api](https://dgnsrekt.github.io/gexbot-faker-api)
+  and served by the running server at **`/guides`**.
+- **Knowledge bundle** — the source of truth for humans *and* agents lives in
+  [`knowledge/`](knowledge/) (OKF v0.1 Markdown). Point an agent at
+  [`knowledge/index.md`](knowledge/index.md), or at the generated
+  [`llms.txt`](llms.txt) / [`llms-full.txt`](llms-full.txt) (also served at
+  `/llms.txt` and `/llms-full.txt`).
+- **API reference** — interactive Swagger UI at **`/docs`** (spec at
+  `/openapi.yaml`); AsyncAPI for WebSockets at `/asyncapi`.
+
 ## Features
 
 - REST API with Swagger UI documentation at `/docs`
