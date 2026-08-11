@@ -228,16 +228,18 @@ The Python example's unresolved native Zstd crash means captured production fram
 
 ## Faker extensions
 
-These routes are useful but are not part of live parity:
+These routes are useful but are not part of live parity (Swagger tags them
+`Faker control plane`; the control plane was renamed to match `gexfakercli`):
 
 - `/health`
-- `/reset-cache`
-- `/seek-to-timestamp`
-- `/reload-date`
-- `/available-dates`
-- `/current-date`
-- `/available-data/{date}`
-- `/download/...`
+- `/reset` (was `/reset-cache`)
+- `/seek` (was `/seek-to-timestamp`)
+- `/load` + `/load/status/{job_id}` (was `/reload-date` + `/load-range`)
+- `/current-load` (was `/current-date` + `/current-range`)
+- `/dates` (was `/available-dates`)
+- `/available/{date}` (was `/available-data/{date}`)
+- `/coverage` (was `/range-coverage`)
+- `/download/...` (direct faker-hosted downloads; the parity contract is `/hist/...` URL indirection)
 - `/sync/stream`
 - `/docs`, `/asyncapi`, and their specifications/assets
 

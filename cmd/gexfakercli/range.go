@@ -27,6 +27,24 @@ func loadCmd() *cobra.Command {
 			"Mutating: presents --token when set.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Exactly one selector: a positional date, --from/--to, or --dates.
+			n := 0
+			if len(args) == 1 {
+				n++
+			}
+			if dates != "" {
+				n++
+			}
+			if from != "" || to != "" {
+				n++
+			}
+			if n == 0 {
+				return fail(&apiError{Msg: "provide a date, --from and --to, or --dates"})
+			}
+			if n > 1 {
+				return fail(&apiError{Msg: "provide exactly one of: a positional date, --from/--to, or --dates"})
+			}
+
 			body := map[string]any{}
 			switch {
 			case len(args) == 1:
@@ -36,7 +54,7 @@ func loadCmd() *cobra.Command {
 			case from != "" && to != "":
 				body["from"], body["to"] = from, to
 			default:
-				return fail(&apiError{Msg: "provide a date, --from and --to, or --dates"})
+				return fail(&apiError{Msg: "provide --from and --to together (or --dates)"})
 			}
 			if !noWait && timeoutSec <= 0 {
 				return fail(&apiError{Msg: "--timeout must be a positive number of seconds"})
@@ -111,9 +129,15 @@ func pollLoad(ctx context.Context, c *apiClient, jobID string) ([]byte, error) {
 	}
 }
 
+// setupLoadTimeout bounds how long loadAndWait polls before giving up, so setup never hangs
+// silently on a job that never reaches a terminal state (a shorter parent deadline still wins).
+const setupLoadTimeout = 5 * time.Minute
+
 // loadAndWait POSTs /load and polls it to completion, returning the final status JSON. Used by setup
-// where the load must finish before the next step. Bounded by ctx.
+// where the load must finish before the next step. Bounded by setupLoadTimeout (and any shorter ctx).
 func loadAndWait(ctx context.Context, c *apiClient, body map[string]any) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, setupLoadTimeout)
+	defer cancel()
 	raw, err := c.postControlJSON(ctx, "/load", body)
 	if err != nil {
 		return nil, err
@@ -125,7 +149,11 @@ func loadAndWait(ctx context.Context, c *apiClient, body map[string]any) ([]byte
 	if job.JobID == "" {
 		return raw, nil
 	}
-	return pollLoad(ctx, c, job.JobID)
+	st, err := pollLoad(ctx, c, job.JobID)
+	if err != nil && ctx.Err() != nil {
+		return nil, &apiError{Msg: "load did not finish in time", Hint: "the job is still running server-side; check `gexfakercli current-load` or the faker logs"}
+	}
+	return st, err
 }
 
 func currentLoadCmd() *cobra.Command {

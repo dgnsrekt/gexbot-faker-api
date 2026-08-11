@@ -40,6 +40,21 @@ func (s *Server) Load(ctx context.Context, request generated.LoadRequestObject) 
 	}
 	b := request.Body
 
+	// Enforce the documented exclusive selector: exactly one of date | from+to | dates.
+	selectors := 0
+	if b.Date != nil && *b.Date != "" {
+		selectors++
+	}
+	if b.Dates != nil && len(*b.Dates) > 0 {
+		selectors++
+	}
+	if (b.From != nil && *b.From != "") || (b.To != nil && *b.To != "") {
+		selectors++
+	}
+	if selectors > 1 {
+		return generated.Load400JSONResponse{Error: ptr("provide exactly one of: date, from+to, or dates")}, nil
+	}
+
 	var dates []string
 	switch {
 	case b.Date != nil && *b.Date != "":

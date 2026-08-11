@@ -1,6 +1,14 @@
 # SPEC — Multi-day range replay (cross-day seek) + control auth
 
-**Status:** proposal for implementation (2026-08-11).
+> **⚠️ Historical design doc — endpoint names since renamed.** This spec captures the
+> original design. The feature shipped, then the control-plane API was consolidated and
+> renamed (a `POST /load` unifies `reload-date`+`load-range`; `GET /current-load`
+> replaces `current-date`+`current-range`; `reset-cache`→`reset`, `seek-to-timestamp`→
+> `seek`, `range-coverage`→`coverage`, `available-dates`→`dates`, `available-data`→
+> `available`). The endpoint names below are **out of date** — see `knowledge/rest-api.md`
+> (or Swagger `/docs`) for the current surface. The design/semantics still apply.
+
+**Status:** implemented; endpoints later renamed (see banner above). Original proposal 2026-08-11.
 **Requested by:** gexsync (the TV Replay client that seeks this faker per ticker at a shared cursor).
 **Priority:** Part A is the keystone. Part B is secondary (enables the gexsync remote-control).
 **Client-side design context:** `~/Documents/projects/gexsync/DESIGN-continuous-multiday-replay.md`.

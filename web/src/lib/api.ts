@@ -158,6 +158,9 @@ export const api = {
       j = await getJSON<LoadJob>(`/load/status/${job.job_id}`)
     }
     if (j.state === 'error') throw new Error(j.error || 'load failed')
+    // A still-queued/running job after the poll budget is a timeout, not success — surface it so
+    // the caller doesn't clear its busy state as though the day loaded.
+    if (j.state !== 'done') throw new Error('load did not finish in time (still running server-side)')
     return j
   },
   reset: () => postJSON<{ count: number }>('/reset', {}),

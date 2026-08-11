@@ -71,7 +71,8 @@ go test -v ./internal/config/...    # Run single package tests
 - **Multi-day range replay**: `/load` with a span loads one cross-day dataset (async job);
   `/current-load`, `/coverage`, and range-aware `/seek`; after-range-end policy is
   `RANGE_END_POLICY` (`clamp`|`error`). A single-day `/load` honors `DATA_MODE`; a span
-  always streams. Spec: `docs/SPEC-multiday-range-replay.md`.
+  always streams. Design (endpoint names since renamed — see its banner):
+  `docs/SPEC-multiday-range-replay.md`.
 
 ### Code Generation Pipeline
 1. `api/openapi.yaml` - OpenAPI 3.0 spec defines all endpoints

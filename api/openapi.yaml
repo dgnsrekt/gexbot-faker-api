@@ -850,8 +850,8 @@ paths:
     get:
       operationId: getDownloadLinks
       summary: Get available download links for a date/ticker
-      description: Returns all available download links grouped by package (classic, state, orderflow)
-      tags: [GexBot parity]
+      description: "**Faker-only.** Lists the faker's local `/download/...` paths grouped by package. The GexBot parity contract is the `/hist/...` URL indirection, not these faker-hosted targets."
+      tags: [Faker control plane]
       parameters:
         - name: date
           in: path
@@ -887,8 +887,8 @@ paths:
     get:
       operationId: downloadClassicGex
       summary: Download classic GEX dataset
-      description: Downloads the complete JSONL data file for classic GEX data for a specific date
-      tags: [GexBot parity]
+      description: "**Faker-only.** Direct faker-hosted JSONL download (a faker extension; the GexBot parity contract is `/hist/...`)."
+      tags: [Faker control plane]
       parameters:
         - name: date
           in: path
@@ -933,8 +933,8 @@ paths:
     get:
       operationId: downloadStateData
       summary: Download state dataset
-      description: Downloads the complete JSONL data file for state GEX or greek data for a specific date
-      tags: [GexBot parity]
+      description: "**Faker-only.** Direct faker-hosted JSONL download (a faker extension; the GexBot parity contract is `/hist/...`)."
+      tags: [Faker control plane]
       parameters:
         - name: date
           in: path
@@ -979,8 +979,8 @@ paths:
     get:
       operationId: downloadOrderflow
       summary: Download orderflow dataset
-      description: Downloads the complete JSONL data file for orderflow data for a specific date
-      tags: [GexBot parity]
+      description: "**Faker-only.** Direct faker-hosted JSONL download (a faker extension; the GexBot parity contract is `/hist/...`)."
+      tags: [Faker control plane]
       parameters:
         - name: date
           in: path
@@ -1292,7 +1292,12 @@ components:
       type: object
       description: >
         Provide exactly one of: date (a single day); from+to (inclusive span — the available archived
-        days within it are loaded); or an explicit dates list.
+        days within it are loaded); or an explicit dates list. Supplying more than one selector is a
+        400 (enforced server-side; the oneOf documents it).
+      oneOf:
+        - required: [date]
+        - required: [from, to]
+        - required: [dates]
       properties:
         date:
           type: string

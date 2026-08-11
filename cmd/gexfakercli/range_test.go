@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // runCLI executes the root command with the given args, discarding output. It fails the test on
@@ -233,6 +234,47 @@ func TestSetupSendsControlToken(t *testing.T) {
 	}
 	if resetAuth != "Bearer tok" {
 		t.Errorf("/reset Authorization = %q, want %q", resetAuth, "Bearer tok")
+	}
+}
+
+// Conflicting selectors (a positional date AND range flags) fail without hitting the network.
+func TestLoadRejectsConflictingSelectors(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("load with conflicting selectors should not make a request")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := rootCmd()
+	c.SetArgs([]string{"--url", srv.URL, "--quiet", "load", "2026-08-07", "--from", "2026-08-06"})
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+	if err := c.Execute(); err == nil {
+		t.Fatal("a positional date together with --from should error")
+	}
+}
+
+// A job that never reaches a terminal state must make loadAndWait (setup's loader) give up with an
+// error, not hang forever — so setup never blocks silently.
+func TestLoadAndWaitTimesOut(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/load" {
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"job_id":"stuck","state":"queued","total":1}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"job_id":"stuck","state":"queued"}`)) // never terminal
+	}))
+	defer srv.Close()
+
+	prevURL, prevKey := flagURL, flagKey
+	flagURL, flagKey = srv.URL, "k"
+	t.Cleanup(func() { flagURL, flagKey = prevURL, prevKey })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel()
+	if _, err := loadAndWait(ctx, newClient(), map[string]any{"date": "2026-08-07"}); err == nil {
+		t.Fatal("loadAndWait should error on a job that never reaches a terminal state")
 	}
 }
 
