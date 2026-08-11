@@ -21,8 +21,10 @@ export default defineConfig({
       title: 'GEX Faker',
       description:
         'Mock server that replays historical GexBot options/GEX market data over REST and WebSocket, with a web UI (Studio) and an agent CLI (gexfakercli).',
-      // LM Studio-flavored palette (violet accent + near-black dark theme).
+      // Unified with the GEX Faker Studio: green accent, near-black theme, brand
+      // dot, JetBrains Mono, mono-glyph cards.
       customCss: ['./src/styles/theme.css'],
+      favicon: '/favicon.svg',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/dgnsrekt/gexbot-faker-api' },
       ],
