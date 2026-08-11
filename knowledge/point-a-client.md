@@ -8,8 +8,11 @@ timestamp: 2026-08-11T00:00:00Z
 
 # Point a client at the faker
 
-The faker mirrors the real GexBot REST/WebSocket surface, so pointing an existing
-client at it is usually a one-line change.
+The faker mirrors the real GexBot API's **primary data routes and payload
+shapes**, so pointing an existing client at it is usually a one-line change. It is
+not a total mirror — see the parity note in [overview](overview.md) and the
+[compatibility matrix](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/compatibility/matrix.json)
+for known differences (e.g. `/tickers`).
 
 ## 1. Change the base URL
 

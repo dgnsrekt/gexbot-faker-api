@@ -1,5 +1,16 @@
 # Knowledge base update log
 
+## 2026-08-11 (review fixes)
+* **Qualified the parity claim** in `overview` and `point-a-client`: the faker
+  mirrors GexBot's *primary data routes and payload shapes*, not the whole API
+  (`/tickers` returns loaded tickers; WS is the five replay hubs). Linked the
+  compatibility matrix and audit.
+* **Completed `configuration`**: added `ENDPOINT_CACHE_MODE`, a Docker/compose
+  table (`HOST_BIND`/`HOST_PORT`/`DATA_HOST_DIR`/`PUID`/`PGID`/`PROMETHEUS_RETENTION`),
+  the remaining daemon vars (`DAEMON_RUN_TIMEOUT_MINUTES`/`DAEMON_CONFIG_PATH`/
+  `DAEMON_STATE_FILE`), the cleanup default (7), and `GEXBOT_DOWNLOADER_CONFIG`;
+  softened "every variable" to not overclaim exhaustiveness.
+
 ## 2026-08-11 (initialization)
 * **Created the OKF v0.1 knowledge bundle** for the GEX Faker API. Fifteen files:
   an `index.md` hub split into **Use it** / **Build with it**, this log, and

@@ -1,7 +1,7 @@
 ---
 type: Overview
 title: What the GEX Faker is
-description: A Go server that replays historical GexBot options/GEX market data over REST and WebSocket as a drop-in mock of the real API, plus a downloader, a scheduling daemon, a web UI, and an agent CLI.
+description: A Go server that replays historical GexBot options/GEX market data over REST and WebSocket, mirroring the real API's primary data routes, plus a downloader, a scheduling daemon, a web UI, and an agent CLI.
 tags: [overview, faker, gexbot, rest, websocket, replay]
 timestamp: 2026-08-11T00:00:00Z
 ---
@@ -9,11 +9,19 @@ timestamp: 2026-08-11T00:00:00Z
 # What the GEX Faker is
 
 The **GEX Faker API** is a Go server that **replays historical GexBot market
-data** — options gamma exposure (GEX), Greek profiles, and orderflow — over the
-same REST and WebSocket surface as the real [GexBot](https://www.gexbot.com) API.
-Point a client, dashboard, or trading tool at the faker instead of production and
-it replays a recorded market day, snapshot by snapshot, with no live API quota
-and fully deterministic output.
+data** — options gamma exposure (GEX), Greek profiles, and orderflow — over REST
+and WebSocket routes that mirror the real [GexBot](https://www.gexbot.com) API's
+primary data surface. Point a client, dashboard, or trading tool at the faker
+instead of production and it replays a recorded market day, snapshot by snapshot,
+with no live API quota and fully deterministic output.
+
+> **Parity, honestly.** The core market-data routes and payload shapes match
+> production, so a client built against those works against GexBot. It is not a
+> total mirror: some endpoints differ (e.g. `/tickers` returns the *loaded*
+> tickers, not the live supported universe), and the WebSocket hubs are the
+> faker's five replay hubs. Known differences are tracked in
+> [`compatibility/matrix.json`](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/compatibility/matrix.json)
+> and the [live compatibility audit](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/docs/GEXBOT_LIVE_COMPATIBILITY_AUDIT.md).
 
 ## Why it exists
 
