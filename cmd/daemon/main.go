@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
+	"github.com/dgnsrekt/gexbot-downloader/internal/coverage"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/downloadjob"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
@@ -298,12 +300,40 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	if notifyErr := notifier.SendSuccess(ctx, result, today, duration); notifyErr != nil {
 		logger.Warn("failed to send success notification", zap.Error(notifyErr))
 	}
+	checkCoverage(ctx, cfg.Output.Directory, today, notifier, logger)
 
 	if err := tracker.SetLastDownloadDate(today); err != nil {
 		logger.Error("failed to update tracker", zap.Error(err))
 		return false
 	}
 	return true
+}
+
+// checkCoverage inspects a freshly downloaded date for coverage regressions (a
+// ticker's intraday snapshots dropping well below its recent norm, or a session
+// that opens late / closes early / has a large gap) and pushes an ntfy alert if
+// any are found. Always logs findings so they're visible even when ntfy is off;
+// never fails the run — a coverage warning is advisory, not a download failure.
+func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.Notifier, logger *zap.Logger) {
+	rep, err := coverage.Check(dataDir, date)
+	if err != nil {
+		logger.Warn("coverage check failed", zap.String("date", date), zap.Error(err))
+		return
+	}
+	if rep.Empty() {
+		return
+	}
+	var b strings.Builder
+	for _, f := range rep.Findings {
+		fmt.Fprintf(&b, "%s [%s]: %s\n", f.Ticker, f.Kind, f.Detail)
+		logger.Warn("coverage finding",
+			zap.String("date", date), zap.String("ticker", f.Ticker),
+			zap.String("kind", f.Kind), zap.String("detail", f.Detail))
+	}
+	title := fmt.Sprintf("Coverage warning: %s", date)
+	if err := notifier.SendAlert(ctx, title, b.String(), "high"); err != nil {
+		logger.Warn("failed to send coverage alert", zap.Error(err))
+	}
 }
 
 // backfillLookbackDays is how far back (in calendar days) startup backfill
@@ -368,6 +398,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 		}
 
 		logger.Info("backfilled missed date", zap.String("date", date))
+		checkCoverage(ctx, cfg.Output.Directory, date, notifier, logger)
 		if err := tracker.SetLastDownloadDate(date); err != nil {
 			logger.Error("failed to update tracker after backfill", zap.Error(err))
 			return false
