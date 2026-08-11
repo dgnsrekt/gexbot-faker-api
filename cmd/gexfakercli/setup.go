@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,8 +85,13 @@ func runSetup(ctx context.Context, o setupOpts) error {
 		return fail(err)
 	}
 
-	// 4. Verify with a real sample pull, then reset the cursor so the agent starts clean.
-	tickers, verified := verifyPull(ctx, c)
+	// 4. Verify with a real sample pull, then reset the cursor so the agent starts
+	// clean. A failed verification means the faker is up but not usable for a
+	// standard pull, so setup must fail (nonzero exit) rather than report ready.
+	tickers, err := verifyPull(ctx, c)
+	if err != nil {
+		return fail(err)
+	}
 
 	// Re-read status for the authoritative loaded date / cache mode.
 	if h2, err := probeHealth(ctx, c); err == nil {
@@ -94,7 +101,7 @@ func runSetup(ctx context.Context, o setupOpts) error {
 		loaded = h.DataDate
 	}
 
-	progress("ready", "faker ready", "loaded_date", loaded, "verified", verified)
+	progress("ready", "faker ready", "loaded_date", loaded, "verified", true)
 	out, _ := json.Marshal(map[string]any{
 		"base_url":    c.base,
 		"key":         c.key,
@@ -102,7 +109,7 @@ func runSetup(ctx context.Context, o setupOpts) error {
 		"cache_mode":  h.CacheMode,
 		"data_mode":   h.DataMode,
 		"tickers":     tickers,
-		"verified":    verified,
+		"verified":    true,
 	})
 	return emit(out)
 }
@@ -245,25 +252,29 @@ func newestArchive(eodDir string) string {
 }
 
 // verifyPull confirms end-to-end health with a real authenticated data pull, then
-// rewinds that key's cursor. It returns the ticker list and whether the pull
-// succeeded (best-effort: a green faker with data returns a row).
-func verifyPull(ctx context.Context, c *apiClient) ([]string, bool) {
+// rewinds that key's cursor so the agent starts clean. It returns the ticker list
+// and a structured error if the pull did not return data.
+func verifyPull(ctx context.Context, c *apiClient) ([]string, error) {
 	tickers := indexTickers(ctx, c)
 	sample := "SPX"
 	if len(tickers) > 0 {
 		sample = tickers[0]
 	}
 	progress("verify", "sample pull", "endpoint", "/"+sample+"/classic/gex_zero")
-	_, err := c.get(ctx, "/"+sample+"/classic/gex_zero", true, nil)
-	verified := err == nil
-	if verified {
-		// Rewind just this key so the agent replays from the start.
-		q := "key=" + c.key
-		_, _ = c.postJSON(ctx, "/reset-cache?"+q, false, nil)
-	} else {
-		progress("verify", "sample pull did not return data", "error", err.Error())
+	if _, err := c.get(ctx, "/"+sample+"/classic/gex_zero", true, nil); err != nil {
+		var ae *apiError
+		if !errors.As(err, &ae) {
+			ae = &apiError{Msg: err.Error()}
+		}
+		if ae.Hint == "" {
+			ae.Hint = "faker is up but returned no classic/gex_zero for " + sample +
+				" — check `gexfakercli available <date>`"
+		}
+		return tickers, ae
 	}
-	return tickers, verified
+	// Rewind just this key so the agent replays from the start.
+	_, _ = c.postJSON(ctx, "/reset-cache?key="+url.QueryEscape(c.key), false, nil)
+	return tickers, nil
 }
 
 func indexTickers(ctx context.Context, c *apiClient) []string {

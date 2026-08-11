@@ -87,7 +87,7 @@ func buildDescribe() describeDoc {
 			{Command: "conversion", Endpoint: "/futures/conversion", Method: "GET", Auth: true, Flags: []string{"--ticker", "--future", "--model"}, Summary: "Futures->index affine conversion."},
 		},
 		Control: []cmdDoc{
-			{Command: "reset", Endpoint: "/reset-cache", Method: "POST", Flags: []string{"--key"}, Summary: "Reset cursor(s) to index 0 (all keys, or one with --key)."},
+			{Command: "reset", Endpoint: "/reset-cache", Method: "POST", Flags: []string{"--all"}, Summary: "Rewind the active --key's cursor to index 0 (--all resets every key)."},
 			{Command: "seek <ts>", Endpoint: "/seek-to-timestamp", Method: "POST", Args: []string{"unix-timestamp"}, Flags: []string{"--key"}, Summary: "Seek a key's cursor to a timestamp."},
 			{Command: "load <date>", Endpoint: "/reload-date", Method: "POST", Args: []string{"date"}, Summary: "Load a date; materializes its EOD archive if needed."},
 		},

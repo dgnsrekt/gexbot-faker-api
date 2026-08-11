@@ -22,17 +22,19 @@ func controlCmds() []*cobra.Command {
 }
 
 func resetCmd() *cobra.Command {
-	var key string
+	var all bool
 	cmd := &cobra.Command{
 		Use:   "reset",
-		Short: "Reset playback cursor(s) to the start",
-		Long:  "With no --key, resets every key's positions. With --key, resets just that key.",
-		Args:  cobra.NoArgs,
+		Short: "Rewind the active key's playback cursor to the start",
+		Long: "Rewinds the cursor selected by --key/GEXFAKER_KEY — the same cursor the data\n" +
+			"pulls advance. Use --all to reset every key's cursor (affects other sessions).",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Default: scope the reset to this CLI's key so a plain `reset` rewinds
+			// only the cursor our data pulls walk, not every other client's.
 			var q url.Values
-			// An explicitly-set --key scopes the reset; otherwise reset all keys.
-			if cmd.Flags().Changed("key") {
-				q = url.Values{"key": {key}}
+			if !all {
+				q = url.Values{"key": {flagKey}}
 			}
 			raw, err := newClient().postJSON(cmd.Context(), "/reset-cache?"+q.Encode(), false, nil)
 			if err != nil {
@@ -41,7 +43,7 @@ func resetCmd() *cobra.Command {
 			return emit(raw)
 		},
 	}
-	cmd.Flags().StringVar(&key, "key", "", "reset only this key's cursor (default: all keys)")
+	cmd.Flags().BoolVar(&all, "all", false, "reset every key's cursor, not just the active --key")
 	return cmd
 }
 
