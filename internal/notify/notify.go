@@ -17,6 +17,9 @@ import (
 type Notifier interface {
 	SendSuccess(ctx context.Context, result *download.BatchResult, date string, duration time.Duration) error
 	SendFailure(ctx context.Context, result *download.BatchResult, date string, duration time.Duration, err error) error
+	// SendAlert sends a standalone alert (e.g. a data-coverage warning) that
+	// isn't tied to a download result.
+	SendAlert(ctx context.Context, title, message, priority string) error
 }
 
 // Client implements the ntfy notification client.
@@ -62,6 +65,17 @@ func (c *Client) SendFailure(ctx context.Context, result *download.BatchResult, 
 	priority := "high" // Override to high priority for failures
 
 	return c.send(ctx, title, message, tags, priority)
+}
+
+// SendAlert sends a standalone warning-tagged alert.
+func (c *Client) SendAlert(ctx context.Context, title, message, priority string) error {
+	if !c.config.Enabled {
+		return nil
+	}
+	if priority == "" {
+		priority = "high"
+	}
+	return c.send(ctx, title, message, c.config.Tags+",warning", priority)
 }
 
 func (c *Client) send(ctx context.Context, title, message, tags, priority string) error {
@@ -114,6 +128,11 @@ func (n *NoopNotifier) SendSuccess(_ context.Context, _ *download.BatchResult, _
 
 // SendFailure is a no-op.
 func (n *NoopNotifier) SendFailure(_ context.Context, _ *download.BatchResult, _ string, _ time.Duration, _ error) error {
+	return nil
+}
+
+// SendAlert is a no-op.
+func (n *NoopNotifier) SendAlert(_ context.Context, _, _, _ string) error {
 	return nil
 }
 

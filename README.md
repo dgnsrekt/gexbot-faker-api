@@ -331,6 +331,22 @@ durable source of truth.
 > itself, so responses are negotiated and decompressed automatically
 > (`internal/api/client.go`).
 
+### Coverage alerts
+
+After each successful daemon download the data is checked for **coverage
+regressions** (`internal/coverage`) and a `high`-priority ntfy alert is sent if
+anything looks off:
+
+- **Snapshot drop** — a ticker's intraday snapshot count (one row per snapshot,
+  read from the manifest) falls >10% below its 20-day median. This is what a
+  silent source change looks like (e.g. a feed thinning SPX/NDX sampling).
+- **Session shape** — the day opens later than ~09:30 ET, closes earlier than
+  ~16:00 ET, or has an intraday gap over 120s (a truncated feed / outage).
+
+Findings are always logged; the ntfy alert only fires when notifications are
+enabled. The same snapshot metric is surfaced visually in the Studio Data
+Library (coverage sparkline + per-row deviation badge).
+
 ### Push Notifications (ntfy)
 
 Both the daemon and CLI downloader support push notifications via [ntfy.sh](https://ntfy.sh) when downloads complete or fail.
