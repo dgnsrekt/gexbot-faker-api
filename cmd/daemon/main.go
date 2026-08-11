@@ -315,6 +315,12 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 // any are found. Always logs findings so they're visible even when ntfy is off;
 // never fails the run — a coverage warning is advisory, not a download failure.
 func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.Notifier, logger *zap.Logger) {
+	// Export the per-ticker snapshot count so Grafana has the raw series to trend
+	// and alert on, independent of the ntfy findings below. SetDaemonSnapshots
+	// resets first so a ticker dropped from the set doesn't linger as a stale gauge.
+	if snaps, err := eod.TickerSnapshots(dataDir, date); err == nil {
+		observability.SetDaemonSnapshots(snaps)
+	}
 	rep, err := coverage.Check(dataDir, date, logger)
 	if err != nil {
 		logger.Warn("coverage check failed", zap.String("date", date), zap.Error(err))
@@ -325,6 +331,7 @@ func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.No
 	}
 	var b strings.Builder
 	for _, f := range rep.Findings {
+		observability.DaemonCoverageFindings.WithLabelValues(f.Kind).Inc()
 		fmt.Fprintf(&b, "%s [%s]: %s\n", f.Ticker, f.Kind, f.Detail)
 		logger.Warn("coverage finding",
 			zap.String("date", date), zap.String("ticker", f.Ticker),

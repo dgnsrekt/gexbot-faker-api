@@ -9,7 +9,9 @@
     {"id": 5, "title": "WebSocket messages / second", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "sum(rate(faker_ws_messages_sent_total[5m])) by (hub, format)", "legendFormat": "{{hub}} {{format}}"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}},
     {"id": 6, "title": "Data age", "type": "stat", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "time() - faker_data_date_timestamp_seconds{job=\"faker-api\"}"}], "fieldConfig": {"defaults": {"unit": "s"}}, "gridPos": {"h": 4, "w": 6, "x": 12, "y": 16}},
     {"id": 7, "title": "Daemon last success age", "type": "stat", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "time() - faker_daemon_last_success_timestamp_seconds{job=\"faker-daemon\"}"}], "fieldConfig": {"defaults": {"unit": "s"}}, "gridPos": {"h": 4, "w": 6, "x": 18, "y": 16}},
-    {"id": 8, "title": "Go memory", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "go_memstats_alloc_bytes", "legendFormat": "{{job}}"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}}
+    {"id": 8, "title": "Go memory", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "go_memstats_alloc_bytes", "legendFormat": "{{job}}"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}},
+    {"id": 9, "title": "Snapshots per ticker (daemon)", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "faker_daemon_snapshots", "legendFormat": "{{ticker}}"}], "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}},
+    {"id": 10, "title": "Coverage findings / day", "type": "timeseries", "datasource": {"uid": "prometheus"}, "targets": [{"expr": "increase(faker_daemon_coverage_findings_total[1d])", "legendFormat": "{{kind}}"}], "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}}
   ],
   "refresh": "10s",
   "schemaVersion": 41,

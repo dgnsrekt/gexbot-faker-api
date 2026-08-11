@@ -88,12 +88,34 @@ var (
 	DaemonNextRun = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "faker_daemon_next_run_timestamp_seconds", Help: "Unix timestamp of the next scheduled daemon check.",
 	})
+	// DaemonSnapshots is the latest download's per-ticker intraday snapshot count
+	// (~23,400 ≈ a full 1/sec session). A sustained drop in a ticker's series is a
+	// coverage regression — Grafana can alert on deviation from a rolling median.
+	DaemonSnapshots = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "faker_daemon_snapshots", Help: "Latest download's intraday snapshot count per ticker.",
+	}, []string{"ticker"})
+	// DaemonCoverageFindings counts coverage-check findings by kind
+	// (low-snapshots, sparse-session, late-open, early-close, gap).
+	DaemonCoverageFindings = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "faker_daemon_coverage_findings_total", Help: "Coverage-check findings by kind.",
+	}, []string{"kind"})
 )
 
 var (
 	registerServerOnce sync.Once
 	registerDaemonOnce sync.Once
 )
+
+// SetDaemonSnapshots publishes the latest download's per-ticker snapshot counts,
+// first resetting the vector so a ticker that left the set (e.g. removed from the
+// config) stops exporting its stale value — otherwise the dashboard would keep
+// presenting it as part of the current run.
+func SetDaemonSnapshots(snaps map[string]int) {
+	DaemonSnapshots.Reset()
+	for ticker, n := range snaps {
+		DaemonSnapshots.WithLabelValues(ticker).Set(float64(n))
+	}
+}
 
 // RegisterServer registers only the metrics the API/server binary emits. Metrics
 // are registered per binary (rather than a package init) so the daemon does not
@@ -116,6 +138,7 @@ func RegisterDaemon() {
 	registerDaemonOnce.Do(func() {
 		prometheus.MustRegister(
 			DaemonRuns, DaemonDuration, DaemonInProgress, DaemonFiles, DaemonLastSuccess, DaemonNextRun,
+			DaemonSnapshots, DaemonCoverageFindings,
 		)
 	})
 }
