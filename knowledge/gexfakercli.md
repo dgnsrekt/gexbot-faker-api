@@ -40,6 +40,8 @@ Data pulls replay the day in order; each pull advances a **per-`--key` cursor**
 - `cache_mode=exhaust` → `404 "No more data"` at the end; `rotation` → wraps.
 - `gexfakercli reset` rewinds the active key's cursor (`--all` resets every key).
 - `gexfakercli seek <unix-ts>` jumps to the first snapshot at/after a timestamp.
+- **Multi-day:** with a span loaded (`load-range`, below), the cursor rolls from one
+  day's last snapshot into the next, and `seek` resolves across the whole span.
 
 ## Common commands
 
@@ -60,7 +62,38 @@ Aggregations: `gex_full|gex_zero|gex_one`. State types: `gex_*` and greeks
 `delta|gamma|vanna|charm_zero` (0DTE) / `..._one` (1DTE+).
 
 Output control: `--fields a,b,c`, `--pretty`, `--url` / `GEXFAKER_URL`
-(default `http://127.0.0.1:8080`), `--key` / `GEXFAKER_KEY`.
+(default `http://127.0.0.1:8080`), `--key` / `GEXFAKER_KEY` (the data-route cursor),
+`--token` / `GEXFAKER_TOKEN` (the Studio auth token for gated control routes).
+
+## Multi-day replay
+
+Load a contiguous **span** of days as one continuous dataset so replay crosses day
+boundaries instead of dying at the first session end:
+
+```bash
+gexfakercli coverage --from 2026-08-06 --to 2026-08-10   # per-day tickers + union/intersection (pre-load)
+gexfakercli load-range --from 2026-08-06 --to 2026-08-10 # materialize + load the span (async; waits to done)
+gexfakercli load-range --dates 2026-08-06,2026-08-07     # or an explicit list
+gexfakercli current-range                                # confirm the loaded span
+```
+
+`load-range` is asynchronous — it polls the job to completion (progress on stderr);
+`--no-wait` returns the job id immediately, `--timeout <sec>` bounds the wait. Once a
+span is loaded, `seek <unix-ts>` resolves across it — the response carries
+`resolved_ts`, `day`, `in_gap` (clamps forward through overnight/weekend gaps), and
+`clamped` (`start`/`end` at the span edges; after-end is `clamp` or `error` per the
+server's `RANGE_END_POLICY`). Data pulls then roll from one day's last row into the
+next.
+
+## Control-route auth
+
+The **mutating** control routes — `load`, `reset`, `load-range` — require the
+faker's **Studio auth token** when the server has one set (`STUDIO_AUTH_TOKEN`, e.g.
+a LAN box). Present it with `--token` or `GEXFAKER_TOKEN` (sent as Bearer); a `401`
+with the hint "requires the faker's Studio auth token" means you need it. Read-only
+routes (`status`, `dates`, `coverage`, `current-range`, `seek`, data pulls) never
+need it, and an unset token means everything is open (local dev). See
+[point a client](point-a-client.md).
 
 ## Install it as an agent skill
 

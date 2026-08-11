@@ -23,6 +23,7 @@ es el punto de partida anotado (`cp gexbot.example.env .env`).
 | `DATA_MODE` | memory | `memory` (rápido) o `stream` (poca RAM) |
 | `CACHE_MODE` | exhaust | `exhaust` (404 al final) o `rotation` (bucle) |
 | `ENDPOINT_CACHE_MODE` | shared | `shared` (un cursor por ticker/pkg por key) o `independent` (por categoría) |
+| `RANGE_END_POLICY` | clamp | Rango multi-día: al final del span, `clamp` (última fila) o `error` (HTTP 400) |
 | `WS_ENABLED` | true | Habilita el streaming por WebSocket |
 | `WS_STREAM_INTERVAL` | 1s | Intervalo de broadcast |
 | `WS_GROUP_PREFIX` | blue | Prefijo para los nombres de grupo de WebSocket |
@@ -44,7 +45,7 @@ es el punto de partida anotado (`cp gexbot.example.env .env`).
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `STUDIO_AUTH_TOKEN` | *(empty)* | Gate de HTTP Basic para `/studio` (vacío = abierto) |
+| `STUDIO_AUTH_TOKEN` | *(empty)* | Gate de HTTP Basic/Bearer para `/studio` **y** las rutas de control que mutan estado (`reload-date`/`reset-cache`/`load-range`); vacío = abierto |
 | `LOKI_URL` | http://loki:3100 | Endpoint de Loki para la pantalla Logs |
 | `PROMETHEUS_URL` | http://prometheus:9090 | Endpoint de Prometheus para Monitoring |
 

@@ -55,6 +55,15 @@ the daemon evicts idle materialized JSONL back to archive-only after the window,
 reclaiming disk. The archive is untouched — a date can always be re-materialized.
 This is **disabled by default**.
 
+## Multi-day range
+
+Loading isn't limited to one day. A **span** of contiguous days can be loaded as one
+cross-day dataset (`POST /load-range`, or `gexfakercli load-range` — it materializes
+any archived days in the span first, then loads them together). The playback cursor
+then rolls from one day's last snapshot straight into the next, and `seek` resolves
+anywhere in the span. See [gexfakercli](gexfakercli.md) and
+[point a client](point-a-client.md).
+
 ## Why the archive is the source of truth
 
 The zip is small and canonical; JSONL is a derived, regenerable replay cache.

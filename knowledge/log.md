@@ -1,5 +1,17 @@
 # Knowledge base update log
 
+## 2026-08-11 (range replay + control auth)
+* **Corrected the auth model.** `rest-api` and `point-a-client` no longer claim
+  control routes are open: the mutating ones (`reload-date`/`reset-cache`/
+  `load-range`) are gated behind `STUDIO_AUTH_TOKEN` when the server sets one (401
+  otherwise); reads and `seek-to-timestamp` stay open (features #63).
+* **Documented multi-day range replay** (#60/#64): the range endpoints
+  (`/load-range`, `/current-range`, `/range-coverage`, `/load-range/status`) and the
+  range-aware `seek` in `rest-api`; the `coverage`/`load-range`/`current-range`
+  commands + `--token`/`GEXFAKER_TOKEN` in `gexfakercli` (mirroring the embedded
+  SKILL.md); the `RANGE_END_POLICY` config; and a cross-day note in
+  `materialize-load` + `point-a-client`. Spanish mirrors updated to match.
+
 ## 2026-08-11 (review fixes)
 * **Qualified the parity claim** in `overview` and `point-a-client`: the faker
   mirrors GexBot's *primary data routes and payload shapes*, not the whole API
