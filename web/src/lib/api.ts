@@ -45,7 +45,8 @@ export interface LibraryRow {
   packages: string[]
   size_bytes: number
   records: number
-  snapshots: number // avg per-ticker intraday snapshot count (coverage signal; ~23.4k = full 1/s session)
+  coverage: number // composition-stable coverage index (~1.0 = every ticker at its own snapshot norm; <1 = drop; 0 = unknown)
+  snapshots_by_ticker?: Record<string, number> // per-ticker intraday snapshot counts
   status: string // "ok" | "corrupt" (archive integrity)
   materialized: number // tickers with JSONL on disk
   total: number // archived tickers for the date

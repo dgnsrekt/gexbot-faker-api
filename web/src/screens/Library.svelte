@@ -63,21 +63,17 @@
     return Math.round((r.materialized / r.total) * 100) + '%'
   }
 
-  // --- Coverage: snapshots/ticker is comparable across dates, so a sustained
-  // drop (e.g. a source thinning SPX/NDX sampling) is a real signal. Baseline is
-  // the median of the most recent 20 days, so anomalies stand out against the
-  // current normal rather than a mixed-regime average.
-  function median(xs: number[]): number {
-    const v = xs.filter((n) => n > 0).sort((a, b) => a - b)
-    if (!v.length) return 0
-    const m = Math.floor(v.length / 2)
-    return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2)
-  }
-  const baseline = $derived(median(rows.slice(0, 20).map((r) => r.snapshots)))
+  // --- Coverage: the server sends a composition-stable index per date (~1.0 =
+  // every ticker at its own snapshot norm; <1 = a real per-ticker drop). It is
+  // already normalized per ticker, so changing the ticker set doesn't move it —
+  // the deviation is simply (index − 1).
+  const covRows = $derived(rows.filter((r) => r.coverage > 0))
+  const haveCoverage = $derived(covRows.length >= 3)
   function dev(r: LibraryRow): number {
-    return baseline && r.snapshots ? (r.snapshots - baseline) / baseline : 0
+    return r.coverage > 0 ? r.coverage - 1 : 0
   }
   function devClass(r: LibraryRow): string {
+    if (r.coverage <= 0) return ''
     const d = dev(r)
     if (Math.abs(d) < 0.08) return ''
     if (d <= -0.2) return 'dev big'
@@ -87,29 +83,43 @@
     const d = Math.round(dev(r) * 100)
     return (d > 0 ? '+' : '') + d + '%'
   }
-  // Sparkline (chronological: oldest → newest) of snapshots/ticker.
+  function covTitle(r: LibraryRow): string {
+    const byTk = r.snapshots_by_ticker
+    const parts = byTk
+      ? Object.keys(byTk)
+          .sort()
+          .map((tk) => `${tk} ${fmtInt(byTk[tk])}`)
+      : []
+    return `coverage ${Math.round(r.coverage * 100)}% of each ticker's norm` +
+      (parts.length ? ` · ${parts.join(', ')}` : '')
+  }
+  // Sparkline (chronological: oldest → newest) of the coverage index, scaled
+  // around 1.0 so the baseline sits mid-height.
   const SPARK_W = 240
   const SPARK_H = 30
   const sparkPoints = $derived.by(() => {
-    const s = rows.map((r) => r.snapshots).reverse()
-    if (s.length < 2) return ''
-    const lo = Math.min(...s)
-    const hi = Math.max(...s)
+    const s = rows.map((r) => r.coverage).reverse()
+    if (s.filter((v) => v > 0).length < 2) return ''
+    const vals = s.filter((v) => v > 0)
+    const lo = Math.min(...vals, 0.9)
+    const hi = Math.max(...vals, 1.1)
     const span = hi - lo || 1
-    return s
-      .map((v, i) => {
-        const x = (i / (s.length - 1)) * SPARK_W
-        const y = SPARK_H - ((v - lo) / span) * (SPARK_H - 4) - 2
-        return `${x.toFixed(1)},${y.toFixed(1)}`
-      })
-      .join(' ')
+    const pts: string[] = []
+    s.forEach((v, i) => {
+      if (v <= 0) return
+      const x = (i / (s.length - 1)) * SPARK_W
+      const y = SPARK_H - ((v - lo) / span) * (SPARK_H - 4) - 2
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+    })
+    return pts.join(' ')
   })
   const baseY = $derived.by(() => {
-    const s = rows.map((r) => r.snapshots)
-    const lo = Math.min(...s.filter((n) => n > 0))
-    const hi = Math.max(...s)
+    const vals = rows.map((r) => r.coverage).filter((v) => v > 0)
+    if (!vals.length) return SPARK_H / 2
+    const lo = Math.min(...vals, 0.9)
+    const hi = Math.max(...vals, 1.1)
     const span = hi - lo || 1
-    return SPARK_H - ((baseline - lo) / span) * (SPARK_H - 4) - 2
+    return SPARK_H - ((1 - lo) / span) * (SPARK_H - 4) - 2 // baseline at index 1.0
   })
 </script>
 
@@ -134,11 +144,11 @@
     <b>Download</b> screen are materialized already and show <b>Load</b> directly.
   </div>
 
-  {#if baseline > 0 && rows.length >= 3}
+  {#if haveCoverage}
     <div class="coverage">
       <div class="cov-head mono">
         COVERAGE
-        <span class="dim">snapshots/ticker · median {fmtInt(baseline)} (~{Math.round((baseline / 23400) * 100)}% of a full 1/s session)</span>
+        <span class="dim">each ticker vs its own median · 100% = normal</span>
       </div>
       <svg class="spark" viewBox="0 0 {SPARK_W} {SPARK_H}" preserveAspectRatio="none" aria-hidden="true">
         <line class="base" x1="0" x2={SPARK_W} y1={baseY} y2={baseY} />
@@ -175,10 +185,7 @@
           <div class="mono dim records">
             {fmtInt(r.records)}
             {#if devClass(r)}
-              <span
-                class={devClass(r)}
-                title="{fmtInt(r.snapshots)} snapshots/ticker vs median {fmtInt(baseline)}"
-              >{devText(r)}</span>
+              <span class={devClass(r)} title={covTitle(r)}>{devText(r)}</span>
             {/if}
           </div>
           <div class="actions">
