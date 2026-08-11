@@ -36,6 +36,11 @@ tape matches the GEX Faker Studio brand (near-black + green, JetBrains Mono).
 
 - `cli/gexfakercli.tape` — the agent golden flow: `setup` → `status` → two
   `classic` pulls (the playback cursor advances) → `reset`.
+- `cli/gexfakercli-discovery.tape` — discovery & switching days: `dates` →
+  `load` a different day → `available` → a `state` (greek) and `orderflow` pull.
 
+Each tape is self-contained (it loads a known day off-camera up front), so
+`just demos-render` is deterministic regardless of order. The brand theme is
+duplicated per tape today; factor it into a `Source`d config if the set grows.
 More tapes (e.g. `docker compose up`, the downloader, `describe`) drop in as new
 `cli/*.tape` files and are picked up by `just demos-render`.
