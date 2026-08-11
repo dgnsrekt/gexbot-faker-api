@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, promScalar } from '../lib/api'
+  import { api, promScalar, promToSeries, type Series } from '../lib/api'
+  import MetricChart from '../lib/MetricChart.svelte'
 
   type Tone = 'ok' | 'warn' | 'bad' | ''
   type Tile = { label: string; value: string; tone: Tone }
@@ -8,6 +9,16 @@
   let tiles = $state<Tile[]>([])
   let degraded = $state('') // non-empty → Prometheus unset/unreachable
   let loading = $state(true)
+
+  // Chart series (range queries).
+  let snapshots = $state<Series[]>([])
+  let reqRate = $state<Series[]>([])
+  let latency = $state<Series[]>([])
+  let wsConns = $state<Series[]>([])
+
+  const fmtPerSec = (v: number) => v.toFixed(2) + '/s'
+  const fmtMs = (v: number) => Math.round(v * 1000) + 'ms'
+  const fmtInt = (v: number) => String(Math.round(v))
 
   function fmtAge(s: number): string {
     if (s < 0) return '—'
@@ -55,6 +66,29 @@
           tone: fails && fails > 0 ? 'bad' : 'ok',
         },
       ]
+
+      // Charts (range queries). Snapshots trend over a week; the API/WS series
+      // over the last hour. Each is isolated: a failing range query must only
+      // empty its own panel — never blank the daemon tiles or the other charts,
+      // and never leave the panel showing a prior refresh's stale data.
+      const chart = (
+        q: string,
+        minutes: number,
+        step: number,
+        set: (s: Series[]) => void,
+        label?: string,
+        fallback?: string,
+      ) =>
+        api
+          .metricsRange(q, minutes, step)
+          .then((r) => set(promToSeries(r, label, fallback)))
+          .catch(() => set([]))
+      await Promise.all([
+        chart('faker_daemon_snapshots', 7 * 24 * 60, 3600, (s) => (snapshots = s), 'ticker'),
+        chart('sum(rate(faker_http_requests_total[5m]))', 60, 60, (s) => (reqRate = s), undefined, 'requests'),
+        chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
+        chart('faker_ws_connections', 60, 60, (s) => (wsConns = s), 'hub'),
+      ])
     } catch (e) {
       degraded = String(e)
     } finally {
@@ -95,6 +129,16 @@
           <div class="tlabel">{t.label}</div>
         </div>
       {/each}
+    </div>
+
+    <div class="section mono">COVERAGE</div>
+    <MetricChart title="Snapshots per ticker" hint="7 days" series={snapshots} height={170} />
+
+    <div class="section mono">API &amp; STREAMS</div>
+    <div class="grid2">
+      <MetricChart title="Request rate" hint="last hour" series={reqRate} format={fmtPerSec} />
+      <MetricChart title="p95 latency" hint="last hour" series={latency} format={fmtMs} />
+      <MetricChart title="WebSocket connections" hint="last hour" series={wsConns} format={fmtInt} />
     </div>
   {/if}
 </div>
@@ -139,6 +183,11 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 12px;
   }
   .tile {
