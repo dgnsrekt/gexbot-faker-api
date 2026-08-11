@@ -36,9 +36,20 @@ export GEXBOT_API_KEY=test123   # the faker accepts any key
 ```
 
 Se aceptan `Basic`, `Bearer` y un token pelado. Un header **faltante** en una
-ruta de datos devuelve `400 {"error":"Authorization header not found."}`. Las
-rutas de descubrimiento y de control (`/tickers`, `/health`, `/reload-date`, …)
-no necesitan ningún header.
+ruta de datos devuelve `400 {"error":"Authorization header not found."}`. El
+descubrimiento de solo lectura (`/tickers`, `/health`, `/available-dates`, …) no
+necesita header.
+
+### Rutas de control y el token del Studio
+
+Las rutas de control **que mutan estado** — `reload-date`, `reset-cache`,
+`load-range` — cambian el estado global del servidor, así que están protegidas
+detrás del **token de auth del Studio** (`STUDIO_AUTH_TOKEN`) **cuando hay uno
+configurado** (habitual en un faker remoto/LAN): preséntalo como `Basic`/`Bearer` o
+recibes `401 {"error":"control route requires the Studio auth token"}`. Un token
+**sin configurar** (dev local) las deja abiertas. Las lecturas y el
+`seek-to-timestamp` por cliente nunca están protegidos. Desde la CLI, pasa el token
+con `--token` / `GEXFAKER_TOKEN` (ver [gexfakercli](gexfakercli.md)).
 
 ## 3. Entiende la reproducción por key
 
@@ -57,6 +68,16 @@ independiente:
 Controla el cursor con `POST /reset-cache` (rebobinar) y
 `POST /seek-to-timestamp` (saltar a un tiempo) — o vía
 [gexfakercli](gexfakercli.md) (`reset`, `seek`).
+
+## 4. Reproducción de rango multi-día
+
+Un cliente puede cargar un **span contiguo de días** como un único dataset entre
+días con `POST /load-range` (`{from,to}` o `{dates[]}`), de modo que el cursor pasa
+del último snapshot de un día al siguiente en lugar de terminar en un límite de
+sesión, y `seek-to-timestamp` resuelve en cualquier punto del span (con
+`in_gap`/`clamped` para los huecos nocturnos y los bordes del span). Ver
+[gexfakercli](gexfakercli.md) (`load-range`, `current-range`, `coverage`) y
+[materializar y cargar](materialize-load.md).
 
 ## Qué leer a continuación
 

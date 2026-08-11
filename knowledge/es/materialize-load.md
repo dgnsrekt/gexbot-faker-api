@@ -56,6 +56,15 @@ el daemon expulsa el JSONL materializado inactivo dejándolo solo como archive
 después de la ventana, recuperando disco. El archive no se toca — una fecha
 siempre se puede volver a materializar. Esto está **desactivado por defecto**.
 
+## Rango multi-día
+
+Cargar no se limita a un solo día. Un **span** de días contiguos puede cargarse
+como un único dataset entre días (`POST /load-range`, o `gexfakercli load-range` —
+materializa primero los días archivados del span y luego los carga juntos). El
+cursor de reproducción pasa entonces del último snapshot de un día directo al
+siguiente, y `seek` resuelve en cualquier punto del span. Ver
+[gexfakercli](gexfakercli.md) y [apunta un cliente](point-a-client.md).
+
 ## Por qué el archive es la fuente de verdad
 
 El zip es pequeño y canónico; el JSONL es una caché de reproducción derivada y

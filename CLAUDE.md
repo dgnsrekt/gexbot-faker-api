@@ -11,8 +11,11 @@ GEX Faker API is a Go server that replays historical options/derivatives data fr
 ```bash
 # Build
 just build                          # Build downloader binary
+just build-gexfakercli              # Build the gexfakercli agent CLI
 just studio-build                   # Build the Studio web UI (web/ → web/dist, embedded)
-just build-gex-faker                # Build server binary (runs studio-build + generates API code)
+just docs-build                     # Build the guides site (website/ → website/dist, embedded at /guides)
+just demos-render                   # Render CLI demo GIFs (VHS) into website/public/demos
+just build-gex-faker                # Build server binary (runs studio-build + docs-build + generates API code)
 
 # Run
 just serve-gex-faker                # Build and run server
@@ -46,6 +49,17 @@ go test -v ./internal/config/...    # Run single package tests
 - `cmd/server/main.go` - REST API + WebSocket server
 - `cmd/downloader/main.go` - CLI for downloading historical data from GexBot API
 - `cmd/daemon/main.go` - Background service for scheduled downloads
+- `cmd/gexfakercli/main.go` - JSON-first agent CLI over the faker (client + self-installing skill + auto-setup)
+- `cmd/synctickers/main.go` - Refresh `internal/config/tickers.json` from GexBot's `/tickers` (CI drift check)
+
+### Control-plane auth & multi-day range
+- **Mutating control routes** (`/load-range`, `/reload-date`, `/reset-cache`) are gated
+  behind `STUDIO_AUTH_TOKEN` via `controlAuthMiddleware`/`isMutatingControlPath`
+  (`internal/server/server.go`) — same Basic/Bearer check as the Studio; empty = open.
+  Reads and `/seek-to-timestamp` stay open; data routes keep any-token auth.
+- **Multi-day range replay**: `/load-range` (span → one cross-day dataset, async job),
+  `/current-range`, `/range-coverage`, range-aware `/seek-to-timestamp`; after-range-end
+  policy is `RANGE_END_POLICY` (`clamp`|`error`). Spec: `docs/SPEC-multiday-range-replay.md`.
 
 ### Code Generation Pipeline
 1. `api/openapi.yaml` - OpenAPI 3.0 spec defines all endpoints

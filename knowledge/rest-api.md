@@ -37,15 +37,26 @@ see [point a client](point-a-client.md) for the auth + cursor model.
 | `GET /available-dates` | Materialized dates ready to load |
 | `GET /available-data/{date}` | Data tree for a date (materializes on demand) |
 | `GET /current-date` | The currently loaded date |
+| `GET /current-range` | The currently loaded span, in multi-day range mode |
+| `GET /range-coverage?from=&to=` | Per-day tickers + union/intersection for a span (works pre-load) |
+| `GET /load-range/status/{job_id}` | Progress of an async range load |
 | `GET /health` | Status, loaded date, data/cache mode |
 
-## Control (no auth)
+## Control
+
+Mutating routes (`reload-date`, `reset-cache`, `load-range`) require the **Studio
+auth token** — `STUDIO_AUTH_TOKEN`, presented as Basic/Bearer — **only when the
+server has one set** (401 `{"error":"control route requires the Studio auth token"}`
+otherwise); an unset token leaves them open (local dev). Reads above and
+`seek-to-timestamp` (per-client) are never gated. See
+[point a client](point-a-client.md).
 
 | Endpoint | Effect |
 | --- | --- |
-| `POST /reload-date` `{date}` | Load a date (materializes if needed); 409 if a reload is in progress |
-| `POST /reset-cache?key=` | Rewind a key's cursor (all keys if no `key`) |
-| `POST /seek-to-timestamp` `{timestamp,key}` | Seek a key to a unix timestamp |
+| `POST /reload-date` `{date}` | Load a single date (materializes if needed); 409 if a reload is in progress · *token-gated* |
+| `POST /load-range` `{from,to}` or `{dates[]}` | Load a span of days as one cross-day dataset (async → `job_id`) · *token-gated* |
+| `POST /reset-cache?key=` | Rewind a key's cursor (all keys if no `key`) · *token-gated* |
+| `POST /seek-to-timestamp` `{timestamp,key}` | Seek a key to a unix timestamp; in range mode resolves across the span (`resolved_ts`, `day`, `in_gap`, `clamped`) |
 
 ## Related
 

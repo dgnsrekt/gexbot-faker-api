@@ -118,10 +118,14 @@ REST API serving historical GEX data with sequential playback per API key.
 - `/negotiate` - WebSocket connection URLs
 - `/health`, `/tickers`, `/available-dates` - Server info
 - `/reload-date` - Hot reload data for a different date
+- `/load-range` - Load a span of days as one cross-day dataset (multi-day replay)
+- `/current-range`, `/range-coverage` - Loaded span + per-day ticker coverage
 - `/reset-cache` - Reset playback positions
-- `/seek-to-timestamp` - Seek positions to a specific timestamp
+- `/seek-to-timestamp` - Seek positions to a timestamp (range-aware in multi-day mode)
 
 **Key behavior**: Each API key maintains independent playback position. Data advances on each request.
+
+**Control-plane auth**: the mutating control routes (`/reload-date`, `/reset-cache`, `/load-range`) are gated behind `STUDIO_AUTH_TOKEN` when it is set (401 otherwise); reads and `/seek-to-timestamp` stay open. Empty token = open (local dev).
 
 ### Hot Reload
 
@@ -288,6 +292,26 @@ needs a date.
 ./bin/gexbot-downloader eod materialize 2026-07-17
 ```
 
+### Agent CLI (gexfakercli)
+
+`gexfakercli` is a JSON-first client over the faker, made for LLM agents: one JSON
+document per command on stdout, structured errors on stderr, nonzero exit on
+failure. It also self-installs as a Claude/Codex skill and can bootstrap a faker
+from zero.
+
+```bash
+just build-gexfakercli
+gexfakercli setup                       # discover/bring up a faker, load a date, verify, print ready state
+gexfakercli status                      # is it up + which date is loaded
+gexfakercli classic QQQ gex_zero --fields timestamp,spot,zero_gamma
+gexfakercli load-range --from 2026-08-06 --to 2026-08-10   # multi-day span
+gexfakercli skill install               # install the embedded SKILL.md into ~/.claude, ~/.codex
+```
+
+Full reference and demos in the [guides](knowledge/gexfakercli.md); `gexfakercli
+describe` dumps the whole surface as JSON. Mutating control routes take
+`--token`/`GEXFAKER_TOKEN` when the faker sets `STUDIO_AUTH_TOKEN`.
+
 ### Daemon Service
 
 Automated EOD downloads with market-day awareness. Reports are retried every
@@ -410,6 +434,8 @@ Subscribe to notifications at `https://ntfy.sh/my-gexbot-downloads` or use the n
 | `SYNC_BROADCAST_SYSTEM_ENABLED`  | false    | Enable SSE sync broadcast endpoint          |
 | `SYNC_BROADCAST_SYSTEM_ID`       | hostname | Broadcaster identifier                      |
 | `SYNC_BROADCAST_SYSTEM_INTERVAL` | 1s       | Position broadcast interval                 |
+| `RANGE_END_POLICY`               | clamp    | Multi-day range end: `clamp` (last row) or `error` (400) |
+| `STUDIO_AUTH_TOKEN`              | *(empty)*| Gates `/studio` **and** the mutating control routes; empty = open |
 
 ### Downloader Configuration
 
