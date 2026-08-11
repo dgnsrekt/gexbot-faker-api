@@ -4,13 +4,17 @@
 // readable standalone). Starlight wants the title in frontmatter and no body H1
 // (it renders the title heading itself). This script bridges the two: it keeps
 // title/description, strips the leading body H1, synthesizes frontmatter for the
-// hub/log files that have none, and rewrites sibling `.md` links to relative form
-// so Astro resolves them with the configured base.
+// hub/log files that have none, and rewrites sibling `.md` links to page URLs.
+//
+// Astro does NOT resolve `foo.md` / `./foo.md` hrefs to routes — they ship
+// verbatim and 404 against the page's own directory. So rewrite them here to
+// base-absolute page URLs; DOCS_BASE must match the one the astro build uses.
 import { readdir, readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import path from 'node:path'
 
 const SRC = path.resolve('../knowledge')
 const OUT = path.resolve('src/content/docs')
+const BASE = (process.env.DOCS_BASE ?? '/guides').replace(/\/$/, '')
 
 // Per-topic hero glyphs, reusing the GEX Faker Studio's nav icon language. Kept
 // here (not in the OKF frontmatter) so knowledge/ stays a clean plain-Markdown
@@ -52,9 +56,10 @@ function stripLeadingH1(body) {
 }
 
 // Transform one knowledge/*.md into a Starlight doc: keep title/description,
-// strip the body H1, inject the per-slug glyph, and make sibling .md links
-// relative. index.md is the OKF hub / hand-authored landing, so it is skipped.
-async function syncDir(srcDir, outDir) {
+// strip the body H1, inject the per-slug glyph, and rewrite sibling .md links
+// to `${urlPrefix}/<slug>/`. index.md is the OKF hub / hand-authored landing,
+// so it is skipped.
+async function syncDir(srcDir, outDir, urlPrefix) {
   await mkdir(outDir, { recursive: true })
   for (const f of await readdir(outDir).catch(() => [])) {
     if (f.endsWith('.md')) await rm(path.join(outDir, f))
@@ -68,7 +73,10 @@ async function syncDir(srcDir, outDir) {
     const description = fmField(fm, 'description')
 
     let out = stripLeadingH1(body).trimStart()
-    out = out.replace(/\]\(([a-z0-9][a-z0-9-]*\.md)\)/g, '](./$1)')
+    out = out.replace(
+      /\]\((?:\.\/)?([a-z0-9][a-z0-9-]*)\.md(#[^)]*)?\)/g,
+      (_m, slug, hash = '') => `](${urlPrefix}/${slug}/${hash})`,
+    )
 
     const front = [`title: ${JSON.stringify(title)}`]
     if (description) front.push(`description: ${JSON.stringify(description)}`)
@@ -81,9 +89,9 @@ async function syncDir(srcDir, outDir) {
 
 // English (root) + the Spanish locale (knowledge/es/ -> src/content/docs/es/).
 // The es slugs match the English ones, so Starlight pairs them across locales.
-const enCount = await syncDir(SRC, OUT)
+const enCount = await syncDir(SRC, OUT, BASE)
 let esCount = 0
 if (await readdir(path.join(SRC, 'es')).then(() => true, () => false)) {
-  esCount = await syncDir(path.join(SRC, 'es'), path.join(OUT, 'es'))
+  esCount = await syncDir(path.join(SRC, 'es'), path.join(OUT, 'es'), `${BASE}/es`)
 }
 console.log(`synced ${enCount} en + ${esCount} es docs -> src/content/docs`)
