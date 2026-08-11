@@ -18,5 +18,9 @@
     "@astrojs/starlight": "^0.41.0",
     "astro": "^7.2.0",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/space-grotesk": "^5.3.0"
   }
 }
