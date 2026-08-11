@@ -81,6 +81,47 @@ func TestPackAndMarkMarksMaterialized(t *testing.T) {
 	}
 }
 
+// TestPackAndMarkRepacksOrphanManifest is the #40 P1 regression: if a ZIP is
+// deleted/truncated while its .manifest.json remains, the fast path must NOT
+// treat the date as covered — otherwise it marks materialized and CleanupStale
+// could delete the JSONL with no durable ZIP to restore from. PackAndMark must
+// recreate the ZIP before writing the marker.
+func TestPackAndMarkRepacksOrphanManifest(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-08-07", "SPX"
+	writeCat(t, root, date, ticker, "classic", "gex_full")
+	cfg := cfgWith(root, ticker, map[string][]string{"classic": {"gex_full"}})
+
+	if err := PackAndMark(cfg, date); err != nil {
+		t.Fatal(err)
+	}
+	archive := eod.ArchivePath(root, date, ticker)
+
+	// Simulate a lost ZIP while the sidecar manifest survives.
+	if err := os.Remove(archive); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(eod.ManifestPath(archive)); err != nil {
+		t.Fatalf("manifest should still be present: %v", err)
+	}
+
+	// A subsequent run must rebuild the ZIP, not skip on the orphan manifest.
+	if err := PackAndMark(cfg, date); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Stat(archive); err != nil || fi.Size() == 0 {
+		t.Errorf("orphan manifest was not repacked: stat err=%v", err)
+	}
+	// And the date is (still) reported materialized against a real archive.
+	got, err := eod.ListArchives(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Materialized != 1 {
+		t.Errorf("ListArchives = %+v, want 1 materialized date", got)
+	}
+}
+
 // TestPackMissingArchivesRebuildsOnAddedPackage covers the review note: after
 // packing a package subset, a later request adding another package must rebuild
 // the archive so the new package reaches the Library.

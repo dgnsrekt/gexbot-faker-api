@@ -194,10 +194,20 @@ func PackMissingArchives(cfg *config.Config, date string) error {
 		archive := eod.ArchivePath(cfg.Output.Directory, date, ticker)
 		if data, err := os.ReadFile(eod.ManifestPath(archive)); err == nil {
 			var man eod.Manifest
+			// Skip re-packing only when the manifest covers the on-disk JSONL AND
+			// the archive it describes is actually present and non-empty. A
+			// leftover manifest whose ZIP was deleted/truncated must NOT count as
+			// covered: PackAndMark would then mark the date materialized and
+			// CleanupStale could delete the JSONL with no durable ZIP to restore
+			// from. (Existence + non-empty is the cheap hot-path guard; full
+			// SHA-256 verification is available out-of-band via `eod verify`.)
 			if json.Unmarshal(data, &man) == nil && manifestCoversJSONL(cfg.Output.Directory, date, ticker, &man) {
-				continue // archive already covers everything on disk
+				if fi, statErr := os.Stat(archive); statErr == nil && fi.Size() > 0 {
+					continue // manifest covers on-disk JSONL and the ZIP exists
+				}
+				// Archive missing/empty → fall through and repack below.
 			}
-			// Manifest present but new JSONL appeared → rebuild below.
+			// Manifest present but new JSONL appeared (or ZIP gone) → rebuild below.
 		}
 		if _, err := eod.Pack(cfg.Output.Directory, date, ticker, "individual-fallback"); err != nil {
 			return fmt.Errorf("%s: %w", ticker, err)
