@@ -26,3 +26,7 @@ to answer setup, usage, and integration questions from the source itself.
 ## When something is wrong
 
 * [Troubleshooting](troubleshooting.md) — no data, `archived` vs `ready`, auth 400s, exhausted cursors
+
+## Español
+
+* [Base de conocimiento en español](es/index.md) — el bundle completo traducido al español

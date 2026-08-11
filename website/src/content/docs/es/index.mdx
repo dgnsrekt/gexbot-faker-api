@@ -1,0 +1,45 @@
+---
+title: Base de conocimiento de GEX Faker
+description: Servidor de simulación que reproduce datos históricos de opciones/GEX de GexBot sobre REST y WebSocket, con una UI web (Studio) y una CLI para agentes (gexfakercli).
+---
+
+import GuideCard from '../../../components/GuideCard.astro';
+
+El **GEX Faker** reproduce datos históricos de opciones/GEX de GexBot sobre REST y
+WebSocket — un sustituto (mock) de su superficie de datos principal, con una UI web
+(Studio) y una CLI para agentes (`gexfakercli`). ¿Recién llegas? Empieza por el
+[inicio rápido](quick-start/). ¿Construyes un agente? Apúntalo a
+[`llms.txt`](../llms.txt) o a `knowledge/index.md`.
+
+{/* Las URLs de las tarjetas son BASE_URL + "/es/slug/". BASE_URL no lleva barra
+    final en ninguna build ("/guides", "/gexbot-faker-api"), así que la barra
+    inicial va en el literal. Los glifos reutilizan el lenguaje de iconos de la nav
+    del Studio. */}
+
+## Úsalo
+
+<div class="guide-grid">
+  <GuideCard glyph="⬡" title="Visión general" description="Qué es el faker, qué reproduce y sus piezas de un vistazo." href={import.meta.env.BASE_URL + '/es/overview/'} />
+  <GuideCard glyph="▸" title="Inicio rápido" description="Del clon a un stream en vivo en el Studio — el camino ideal." href={import.meta.env.BASE_URL + '/es/quick-start/'} />
+  <GuideCard glyph="▣" title="Studio" description="Las siete pantallas de la UI web y qué hace cada una." href={import.meta.env.BASE_URL + '/es/studio/'} />
+  <GuideCard glyph="↓" title="Descargar datos" description="Las dos formas en que llegan los datos (archivo EOD vs /hist) y la clave API." href={import.meta.env.BASE_URL + '/es/download-data/'} />
+  <GuideCard glyph="⇡" title="Materializar y cargar" description="El ciclo archived → ready → loaded (la confusión n.º 1)." href={import.meta.env.BASE_URL + '/es/materialize-load/'} />
+  <GuideCard glyph="▦" title="Docker y observabilidad" description="El stack de compose, Prometheus/Loki y la pantalla Monitoring." href={import.meta.env.BASE_URL + '/es/docker-observability/'} />
+</div>
+
+## Desarrolla con él
+
+<div class="guide-grid">
+  <GuideCard glyph="⇆" title="Apunta un cliente" description="URL base, auth por header y reproducción por clave." href={import.meta.env.BASE_URL + '/es/point-a-client/'} />
+  <GuideCard glyph="❯" title="gexfakercli" description="La CLI para agentes con salida JSON — setup, describe, pulls, cursor." href={import.meta.env.BASE_URL + '/es/gexfakercli/'} />
+  <GuideCard glyph="⧉" title="API REST" description="La superficie de endpoints, Swagger UI y la spec OpenAPI." href={import.meta.env.BASE_URL + '/es/rest-api/'} />
+  <GuideCard glyph="≈" title="Streaming WebSocket" description="Los cinco hubs, /negotiate, nombres de grupo y el formato de frame." href={import.meta.env.BASE_URL + '/es/websockets/'} />
+  <GuideCard glyph="⚙" title="Configuración" description="Las variables de entorno que configuran el faker." href={import.meta.env.BASE_URL + '/es/configuration/'} />
+  <GuideCard glyph="⟳" title="El daemon" description="Descargas programadas, alertas de cobertura y push por ntfy." href={import.meta.env.BASE_URL + '/es/daemon/'} />
+</div>
+
+## Cuando algo falla
+
+<div class="guide-grid">
+  <GuideCard glyph="⚠" title="Solución de problemas" description="Sin datos, archived vs ready, errores 400 de auth, cursores agotados." href={import.meta.env.BASE_URL + '/es/troubleshooting/'} />
+</div>

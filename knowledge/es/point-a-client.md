@@ -1,0 +1,65 @@
+---
+type: Guide
+title: Apunta un cliente al faker
+description: Cómo reapuntar un cliente GexBot existente al faker — la base URL, el modelo de autenticación por header donde cualquier token no vacío funciona, y la reproducción secuencial por API key.
+tags: [client, base-url, auth, playback, cursor, integration, español]
+timestamp: 2026-08-11T00:00:00Z
+---
+
+# Apunta un cliente al faker
+
+El faker replica las **rutas de datos principales y las formas de payload** de la
+API real de GexBot, así que apuntar un cliente existente hacia él suele ser un
+cambio de una sola línea. No es un espejo total — ver la nota de paridad en
+[overview](overview.md) y la
+[matriz de compatibilidad](https://github.com/dgnsrekt/gexbot-faker-api/blob/main/compatibility/matrix.json)
+para conocer las diferencias (por ejemplo, `/tickers`).
+
+## 1. Cambia la base URL
+
+```
+https://api.gexbot.com   →   http://localhost:8080
+```
+
+Por ejemplo, [quant-python-sockets](https://github.com/nfa-llc/quant-python-sockets)
+solo necesita `BASE_URL = "http://localhost:8080"`. El origen desde el que se
+accedió al Studio también es la base de la API, así que las URLs copiadas siguen
+siendo correctas detrás de un reverse proxy.
+
+## 2. Auth: cualquier token no vacío funciona
+
+Las rutas de datos de mercado requieren un header `Authorization`, pero el faker
+**nunca valida el token** — cualquier valor no vacío autentica:
+
+```bash
+export GEXBOT_API_KEY=test123   # the faker accepts any key
+```
+
+Se aceptan `Basic`, `Bearer` y un token pelado. Un header **faltante** en una
+ruta de datos devuelve `400 {"error":"Authorization header not found."}`. Las
+rutas de descubrimiento y de control (`/tickers`, `/health`, `/reload-date`, …)
+no necesitan ningún header.
+
+## 3. Entiende la reproducción por key
+
+El token no es solo una contraseña — **siembra un cursor de reproducción por
+key**. Cada key distinta recorre los snapshots del día cargado de forma
+independiente:
+
+- Cada extracción de datos exitosa devuelve el snapshot **actual** y luego
+  **avanza** el cursor de esa key en uno.
+- Dos clientes con keys distintas reproducen a su propio ritmo; dos con la misma
+  key comparten un cursor.
+- `cache_mode=exhaust` (por defecto): después del último snapshot, las
+  extracciones devuelven `404 {"error":"No more data available"}`.
+- `cache_mode=rotation`: el cursor vuelve al inicio en lugar de dar 404.
+
+Controla el cursor con `POST /reset-cache` (rebobinar) y
+`POST /seek-to-timestamp` (saltar a un tiempo) — o vía
+[gexfakercli](gexfakercli.md) (`reset`, `seek`).
+
+## Qué leer a continuación
+
+- La lista completa de endpoints y la UI de Swagger → [REST API](rest-api.md).
+- Streaming en vivo en lugar de polling → [WebSocket streaming](websockets.md).
+- Un cliente listo para agentes → [gexfakercli](gexfakercli.md).
