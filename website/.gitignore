@@ -15,6 +15,5 @@ dist-pages/
 !/src/content/docs/es/
 /src/content/docs/es/*
 !/src/content/docs/es/index.mdx
-!/src/content/docs/es/404.mdx
 public/llms.txt
 public/llms-full.txt
