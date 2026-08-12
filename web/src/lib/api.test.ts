@@ -103,3 +103,50 @@ describe('api.load', () => {
     await rejects
   })
 })
+
+describe('api.daemon', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('returns the proxied daemon status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        expect(path).toBe('/studio/api/daemon')
+        return jsonRes({ ready: true, config_path: '/app/configs/custom.yaml', tickers: ['SPX'] })
+      }),
+    )
+    const d = await api.daemon()
+    expect(d.ready).toBe(true)
+    expect(d.config_path).toBe('/app/configs/custom.yaml')
+  })
+
+  it('rejects when the daemon proxy degrades (502/503)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}), text: async () => 'bad gateway' })),
+    )
+    await expect(api.daemon()).rejects.toThrow()
+  })
+})
+
+describe('api.download', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  // Coverage is YAML-authoritative: the Download screen must submit ONLY dates, never
+  // tickers/packages, so a modified request can't change coverage.
+  it('submits only dates (no ticker/package coverage)', async () => {
+    let sentBody: unknown
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, opts: { body: string }) => {
+        expect(path).toBe('/studio/api/download')
+        sentBody = JSON.parse(opts.body)
+        return jsonRes([])
+      }),
+    )
+    await api.download(['2026-08-07', '2026-08-10'])
+    expect(sentBody).toEqual({ dates: ['2026-08-07', '2026-08-10'] })
+    expect(sentBody).not.toHaveProperty('tickers')
+    expect(sentBody).not.toHaveProperty('packages')
+  })
+})

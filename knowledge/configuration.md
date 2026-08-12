@@ -48,6 +48,8 @@ starting point (`cp gexbot.example.env .env`).
 | `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`load`/`reset`); empty = open |
 | `LOKI_URL` | http://loki:3100 | Loki endpoint for the Logs screen |
 | `PROMETHEUS_URL` | http://prometheus:9090 | Prometheus endpoint for Monitoring |
+| `DAEMON_URL` | http://gex-daemon:9091 | Daemon diagnostics endpoint the Studio proxies for sanitized daemon status (Settings). Empty disables the daemon panel |
+| `GEXBOT_DOWNLOADER_CONFIG` | *(empty)* | Downloader YAML the Studio download worker loads — point it at the **same** file as the daemon's `DAEMON_CONFIG_PATH` so manual + scheduled downloads share one coverage authority. Empty = working-dir discovery (`./configs/default.yaml`) |
 
 ## Daemon (scheduled downloads)
 

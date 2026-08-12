@@ -14,6 +14,9 @@ services:
       - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-8080}:8080"
     volumes:
       - ${DATA_HOST_DIR:-./data}:/app/data:rw
+      # Same read-only configs mount as the daemon, so Studio's manual downloads use
+      # the SAME effective YAML (tickers/packages/categories) the daemon does.
+      - ./configs:/app/configs:ro
     environment:
       - PORT=8080
       - DATA_DIR=/app/data
@@ -31,12 +34,18 @@ services:
       - LOKI_URL=${LOKI_URL:-http://loki:3100}
       # Studio Monitoring screen queries Prometheus over the compose network.
       - PROMETHEUS_URL=${PROMETHEUS_URL:-http://prometheus:9090}
+      # The downloader YAML the Studio download worker loads — the SAME path the
+      # daemon uses, so manual and scheduled downloads share one coverage authority.
+      - GEXBOT_DOWNLOADER_CONFIG=${DAEMON_CONFIG_PATH:-/app/configs/default.yaml}
+      # Studio Settings proxies the daemon's sanitized status over the compose network.
+      - DAEMON_URL=${DAEMON_URL:-http://gex-daemon:9091}
       # Set to require HTTP Basic auth on /studio (any user, password = token).
       # Empty = open; set this whenever the API port is reachable beyond a trusted host.
       - STUDIO_AUTH_TOKEN=${STUDIO_AUTH_TOKEN:-}
     depends_on:
       - loki
       - prometheus
+      - gex-daemon
     labels:
       - observability.logs=true
       - observability.service=gex-faker-api

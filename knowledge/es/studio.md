@@ -25,10 +25,14 @@ servidor, la fecha cargada, los modos de datos/caché y la URL base para entrega
 un cliente.
 
 ### Download data
-Obtén días históricos de mercado desde GexBot — un calendario más un constructor
-de lotes. Requiere `GEXBOT_API_KEY` configurada en el servidor y **degrada de
-forma elegante** ("set GEXBOT_API_KEY") cuando no está configurada. Las descargas
-aterrizan como EOD archives; ver [download data](download-data.md).
+Obtén días históricos de mercado desde GexBot — un calendario para elegir solo
+**fechas**. La cobertura (tickers, packages, categories) es **autoritativa según el
+YAML y de solo lectura**: proviene del mismo YAML del downloader que usa el daemon
+(`GEXBOT_DOWNLOADER_CONFIG`), mostrado con una etiqueta "Configured by …", así que
+las descargas manuales y programadas nunca divergen. Requiere `GEXBOT_API_KEY`
+configurada en el servidor y **degrada de forma elegante** ("set GEXBOT_API_KEY")
+cuando no está configurada. Las descargas aterrizan como EOD archives; ver
+[download data](download-data.md).
 
 ### Data library
 Los EOD archives en esta máquina. Cada fecha muestra un estado — **`archived`**,
@@ -59,7 +63,11 @@ Prometheus. Degrada cuando Prometheus no es accesible. Ver
 
 ### Settings
 Cada variable de entorno en lenguaje sencillo — la configuración efectiva del
-servidor, explicada. Solo lectura.
+servidor, explicada. Solo lectura. Una sección **Daemon** aparte (Schedule,
+Downloads, Packages, Cleanup, Notifications) muestra la configuración efectiva
+saneada del daemon + su estado en runtime, obtenida vía proxy desde el daemon a
+través de la red de compose (`DAEMON_URL`); muestra **"Daemon unavailable"** cuando
+el daemon está caído, y nunca expone secretos (ni API key ni token de ntfy).
 
 ## Acceso remoto y autenticación
 

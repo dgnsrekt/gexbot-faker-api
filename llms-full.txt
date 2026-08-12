@@ -179,10 +179,13 @@ The default screen: what your clients are talking to. Server status, the loaded
 date, data/cache modes, and the base URL to hand to a client.
 
 ### Download data
-Fetch historical market days from GexBot — a calendar plus a batch builder. It
-needs `GEXBOT_API_KEY` set on the server and **degrades gracefully** ("set
-GEXBOT_API_KEY") when it is unset. Downloads land as EOD archives; see
-[download data](download-data.md).
+Fetch historical market days from GexBot — a calendar plus a batch builder for
+picking **dates**. Coverage (tickers, packages, categories) is **YAML-authoritative
+and read-only**: it comes from the same downloader YAML the daemon uses
+(`GEXBOT_DOWNLOADER_CONFIG`), shown with a "Configured by …" label, so manual and
+scheduled downloads never diverge. Needs `GEXBOT_API_KEY` on the server and
+**degrades gracefully** ("set GEXBOT_API_KEY") when it is unset. Downloads land as
+EOD archives; see [download data](download-data.md).
 
 ### Data library
 The EOD archives on this machine. Each date shows a state — **`archived`**,
@@ -209,7 +212,11 @@ See [docker & observability](docker-observability.md).
 
 ### Settings
 Every environment variable in plain language — the effective server config,
-explained. Read-only.
+explained. Read-only. A separate **Daemon** section (Schedule, Downloads, Packages,
+Cleanup, Notifications) shows the daemon's sanitized effective config + runtime
+state, proxied from the daemon over the compose network (`DAEMON_URL`); it shows
+**"Daemon unavailable"** when the daemon is down, and never exposes secrets (no API
+key or ntfy token).
 
 ## Remote access and auth
 
@@ -258,6 +265,14 @@ and packs the same archive. The Studio worker **also writes the
 `.eod-materialized` marker**, so the date shows **`ready` / Load` immediately** —
 no separate Materialize step.
 
+**Coverage is YAML-authoritative.** The Download screen lets you choose only
+**dates** — the tickers, packages, and categories come from the **same downloader
+YAML the daemon uses** (`GEXBOT_DOWNLOADER_CONFIG`, shared with `DAEMON_CONFIG_PATH`),
+shown read-only with a "Configured by …" label. So a manual Studio download covers
+exactly the same set as the scheduled daemon, and the server ignores any
+ticker/package a modified request might send. To change coverage, edit the YAML and
+restart/reload the services.
+
 > The daemon's after-hours fallback uses this same `/hist` path but does **not**
 > yet write the marker, so a daemon fallback leaves JSONL on disk while still
 > showing `archived` / Materialize (tracked in
@@ -271,7 +286,9 @@ no separate Materialize step.
   in zero/one), `classic` (gex_full/zero/one), `orderflow` (orderflow).
 
 Select tickers, packages, and categories in `configs/custom.yaml` (copy from
-`configs/default.yaml`) for the CLI/daemon, or in the Studio's batch builder.
+`configs/default.yaml`). This one YAML is the authority for **both** the CLI/daemon
+and the Studio's manual downloads — point `GEXBOT_DOWNLOADER_CONFIG` (server) and
+`DAEMON_CONFIG_PATH` (daemon) at the same file so they never diverge.
 
 Next: turn a downloaded archive into a served date →
 [materialize & load](materialize-load.md).
@@ -803,6 +820,8 @@ starting point (`cp gexbot.example.env .env`).
 | `STUDIO_AUTH_TOKEN` | *(empty)* | HTTP Basic/Bearer gate for `/studio` **and** the mutating control routes (`load`/`reset`); empty = open |
 | `LOKI_URL` | http://loki:3100 | Loki endpoint for the Logs screen |
 | `PROMETHEUS_URL` | http://prometheus:9090 | Prometheus endpoint for Monitoring |
+| `DAEMON_URL` | http://gex-daemon:9091 | Daemon diagnostics endpoint the Studio proxies for sanitized daemon status (Settings). Empty disables the daemon panel |
+| `GEXBOT_DOWNLOADER_CONFIG` | *(empty)* | Downloader YAML the Studio download worker loads — point it at the **same** file as the daemon's `DAEMON_CONFIG_PATH` so manual + scheduled downloads share one coverage authority. Empty = working-dir discovery (`./configs/default.yaml`) |
 
 ## Daemon (scheduled downloads)
 

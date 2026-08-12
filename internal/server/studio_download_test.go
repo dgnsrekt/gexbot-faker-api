@@ -5,12 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"go.uber.org/zap"
 
-	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 )
 
@@ -29,46 +30,99 @@ func TestDownloadJobState(t *testing.T) {
 	}
 }
 
-func TestCleanSelection(t *testing.T) {
-	valid := func(s string) bool { return s == "SPX" || s == "NDX" }
-	// Dedupe.
-	if got, ok := cleanSelection([]string{"SPX", "NDX", "SPX"}, valid); !ok || len(got) != 2 {
-		t.Errorf("dedupe: got %v ok=%v, want [SPX NDX]", got, ok)
+// Download options reflect the effective YAML — its tickers, its enabled packages
+// (including orderflow), and its curated category SUBSET (not expanded to all).
+func TestDownloadOptionsFromYAML(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "testkey")
+	yaml := filepath.Join(t.TempDir(), "custom.yaml")
+	if err := os.WriteFile(yaml, []byte(`
+tickers:
+  - SPX
+  - NDX
+packages:
+  state:
+    enabled: true
+    categories: [gex_zero, gamma_zero]
+  classic:
+    enabled: false
+  orderflow:
+    enabled: true
+`), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	// Traversal / unknown → rejected.
-	for _, bad := range [][]string{{"../evil"}, {"SPX", "BOGUS"}, {"SPX/../x"}} {
-		if _, ok := cleanSelection(bad, valid); ok {
-			t.Errorf("cleanSelection(%v) accepted, want rejected", bad)
-		}
-	}
-}
-
-func TestStudioDownloadRejectsBadSelection(t *testing.T) {
-	t.Setenv("GEXBOT_API_KEY", "testkey") // enable downloads so validation is reached
-	dl := newDownloadManager(t.TempDir(), zap.NewNop())
+	dl := newDownloadManager(t.TempDir(), yaml, zap.NewNop())
 	if !dl.enabled() {
 		t.Skip("downloader config unavailable in this environment")
 	}
-	h := &StudioHandlers{
-		server: &Server{config: &config.ServerConfig{DataDir: t.TempDir()}, logger: zap.NewNop()},
-		dl:     dl,
+	o := dl.options()
+	if !o.Enabled {
+		t.Fatal("options should be enabled with a key + valid YAML")
 	}
-	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/studio/api/download", strings.NewReader(body))
-		rec := httptest.NewRecorder()
-		h.handleDownload(rec, req)
-		return rec.Code
+	if o.ConfigPath != yaml {
+		t.Errorf("config_path = %q, want %q", o.ConfigPath, yaml)
 	}
-	// Traversal / unknown ticker and unknown package must be rejected (400) — no
-	// job is created and nothing reaches the filesystem.
-	for _, bad := range []string{
-		`{"dates":["2026-08-10"],"tickers":["../evil"],"packages":["classic"]}`,
-		`{"dates":["2026-08-10"],"tickers":["BOGUS"],"packages":["classic"]}`,
-		`{"dates":["2026-08-10"],"tickers":["SPX"],"packages":["evil"]}`,
-	} {
-		if c := post(bad); c != http.StatusBadRequest {
-			t.Errorf("download %s → %d, want 400", bad, c)
-		}
+	if len(o.Tickers) != 2 || o.Tickers[0] != "SPX" || o.Tickers[1] != "NDX" {
+		t.Errorf("tickers = %v, want [SPX NDX]", o.Tickers)
+	}
+	// state (curated subset) + orderflow enabled; classic disabled.
+	names := map[string][]string{}
+	for _, p := range o.Packages {
+		names[p.Name] = p.Categories
+	}
+	if _, ok := names["classic"]; ok {
+		t.Error("classic is disabled and must not appear")
+	}
+	if got := names["state"]; len(got) != 2 || got[0] != "gex_zero" || got[1] != "gamma_zero" {
+		t.Errorf("state categories = %v, want the YAML subset [gex_zero gamma_zero] (not expanded)", got)
+	}
+	if _, ok := names["orderflow"]; !ok {
+		t.Error("orderflow is enabled in YAML and must appear")
+	}
+}
+
+// An invalid downloader YAML (bad ticker/category) disables Studio downloads instead
+// of serving unconfigured coverage as authoritative — the same bar the daemon holds.
+func TestDownloadDisabledOnInvalidYAML(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "testkey") // key is valid; the COVERAGE is not
+	yaml := filepath.Join(t.TempDir(), "bad.yaml")
+	if err := os.WriteFile(yaml, []byte("tickers: [NOTATICKER]\npackages:\n  classic:\n    enabled: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dl := newDownloadManager(t.TempDir(), yaml, zap.NewNop())
+	if dl.enabled() {
+		t.Error("an invalid-ticker YAML must leave Studio downloads disabled")
+	}
+	// The message must identify a config/validation failure, not the generic
+	// "set GEXBOT_API_KEY" remediation (both are set here; the YAML is what's wrong).
+	o := dl.options()
+	if o.Enabled {
+		t.Fatal("options should be disabled")
+	}
+	if !strings.Contains(o.Message, "invalid") || strings.Contains(o.Message, "set GEXBOT_API_KEY") {
+		t.Errorf("message should identify the invalid config, got %q", o.Message)
+	}
+}
+
+// A download request's tickers/packages are IGNORED — coverage is the server's YAML.
+// A bogus/traversal ticker in the body can't create an archive with that coverage.
+func TestDownloadIgnoresClientCoverage(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "testkey")
+	yaml := filepath.Join(t.TempDir(), "custom.yaml")
+	if err := os.WriteFile(yaml, []byte("tickers: [SPX]\npackages:\n  classic:\n    enabled: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dl := newDownloadManager(t.TempDir(), yaml, zap.NewNop())
+	if !dl.enabled() {
+		t.Skip("downloader config unavailable in this environment")
+	}
+	// The worker isn't started for this assertion; we only check that the request
+	// contract accepts date-only and doesn't reject/act on client coverage fields.
+	c := dl.cfgForDownload()
+	if len(c.Tickers) != 1 || c.Tickers[0] != "SPX" {
+		t.Errorf("cfgForDownload tickers = %v, want the YAML's [SPX] regardless of any request", c.Tickers)
+	}
+	if !c.Packages.Classic.Enabled || c.Packages.State.Enabled {
+		t.Errorf("cfgForDownload packages = %+v, want only classic (from YAML)", c.Packages)
 	}
 }
 

@@ -37,6 +37,15 @@ type ServerConfig struct {
 	// Empty disables the metrics feed (it degrades with a "start Prometheus"
 	// message), mirroring LokiURL.
 	PrometheusURL string
+	// DownloaderConfigPath is the explicit downloader YAML the Studio download
+	// worker loads (env GEXBOT_DOWNLOADER_CONFIG), so manual downloads use the same
+	// effective tickers/packages/categories as the daemon. Empty falls back to
+	// working-directory discovery (./configs/default.yaml).
+	DownloaderConfigPath string
+	// DaemonURL is the base URL of the daemon's internal diagnostics server
+	// (e.g. http://gex-daemon:9091), which the Studio proxies for sanitized daemon
+	// status. Empty disables the daemon proxy (it degrades), mirroring PrometheusURL.
+	DaemonURL string
 	// StudioAuthToken, when set, gates all /studio routes behind HTTP Basic auth
 	// (any username, password = the token). Empty leaves the Studio open (local
 	// dev default). Set it whenever the API port is reachable beyond a trusted
@@ -100,6 +109,8 @@ func LoadServerConfig() (*ServerConfig, error) {
 		LokiURL:                     getEnvOrDefault("LOKI_URL", ""),
 		PrometheusURL:               getEnvOrDefault("PROMETHEUS_URL", ""),
 		StudioAuthToken:             getEnvOrDefault("STUDIO_AUTH_TOKEN", ""),
+		DownloaderConfigPath:        getEnvOrDefault("GEXBOT_DOWNLOADER_CONFIG", ""),
+		DaemonURL:                   getEnvOrDefault("DAEMON_URL", ""),
 	}
 
 	// Validate

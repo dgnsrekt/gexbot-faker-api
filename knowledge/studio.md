@@ -23,10 +23,13 @@ The default screen: what your clients are talking to. Server status, the loaded
 date, data/cache modes, and the base URL to hand to a client.
 
 ### Download data
-Fetch historical market days from GexBot — a calendar plus a batch builder. It
-needs `GEXBOT_API_KEY` set on the server and **degrades gracefully** ("set
-GEXBOT_API_KEY") when it is unset. Downloads land as EOD archives; see
-[download data](download-data.md).
+Fetch historical market days from GexBot — a calendar plus a batch builder for
+picking **dates**. Coverage (tickers, packages, categories) is **YAML-authoritative
+and read-only**: it comes from the same downloader YAML the daemon uses
+(`GEXBOT_DOWNLOADER_CONFIG`), shown with a "Configured by …" label, so manual and
+scheduled downloads never diverge. Needs `GEXBOT_API_KEY` on the server and
+**degrades gracefully** ("set GEXBOT_API_KEY") when it is unset. Downloads land as
+EOD archives; see [download data](download-data.md).
 
 ### Data library
 The EOD archives on this machine. Each date shows a state — **`archived`**,
@@ -53,7 +56,11 @@ See [docker & observability](docker-observability.md).
 
 ### Settings
 Every environment variable in plain language — the effective server config,
-explained. Read-only.
+explained. Read-only. A separate **Daemon** section (Schedule, Downloads, Packages,
+Cleanup, Notifications) shows the daemon's sanitized effective config + runtime
+state, proxied from the daemon over the compose network (`DAEMON_URL`); it shows
+**"Daemon unavailable"** when the daemon is down, and never exposes secrets (no API
+key or ntfy token).
 
 ## Remote access and auth
 

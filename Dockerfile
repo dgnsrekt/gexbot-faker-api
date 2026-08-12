@@ -55,6 +55,11 @@ RUN addgroup -g 1000 appgroup && \
 # Copy binary from builder
 COPY --from=builder /app/bin/gexbot-server /app/gexbot-server
 
+# Ship the default downloader YAML so the Studio download worker resolves
+# GEXBOT_DOWNLOADER_CONFIG=/app/configs/default.yaml even without the compose
+# ./configs mount (compose mounts the host configs read-only on top of this).
+COPY --from=builder /app/configs/default.yaml /app/configs/default.yaml
+
 # Create data directory
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 

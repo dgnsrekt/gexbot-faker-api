@@ -14,11 +14,30 @@ type Diagnostics struct {
 	server *http.Server
 }
 
-func NewDiagnostics(addr string, ready func() bool, logger *zap.Logger) *Diagnostics {
+// DiagnosticsOption customizes the diagnostics mux at construction.
+type DiagnosticsOption func(*http.ServeMux)
+
+// WithStatus registers GET /status, JSON-encoding whatever provide() returns. The
+// daemon uses it to expose sanitized effective config + runtime state; the API
+// server leaves it off (its state is served by the main HTTP API). provide() must
+// return only sanitized fields — never secrets (API keys, tokens, auth headers).
+func WithStatus(provide func() any) DiagnosticsOption {
+	return func(mux *http.ServeMux) {
+		mux.HandleFunc("/status", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(provide())
+		})
+	}
+}
+
+func NewDiagnostics(addr string, ready func() bool, logger *zap.Logger, opts ...DiagnosticsOption) *Diagnostics {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/livez", statusHandler(func() bool { return true }))
 	mux.HandleFunc("/readyz", statusHandler(ready))
+	for _, opt := range opts {
+		opt(mux)
+	}
 	return &Diagnostics{server: &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}}
 }
 

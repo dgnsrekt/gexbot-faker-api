@@ -112,7 +112,10 @@ func run() int {
 		zap.String("schedule", fmt.Sprintf("%02d:%02d %s", daemonCfg.ScheduleHour, daemonCfg.ScheduleMinute, daemonCfg.Timezone)),
 		zap.Duration("runTimeout", runTimeout),
 	)
-	diagnostics := observability.NewDiagnostics(":9091", func() bool { return true }, logger)
+	// /readyz reflects real init state (not a constant); /status serves sanitized
+	// effective config + runtime state for the Studio (never any secret).
+	statusProvider := func() any { return buildDaemonStatus(daemonCfg, cfg, notifyCfg, tracker, dstate) }
+	diagnostics := observability.NewDiagnostics(":9091", dstate.isReady, logger, observability.WithStatus(statusProvider))
 	diagnostics.Start(logger)
 	defer func() {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -144,6 +147,11 @@ func run() int {
 		runCleanup(cfg, cleanupTTL, logger)
 		lastCleanup = time.Now()
 	}
+
+	// Startup init (config load, seed, startup backfill/cleanup) is done — the daemon
+	// is now scheduling, so /readyz reports ready. A later failed run is degraded, not
+	// unready (see daemonState.isReady).
+	dstate.setReady()
 
 	// Main loop - check every minute
 	ticker := time.NewTicker(1 * time.Minute)
@@ -238,6 +246,7 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 	logger.Info("starting scheduled EOD download", zap.String("date", today))
 	start := time.Now()
 	observability.DaemonInProgress.Set(1)
+	dstate.startRun()
 	defer func() {
 		observability.DaemonInProgress.Set(0)
 		observability.DaemonDuration.Observe(time.Since(start).Seconds())
@@ -285,6 +294,7 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 		}
 		retryErr := fmt.Errorf("%w; retrying in 5 minutes", err)
 		logger.Warn("download incomplete", zap.String("date", today), zap.Error(retryErr))
+		dstate.finishRun(false, retryErr)
 		if notifyErr := notifier.SendFailure(ctx, result, today, duration, retryErr); notifyErr != nil {
 			logger.Warn("failed to send failure notification", zap.Error(notifyErr))
 		}
@@ -304,8 +314,10 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 
 	if err := tracker.SetLastDownloadDate(today); err != nil {
 		logger.Error("failed to update tracker", zap.Error(err))
+		dstate.finishRun(false, err)
 		return false
 	}
+	dstate.finishRun(true, nil)
 	return true
 }
 
@@ -373,6 +385,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 			zap.String("since", last), zap.Int("backfilling", len(missed)), zap.Int("lookbackDays", backfillLookbackDays))
 	}
 	logger.Info("backfilling missed market days", zap.Strings("dates", missed))
+	dstate.startRun()
 
 	for _, date := range missed {
 		var result *download.BatchResult
@@ -398,6 +411,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 			// back; the tracker stays at the last contiguous date and the loop
 			// retries from here next cycle.
 			logger.Warn("backfill incomplete; holding today's run until gap fills", zap.String("date", date), zap.Error(err))
+			dstate.finishRun(false, fmt.Errorf("backfill %s: %w", date, err))
 			if notifyErr := notifier.SendFailure(ctx, result, date, 0, fmt.Errorf("backfill: %w", err)); notifyErr != nil {
 				logger.Warn("failed to send backfill failure notification", zap.Error(notifyErr))
 			}
@@ -408,6 +422,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 		checkCoverage(ctx, cfg.Output.Directory, date, notifier, logger)
 		if err := tracker.SetLastDownloadDate(date); err != nil {
 			logger.Error("failed to update tracker after backfill", zap.Error(err))
+			dstate.finishRun(false, err) // don't leave /status stuck in_progress
 			return false
 		}
 		// A backfilled download just succeeded — record it so last-success stays
@@ -417,5 +432,6 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 		// runDownload's SetToCurrentTime, placed after the tracker write.
 		observability.DaemonLastSuccess.SetToCurrentTime()
 	}
+	dstate.finishRun(true, nil)
 	return true
 }

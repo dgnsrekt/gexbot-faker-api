@@ -41,7 +41,7 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 		server: s,
 		hubs:   hubs,
 		mat:    newMaterializeManager(s.config.DataDir, s.logger),
-		dl:     newDownloadManager(s.config.DataDir, s.logger),
+		dl:     newDownloadManager(s.config.DataDir, s.config.DownloaderConfigPath, s.logger),
 	}
 	r.Get("/studio/api/status", h.handleStatus)
 	r.Get("/studio/api/config", h.handleConfig)
@@ -55,6 +55,7 @@ func RegisterStudioRoutes(r chi.Router, s *Server, hubs *WebSocketHubs) {
 	r.Get("/studio/api/download", h.handleDownloadStatus)
 	r.Get("/studio/api/logs", h.handleLogs)
 	r.Get("/studio/api/logs/volume", h.handleLogsVolume)
+	r.Get("/studio/api/daemon", h.handleDaemon)
 	r.Get("/studio/api/metrics/query", h.handleMetricsQuery)
 	r.Get("/studio/api/metrics/range", h.handleMetricsRange)
 	r.Get("/studio/api/metrics/alerts", h.handleMetricsAlerts)
