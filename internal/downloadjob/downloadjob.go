@@ -20,6 +20,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/config"
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 	"github.com/dgnsrekt/gexbot-downloader/internal/staging"
 )
 
@@ -313,6 +314,12 @@ func convertJSONToJSONL(dir string, logger *zap.Logger) error {
 			logger.Error("conversion failed", zap.String("file", path), zap.Error(err))
 			failed++
 			return nil
+		}
+		// Eagerly build the offset-index sidecar for the converted JSONL (the
+		// Studio-download / daemon historical-fallback path), so its first range load
+		// reads the index instead of a full scan. Best effort — never fails conversion.
+		if ierr := offsetindex.Build(jsonlPath); ierr != nil {
+			logger.Warn("failed to build offset index after conversion", zap.String("file", jsonlPath), zap.Error(ierr))
 		}
 		if err := os.Remove(path); err != nil {
 			logger.Warn("failed to delete original", zap.String("file", path), zap.Error(err))

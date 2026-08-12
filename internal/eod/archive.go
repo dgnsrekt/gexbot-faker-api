@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 )
 
 const markerName = ".eod-materialized"
@@ -241,6 +243,14 @@ func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
 		}
 		if err != nil {
 			return fmt.Errorf("%s: %w", f.Name, err)
+		}
+		// Eagerly build the offset-index sidecar for the just-written, closed JSONL
+		// (in the staging dir, so the rename below promotes it atomically with its
+		// JSONL) — a later stream/range load reads it instead of re-scanning. Best
+		// effort: temp+rename never promotes a partial, so a failure just means a
+		// future load rescans; never fail materialization over a cache.
+		if ierr := offsetindex.Build(target); ierr != nil {
+			logger.Warn("failed to build offset index at materialize", zap.String("path", target), zap.Error(ierr))
 		}
 	}
 	if err := os.WriteFile(filepath.Join(tmp, markerName), []byte(archive+"\n"), 0600); err != nil {

@@ -13,6 +13,8 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 )
 
 // StreamLoader reads JSONL files on-demand using byte offset indexing.
@@ -57,8 +59,8 @@ func NewStreamLoader(dataDir, date string, logger *zap.Logger) (*StreamLoader, e
 
 		key := DataKey(ticker, pkg, category)
 
-		// Build index and open file
-		offsets, file, err := loader.indexFile(path)
+		// Build index (from the persisted sidecar when valid) and open file.
+		offsets, file, source, err := loader.indexFile(path)
 		if err != nil {
 			logger.Warn("failed to index file", zap.String("path", path), zap.Error(err))
 			return nil
@@ -70,6 +72,7 @@ func NewStreamLoader(dataDir, date string, logger *zap.Logger) (*StreamLoader, e
 		logger.Info("indexed data",
 			zap.String("key", key),
 			zap.Int("count", len(offsets)),
+			zap.String("source", source), // "cache" (read .idx) | "scan" (full scan)
 		)
 		return nil
 	})
@@ -86,44 +89,42 @@ func NewStreamLoader(dataDir, date string, logger *zap.Logger) (*StreamLoader, e
 	return loader, nil
 }
 
-// indexFile scans the file and records byte offsets for each line.
-// Returns the offsets slice and keeps the file open for later reads.
-func (s *StreamLoader) indexFile(path string) ([]int64, *os.File, error) {
+// indexFile returns the line byte offsets for path, keeping the file open for later
+// seeks. It reads the persisted ".idx" sidecar when it's valid (fast path); otherwise
+// it scans the file once and best-effort persists a sidecar for next time. The offset
+// semantics live in offsetindex.Scan so the sidecar always matches a fresh scan.
+// Returns source "cache" or "scan" for logging.
+func (s *StreamLoader) indexFile(path string) ([]int64, *os.File, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
+	}
+	// Stat the RETAINED handle (not os.Stat(path)) so validation refers to the exact
+	// inode we'll read from, closing ordinary append/truncate/replace races.
+	fi, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, "", err
 	}
 
-	var offsets []int64
-	var offset int64 = 0
-
-	reader := bufio.NewReader(file)
-	for {
-		// Record start of line
-		line, err := reader.ReadBytes('\n')
-		if len(line) > 0 {
-			// Skip empty lines
-			trimmed := line
-			if len(trimmed) > 0 && trimmed[len(trimmed)-1] == '\n' {
-				trimmed = trimmed[:len(trimmed)-1]
-			}
-			if len(trimmed) > 0 {
-				offsets = append(offsets, offset)
-			}
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			_ = file.Close()
-			return nil, nil, err
-		}
-
-		offset += int64(len(line))
+	if offs, ok := offsetindex.Read(path, fi); ok {
+		return offs, file, "cache", nil
 	}
 
-	return offsets, file, nil
+	offs, err := offsetindex.Scan(file)
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, "", err
+	}
+	// Persist for next time, but only if the source hasn't changed under us during the
+	// scan (best-effort — a failure just means a future load rescans).
+	if fi2, statErr := file.Stat(); statErr == nil &&
+		fi2.Size() == fi.Size() && fi2.ModTime().UnixNano() == fi.ModTime().UnixNano() {
+		if werr := offsetindex.WriteAtomic(path, offs, fi2); werr != nil {
+			s.logger.Warn("failed to persist offset index", zap.String("path", path), zap.Error(werr))
+		}
+	}
+	return offs, file, "scan", nil
 }
 
 func (s *StreamLoader) GetAtIndex(ctx context.Context, ticker, pkg, category string, index int) (*GexData, error) {

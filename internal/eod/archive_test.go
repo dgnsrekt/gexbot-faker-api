@@ -9,7 +9,29 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 )
+
+// Materialization eagerly writes an offset-index sidecar next to each JSONL, so a
+// later stream/range load reads it instead of re-scanning.
+func TestMaterializeBuildsOffsetIndex(t *testing.T) {
+	root := t.TempDir()
+	materializeFixture(t, root, "2026-07-17", "SPX")
+
+	jsonl := filepath.Join(root, "2026-07-17", "SPX", "classic", "gex_full.jsonl")
+	if _, err := os.Stat(offsetindex.SidecarPath(jsonl)); err != nil {
+		t.Fatalf("materialize should have written a sidecar: %v", err)
+	}
+	fi, err := os.Stat(jsonl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	offs, ok := offsetindex.Read(jsonl, fi)
+	if !ok || len(offs) != 1 || offs[0] != 0 { // fixture writes one line
+		t.Fatalf("eager index not valid/consumable: ok=%v offs=%v", ok, offs)
+	}
+}
 
 // materializeFixture packs a one-ticker date and materializes it from the
 // archive, leaving <root>/<date>/<ticker> with the .eod-materialized marker.
