@@ -42,6 +42,14 @@ and packs the same archive. The Studio worker **also writes the
 `.eod-materialized` marker**, so the date shows **`ready` / Load` immediately** —
 no separate Materialize step.
 
+**Coverage is YAML-authoritative.** The Download screen lets you choose only
+**dates** — the tickers, packages, and categories come from the **same downloader
+YAML the daemon uses** (`GEXBOT_DOWNLOADER_CONFIG`, shared with `DAEMON_CONFIG_PATH`),
+shown read-only with a "Configured by …" label. So a manual Studio download covers
+exactly the same set as the scheduled daemon, and the server ignores any
+ticker/package a modified request might send. To change coverage, edit the YAML and
+restart/reload the services.
+
 > The daemon's after-hours fallback uses this same `/hist` path but does **not**
 > yet write the marker, so a daemon fallback leaves JSONL on disk while still
 > showing `archived` / Materialize (tracked in
@@ -55,7 +63,9 @@ no separate Materialize step.
   in zero/one), `classic` (gex_full/zero/one), `orderflow` (orderflow).
 
 Select tickers, packages, and categories in `configs/custom.yaml` (copy from
-`configs/default.yaml`) for the CLI/daemon, or in the Studio's batch builder.
+`configs/default.yaml`). This one YAML is the authority for **both** the CLI/daemon
+and the Studio's manual downloads — point `GEXBOT_DOWNLOADER_CONFIG` (server) and
+`DAEMON_CONFIG_PATH` (daemon) at the same file so they never diverge.
 
 Next: turn a downloaded archive into a served date →
 [materialize & load](materialize-load.md).

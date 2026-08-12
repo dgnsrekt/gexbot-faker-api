@@ -124,6 +124,18 @@ faker without curl/env-vars.
   shared by both binaries); `download.Manager.OnProgress` feeds per-task progress.
   Downloaded dates land as EOD archives → the Library shows them `archived` → Materialize
   → Load. `/studio/api/calendar` powers the month grid (reuses `isMarketDay`).
+  **Coverage is YAML-authoritative**: `newDownloadManager` loads `GEXBOT_DOWNLOADER_CONFIG`
+  (the compose mounts `./configs:ro` into the api container, shared with the daemon's
+  `DAEMON_CONFIG_PATH`); the Download screen is **date-only** and read-only, and
+  `handleDownload` ignores client tickers/packages. `config.EffectiveTickers`/
+  `EffectivePackages` (`internal/config/effective.go`) are the single source of truth for
+  coverage — `GenerateTasksForDate`, the Studio options, and the daemon `/status` all use them.
+- **Daemon status** (`internal/server/studio_daemon.go`): `GET /studio/api/daemon` proxies the
+  daemon's sanitized `:9091/status` (`DAEMON_URL`, default `http://gex-daemon:9091`) — same
+  server-side model as Logs/Monitoring; degrades when the daemon is down. The daemon exposes
+  `/status` + a meaningful `/readyz` via `observability.WithStatus` + a `daemonState` holder
+  (`cmd/daemon/status.go`); `/status` is sanitized (never `GEXBOT_API_KEY`/`NTFY_TOKEN`). The
+  Settings screen renders it as labeled **Daemon ·** sections with an "unavailable" state.
 - **Logs** (`internal/server/studio_logs.go`): `GET /studio/api/logs` is an SSE proxy —
   the server queries Loki (`LOKI_URL`, default `http://loki:3100`) over the compose
   network and streams parsed lines, so the browser never talks to Loki. If `LOKI_URL`

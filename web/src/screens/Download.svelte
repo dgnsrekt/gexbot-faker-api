@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, type CalendarDay, type DownloadJob } from '../lib/api'
+  import { api, type CalendarDay, type DownloadJob, type DownloadPackage } from '../lib/api'
 
   let { onchanged }: { onchanged: () => void } = $props()
 
   let enabled = $state(true)
+  // Coverage is YAML-authoritative and read-only in the UI — the user picks only dates.
   let tickers = $state<string[]>([])
-  let packages = $state<string[]>([])
-  let selTickers = $state<Set<string>>(new Set())
-  let selPackages = $state<Set<string>>(new Set())
+  let pkgs = $state<DownloadPackage[]>([])
+  let configPath = $state('')
+  let disabledMsg = $state('')
 
   let mode = $state<'calendar' | 'batch'>('calendar')
 
@@ -44,10 +45,10 @@
     try {
       const o = await api.downloadOptions()
       enabled = o.enabled
-      tickers = o.tickers
-      packages = o.packages.map((p) => p.name)
-      selTickers = new Set(tickers.slice(0, 3))
-      selPackages = new Set(packages.filter((p) => p === 'state' || p === 'classic'))
+      tickers = o.tickers ?? []
+      pkgs = o.packages ?? []
+      configPath = o.config_path ?? ''
+      disabledMsg = o.message ?? ''
     } catch {
       enabled = false
     }
@@ -90,11 +91,6 @@
   function selectMissing() {
     selDates = new Set(days.filter((d) => d.state === 'missing').map((d) => d.date))
   }
-  function toggleSet(set: Set<string>, k: string): Set<string> {
-    const s = new Set(set)
-    s.has(k) ? s.delete(k) : s.add(k)
-    return s
-  }
 
   // Batch range → weekdays (server drops holidays).
   const batchDates = $derived.by(() => {
@@ -112,9 +108,7 @@
   })
 
   const chosenDates = $derived(mode === 'calendar' ? [...selDates].sort() : batchDates)
-  const canDownload = $derived(
-    enabled && chosenDates.length > 0 && selTickers.size > 0 && selPackages.size > 0,
-  )
+  const canDownload = $derived(enabled && chosenDates.length > 0)
 
   let poll: ReturnType<typeof setInterval>
   const busy = $derived(jobs.some((j) => j.state === 'queued' || j.state === 'running'))
@@ -141,7 +135,7 @@
     if (!canDownload) return
     error = ''
     try {
-      await api.download(chosenDates, [...selTickers], [...selPackages])
+      await api.download(chosenDates)
       selDates = new Set()
       await refreshJobs()
       ensurePolling()
@@ -173,8 +167,8 @@
 <div class="wrap">
   {#if !enabled}
     <div class="notice">
-      Downloads are disabled — the server has no <code class="mono">GEXBOT_API_KEY</code>. Set it on
-      the <code class="mono">gex-faker-api</code> container (and restart) to fetch market days from GEXbot.
+      {disabledMsg ||
+        'Downloads are disabled — the server has no GEXBOT_API_KEY / valid downloader config. Set them on the gex-faker-api container (and restart) to fetch market days from GEXbot.'}
     </div>
   {/if}
   {#if error}<div class="err">{error}</div>{/if}
@@ -247,26 +241,37 @@
       {/if}
     </div>
 
-    <!-- right: selection + action -->
+    <!-- right: read-only coverage (YAML-authoritative) + action -->
     <div class="col">
       <div class="card pad">
-        <div class="lbl">Tickers</div>
+        <div class="cov-head">
+          <div class="lbl" style="margin:0">Coverage</div>
+          <span class="ro-tag mono">read-only</span>
+        </div>
         <div class="chips">
-          {#each tickers as t (t)}
-            <button class="chip mono" class:on={selTickers.has(t)} onclick={() => (selTickers = toggleSet(selTickers, t))}>{t}</button>
-          {/each}
+          {#each tickers as t (t)}<span class="badge mono">{t}</span>{/each}
         </div>
         <div class="lbl mt">Packages</div>
-        <div class="chips">
-          {#each packages as p (p)}
-            <button class="chip mono" class:on={selPackages.has(p)} onclick={() => (selPackages = toggleSet(selPackages, p))}>{p}</button>
+        <div class="pkgs">
+          {#each pkgs as p (p.name)}
+            <details class="pkg">
+              <summary class="mono">{p.name}<span class="ccount">{p.categories.length}</span></summary>
+              <div class="cats mono">{p.categories.join(' · ')}</div>
+            </details>
           {/each}
+        </div>
+        <div class="cfg mono">
+          Configured by <span class="path">{configPath || '—'}</span>
+        </div>
+        <div class="cfg-note">
+          Coverage is set in the shared downloader YAML — edit it and restart/reload the services to
+          change tickers, packages, or categories. You choose only the dates here.
         </div>
       </div>
 
       <div class="card pad">
         <div class="row"><span>Days</span><span class="mono">{chosenDates.length}</span></div>
-        <div class="row"><span>Tickers × packages</span><span class="mono">{selTickers.size} × {selPackages.size}</span></div>
+        <div class="row"><span>Tickers × packages</span><span class="mono">{tickers.length} × {pkgs.length}</span></div>
         <button class="dl" class:ready={canDownload} disabled={!canDownload} onclick={startDownload}>
           {chosenDates.length ? `Download ${chosenDates.length} day${chosenDates.length === 1 ? '' : 's'}` : 'Pick day(s)'}
         </button>
@@ -306,9 +311,6 @@
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 12px;
-  }
-  .notice code {
-    color: var(--green-2);
   }
   .err {
     border: 1px solid #4a2b2b;
@@ -513,19 +515,75 @@
     flex-wrap: wrap;
     gap: 6px;
   }
-  .chip {
+  .cov-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+  }
+  .ro-tag {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+    border: 1px solid var(--border-2);
+    border-radius: 5px;
+    padding: 2px 6px;
+  }
+  .badge {
     padding: 4px 9px;
     border-radius: 6px;
     font-size: 11px;
-    cursor: pointer;
     border: 1px solid var(--border-2);
     background: var(--input);
-    color: var(--muted);
+    color: var(--text-2);
   }
-  .chip.on {
-    border-color: var(--green);
-    background: var(--green-bg);
-    color: var(--green);
+  .pkgs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .pkg {
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    background: var(--input);
+  }
+  .pkg summary {
+    cursor: pointer;
+    padding: 5px 9px;
+    font-size: 11px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+  }
+  .pkg summary::-webkit-details-marker {
+    display: none;
+  }
+  .ccount {
+    color: var(--muted-2);
+    font-size: 10px;
+  }
+  .cats {
+    padding: 2px 9px 8px;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .cfg {
+    margin-top: 12px;
+    font-size: 10.5px;
+    color: var(--muted-2);
+  }
+  .cfg .path {
+    color: var(--green-2);
+  }
+  .cfg-note {
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: var(--dim);
+    line-height: 1.5;
   }
   .row {
     display: flex;

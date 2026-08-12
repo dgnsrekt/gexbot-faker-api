@@ -81,10 +81,43 @@ export interface CalendarDay {
   state: string // loaded|ready|archived|missing|"" (non-market)
 }
 
+export interface DownloadPackage {
+  name: string
+  categories: string[]
+}
+
+// DownloadOptions is the effective, YAML-authoritative download coverage the
+// Download screen renders read-only (the user chooses only dates).
 export interface DownloadOptions {
   enabled: boolean
+  config_path: string
   tickers: string[]
-  packages: { name: string; categories: string[] }[]
+  packages: DownloadPackage[]
+  message?: string // why downloads are disabled, when enabled=false
+}
+
+// DaemonStatus is the sanitized daemon status the Studio proxies from the daemon's
+// internal /status (never any secret). config unavailable → {available:false}.
+export interface DaemonStatus {
+  ready: boolean
+  in_progress: boolean
+  last_result?: string
+  last_error?: string
+  last_run_at?: string
+  last_downloaded_date?: string
+  config_path: string
+  output_dir: string
+  tickers: string[]
+  packages: DownloadPackage[]
+  schedule: {
+    hour: number
+    minute: number
+    timezone: string
+    run_on_startup: boolean
+    run_timeout_minutes: number
+  }
+  cleanup: { enabled: boolean; retention_days: number }
+  notifications: { enabled: boolean; server: string; topic: string; priority: string; tags: string }
 }
 
 export interface DownloadJob {
@@ -167,9 +200,10 @@ export const api = {
   materialize: (date: string) => postJSON<MaterializeJob>('/studio/api/materialize', { date }),
   downloadOptions: () => getJSON<DownloadOptions>('/studio/api/download/options'),
   calendar: (month: string) => getJSON<{ month: string; days: CalendarDay[] }>(`/studio/api/calendar?month=${month}`),
-  download: (dates: string[], tickers: string[], packages: string[]) =>
-    postJSON<DownloadJob[]>('/studio/api/download', { dates, tickers, packages }),
+  // Coverage is the server's YAML authority — only dates are sent.
+  download: (dates: string[]) => postJSON<DownloadJob[]>('/studio/api/download', { dates }),
   downloadStatus: () => getJSON<DownloadJob[]>('/studio/api/download'),
+  daemon: () => getJSON<DaemonStatus>('/studio/api/daemon'),
   metricsQuery: (query: string) =>
     getJSON<PromResponse>(`/studio/api/metrics/query?query=${encodeURIComponent(query)}`),
   // metricsRange runs a range query over the last `minutes`, sampled every `step` seconds.

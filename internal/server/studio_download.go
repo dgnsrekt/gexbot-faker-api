@@ -16,24 +16,6 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
 )
 
-// cleanSelection dedupes vals and returns ok=false if any value fails valid —
-// used to reject unknown/traversal tickers and unknown packages before they
-// reach any filesystem path.
-func cleanSelection(vals []string, valid func(string) bool) ([]string, bool) {
-	seen := map[string]bool{}
-	out := make([]string, 0, len(vals))
-	for _, v := range vals {
-		if !valid(v) {
-			return nil, false
-		}
-		if !seen[v] {
-			seen[v] = true
-			out = append(out, v)
-		}
-	}
-	return out, true
-}
-
 // downloadJob is the status of a background download of one date.
 type downloadJob struct {
 	Date     string `json:"date"`
@@ -48,39 +30,46 @@ type downloadJob struct {
 }
 
 type downloadReq struct {
-	date     string
-	tickers  []string
-	packages []string
+	date string
 }
 
 // downloadManager fetches market days from the GEXbot API in the background so
 // the Studio never blocks on the network. Work is serialized (a single worker
 // processes one date at a time) so many queued dates don't hammer the upstream
 // API in parallel. Disabled (enabled=false) when no GEXBOT_API_KEY is configured.
+//
+// Coverage (tickers/packages/categories) is the YAML's authority, not the caller's:
+// the worker downloads exactly what baseCfg selects, so a manual Studio download
+// covers the same set as the scheduled daemon and a modified browser request can't
+// create an archive with unconfigured coverage.
 type downloadManager struct {
-	mu      sync.Mutex
-	jobs    map[string]*downloadJob
-	queue   chan downloadReq
-	baseCfg *config.Config // nil when downloads are disabled (no API key)
-	dataDir string
-	logger  *zap.Logger
+	mu         sync.Mutex
+	jobs       map[string]*downloadJob
+	queue      chan downloadReq
+	baseCfg    *config.Config // nil when downloads are disabled (no API key)
+	configPath string         // the downloader YAML path (empty = working-dir discovery)
+	dataDir    string
+	logger     *zap.Logger
 }
 
-func newDownloadManager(dataDir string, logger *zap.Logger) *downloadManager {
+func newDownloadManager(dataDir, configPath string, logger *zap.Logger) *downloadManager {
 	m := &downloadManager{
-		jobs:    map[string]*downloadJob{},
-		queue:   make(chan downloadReq, 512),
-		dataDir: dataDir,
-		logger:  logger,
+		jobs:       map[string]*downloadJob{},
+		queue:      make(chan downloadReq, 512),
+		configPath: configPath,
+		dataDir:    dataDir,
+		logger:     logger,
 	}
-	// Load the downloader config (API key from GEXBOT_API_KEY). Guarded: a missing
-	// key leaves downloads disabled, and the UI degrades with a clear message.
-	if cfg, err := config.Load(""); err == nil {
+	// Load the downloader config (GEXBOT_DOWNLOADER_CONFIG path + API key from
+	// GEXBOT_API_KEY). Guarded: a missing key/invalid config leaves downloads
+	// disabled, and the UI degrades with a clear message. An explicit path makes the
+	// server load the SAME YAML the daemon does (shared DAEMON_CONFIG_PATH).
+	if cfg, err := config.Load(configPath); err == nil {
 		cfg.Output.Directory = dataDir // land downloads where the server serves them
 		m.baseCfg = cfg
 		go m.worker()
 	} else {
-		logger.Info("studio downloads disabled (set GEXBOT_API_KEY to enable)", zap.Error(err))
+		logger.Info("studio downloads disabled (set GEXBOT_API_KEY / GEXBOT_DOWNLOADER_CONFIG to enable)", zap.Error(err))
 	}
 	return m
 }
@@ -101,22 +90,13 @@ func downloadJobState(res *download.BatchResult, err error) string {
 	return "done"
 }
 
-// cfgFor clones the base config with the request's ticker/package selection.
-func (m *downloadManager) cfgFor(tickers, packages []string) *config.Config {
+// cfgForDownload clones the base config for a download, landing output where the
+// server serves it. The YAML's ticker/package/category selection is preserved
+// verbatim (curated category subsets are not expanded), so manual and scheduled
+// downloads produce identical coverage.
+func (m *downloadManager) cfgForDownload() *config.Config {
 	c := *m.baseCfg // shallow copy; nested API/Download/Output are value structs
-	c.Tickers = tickers
 	c.Output.Directory = m.dataDir
-	c.Packages = config.PackagesConfig{}
-	for _, p := range packages {
-		switch p {
-		case "state":
-			c.Packages.State.Enabled = true
-		case "classic":
-			c.Packages.Classic.Enabled = true
-		case "orderflow":
-			c.Packages.Orderflow.Enabled = true
-		}
-	}
 	return &c
 }
 
@@ -131,7 +111,7 @@ func (m *downloadManager) worker() {
 		job.State = "running"
 		m.mu.Unlock()
 
-		cfg := m.cfgFor(req.tickers, req.packages)
+		cfg := m.cfgForDownload()
 		var res *download.BatchResult
 		// Hold the cross-process per-date lock across download→pack so a concurrent
 		// daemon run for the same date can't corrupt shared staging/tmp/archive
@@ -170,9 +150,9 @@ func (m *downloadManager) worker() {
 	}
 }
 
-// enqueue starts (or joins) a background download for date with the given
-// selection. Returns a copy of the job.
-func (m *downloadManager) enqueue(date string, tickers, packages []string) downloadJob {
+// enqueue starts (or joins) a background download for date. Coverage comes from the
+// YAML config (baseCfg), not the caller. Returns a copy of the job.
+func (m *downloadManager) enqueue(date string) downloadJob {
 	m.mu.Lock()
 	if j, ok := m.jobs[date]; ok && (j.State == "queued" || j.State == "running") {
 		out := *j
@@ -183,7 +163,7 @@ func (m *downloadManager) enqueue(date string, tickers, packages []string) downl
 	m.jobs[date] = job
 	out := *job
 	m.mu.Unlock()
-	m.queue <- downloadReq{date: date, tickers: tickers, packages: packages}
+	m.queue <- downloadReq{date: date}
 	return out
 }
 
@@ -197,55 +177,76 @@ func (m *downloadManager) all() []downloadJob {
 	return out
 }
 
-// --- handlers ---
-
-// handleDownloadOptions reports whether downloads are enabled and the ticker
-// universe + packages the UI offers for selection.
-func (h *StudioHandlers) handleDownloadOptions(w http.ResponseWriter, _ *http.Request) {
-	type pkg struct {
-		Name       string   `json:"name"`
-		Categories []string `json:"categories"`
-	}
-	writeStudioJSON(w, map[string]any{
-		"enabled": h.dl.enabled(),
-		"tickers": config.DefaultTickers(),
-		"packages": []pkg{
-			{Name: "state", Categories: config.ValidCategories[config.PackageState]},
-			{Name: "classic", Categories: config.ValidCategories[config.PackageClassic]},
-			{Name: "orderflow", Categories: config.ValidCategories[config.PackageOrderflow]},
-		},
-	})
+// downloadPkg is an enabled package and its effective category list (the YAML
+// subset, or all valid categories when the YAML leaves it empty).
+type downloadPkg struct {
+	Name       string   `json:"name"`
+	Categories []string `json:"categories"`
 }
 
-// handleDownload enqueues background downloads. Body:
-// {"dates":["YYYY-MM-DD",...], "tickers":[...], "packages":["state",...]}.
+// downloadOptions is the effective, YAML-authoritative download coverage the
+// Studio renders read-only (the user chooses only dates).
+type downloadOptions struct {
+	Enabled    bool          `json:"enabled"`
+	ConfigPath string        `json:"config_path"`
+	Tickers    []string      `json:"tickers"`
+	Packages   []downloadPkg `json:"packages"`
+	Message    string        `json:"message,omitempty"`
+}
+
+// displayConfigPath names the YAML that governs download coverage, for the UI.
+func (m *downloadManager) displayConfigPath() string {
+	if m.configPath != "" {
+		return m.configPath
+	}
+	return "auto-discovered ./configs/default.yaml"
+}
+
+// options reports the effective download coverage from the loaded YAML — exactly
+// what a download WOULD fetch (tickers fall back to DefaultTickers, empty package
+// categories fall back to all valid categories, mirroring GenerateTasksForDate).
+func (m *downloadManager) options() downloadOptions {
+	if !m.enabled() {
+		return downloadOptions{
+			Enabled:    false,
+			ConfigPath: m.displayConfigPath(),
+			Message:    "downloads are disabled — set GEXBOT_API_KEY (and GEXBOT_DOWNLOADER_CONFIG for the shared daemon YAML) on the server",
+		}
+	}
+	pkgs := []downloadPkg{}
+	for _, p := range config.EffectivePackages(m.baseCfg) {
+		pkgs = append(pkgs, downloadPkg{Name: p.Name, Categories: p.Categories})
+	}
+	return downloadOptions{
+		Enabled:    true,
+		ConfigPath: m.displayConfigPath(),
+		Tickers:    config.EffectiveTickers(m.baseCfg),
+		Packages:   pkgs,
+	}
+}
+
+// --- handlers ---
+
+// handleDownloadOptions reports the effective YAML-configured download coverage
+// (read-only in the UI) and whether downloads are enabled.
+func (h *StudioHandlers) handleDownloadOptions(w http.ResponseWriter, _ *http.Request) {
+	writeStudioJSON(w, h.dl.options())
+}
+
+// handleDownload enqueues background downloads. Body: {"dates":["YYYY-MM-DD",...]}.
+// Coverage (tickers/packages/categories) is the server's effective YAML, NOT the
+// caller's — any tickers/packages in the body are ignored, so a modified request
+// cannot create an archive with unconfigured coverage.
 func (h *StudioHandlers) handleDownload(w http.ResponseWriter, r *http.Request) {
 	if !h.dl.enabled() {
 		http.Error(w, `{"error":"downloads are disabled — set GEXBOT_API_KEY on the server"}`, http.StatusBadRequest)
 		return
 	}
 	var body struct {
-		Dates    []string `json:"dates"`
-		Tickers  []string `json:"tickers"`
-		Packages []string `json:"packages"`
+		Dates []string `json:"dates"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Dates) == 0 {
 		http.Error(w, `{"error":"dates is required"}`, http.StatusBadRequest)
-		return
-	}
-	// Validate + dedupe the caller-controlled dimensions: unknown/traversal
-	// tickers would otherwise flow into filepath.Join(base, date, ticker, ...) and
-	// let a request write outside the intended directory.
-	tickers, ok := cleanSelection(body.Tickers, func(t string) bool { return config.ValidTickers[t] })
-	if !ok || len(tickers) == 0 {
-		http.Error(w, `{"error":"unknown or empty ticker selection"}`, http.StatusBadRequest)
-		return
-	}
-	packages, ok := cleanSelection(body.Packages, func(p string) bool {
-		return p == "state" || p == "classic" || p == "orderflow"
-	})
-	if !ok || len(packages) == 0 {
-		http.Error(w, `{"error":"unknown or empty package selection"}`, http.StatusBadRequest)
 		return
 	}
 	jobs := []downloadJob{}
@@ -253,7 +254,7 @@ func (h *StudioHandlers) handleDownload(w http.ResponseWriter, r *http.Request) 
 		if !studioDateRe.MatchString(d) || !isMarketDayStr(d) {
 			continue // skip malformed / non-market days
 		}
-		jobs = append(jobs, h.dl.enqueue(d, tickers, packages))
+		jobs = append(jobs, h.dl.enqueue(d))
 	}
 	if len(jobs) == 0 {
 		http.Error(w, `{"error":"no valid market days in request"}`, http.StatusBadRequest)

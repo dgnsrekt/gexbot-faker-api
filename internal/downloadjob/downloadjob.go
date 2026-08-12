@@ -272,43 +272,17 @@ func manifestCoversJSONL(root, date, ticker string, man *eod.Manifest) bool {
 }
 
 // GenerateTasksForDate expands the configured tickers × enabled packages ×
-// categories into download tasks for one date.
+// categories into download tasks for one date. Coverage comes from the shared
+// config.Effective* helpers, so the tasks match what the Studio and daemon /status
+// report.
 func GenerateTasksForDate(cfg *config.Config, date string) []download.Task {
 	var tasks []download.Task
-	tickers := cfg.Tickers
-	if len(tickers) == 0 {
-		tickers = config.DefaultTickers()
-	}
-
-	pkgCategories := make(map[string][]string)
-	if cfg.Packages.State.Enabled {
-		cats := cfg.Packages.State.Categories
-		if len(cats) == 0 {
-			cats = config.ValidCategories[config.PackageState]
-		}
-		pkgCategories["state"] = cats
-	}
-	if cfg.Packages.Classic.Enabled {
-		cats := cfg.Packages.Classic.Categories
-		if len(cats) == 0 {
-			cats = config.ValidCategories[config.PackageClassic]
-		}
-		pkgCategories["classic"] = cats
-	}
-	if cfg.Packages.Orderflow.Enabled {
-		cats := cfg.Packages.Orderflow.Categories
-		if len(cats) == 0 {
-			cats = config.ValidCategories[config.PackageOrderflow]
-		}
-		pkgCategories["orderflow"] = cats
-	}
-
-	for _, ticker := range tickers {
-		for pkg, categories := range pkgCategories {
-			for _, category := range categories {
+	for _, ticker := range config.EffectiveTickers(cfg) {
+		for _, pkg := range config.EffectivePackages(cfg) {
+			for _, category := range pkg.Categories {
 				tasks = append(tasks, download.Task{
 					Ticker:   ticker,
-					Package:  pkg,
+					Package:  pkg.Name,
 					Category: category,
 					Date:     date,
 				})
