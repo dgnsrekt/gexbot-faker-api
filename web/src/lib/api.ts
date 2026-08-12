@@ -302,6 +302,13 @@ export function fmtInt(n: number): string {
   return n.toLocaleString('en-US')
 }
 
+// isValidSpan reports whether [from,to] is a submittable span for the "Load a span"
+// control: both ends set, ordered (from <= to), and within the [min,max] inventory
+// bounds (an empty bound means unbounded). ISO YYYY-MM-DD strings compare lexically.
+export function isValidSpan(from: string, to: string, min: string, max: string): boolean {
+  return !!from && !!to && from <= to && (!min || from >= min) && (!max || to <= max)
+}
+
 // fmtLoadedSpan renders what's loaded: a single day as itself, a multi-day span as
 // "first → last". Prefers loaded_dates (the full span, issue #66), falling back to the
 // scalar loaded_date for older servers.

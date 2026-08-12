@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, fmtBytes, fmtInt, type Status, type LibraryRow } from '../lib/api'
+  import { api, fmtBytes, fmtInt, isValidSpan, type Status, type LibraryRow } from '../lib/api'
 
   let { status, onchanged }: { status: Status | null; onchanged: () => void } = $props()
 
@@ -42,6 +42,7 @@
   }
 
   async function load(date: string) {
+    if (anyBusy) return // don't queue a second load behind an in-flight one (backend serializes)
     busyDate = date
     error = ''
     try {
@@ -62,7 +63,7 @@
   let spanBusy = $state(false)
 
   async function loadSpan() {
-    if (!spanFrom || !spanTo || spanBusy) return
+    if (!spanValid || anyBusy) return
     spanBusy = true
     error = ''
     try {
@@ -80,6 +81,12 @@
   // Bounds for the span-loader date inputs — the oldest/newest archive on disk.
   const dateMin = $derived(rows.length ? rows.reduce((m, r) => (r.date < m ? r.date : m), rows[0].date) : '')
   const dateMax = $derived(rows.length ? rows.reduce((m, r) => (r.date > m ? r.date : m), rows[0].date) : '')
+  // A span is valid only when both ends are set, ordered, and within the on-disk
+  // inventory — so a reversed or out-of-range span can't be submitted.
+  const spanValid = $derived(isValidSpan(spanFrom, spanTo, dateMin, dateMax))
+  // Single-date and span loads share one busy gate: the backend serializes load
+  // jobs, so a second load queued during the first would silently replace it.
+  const anyBusy = $derived(spanBusy || busyDate !== null)
   // Every loaded date badges (issue #66); the banner summarizes the whole loaded span (chronological).
   const loadedRows = $derived(rows.filter((r) => r.loaded))
   const loadedSpanLabel = $derived.by(() => {
@@ -168,10 +175,10 @@
   {#if !loading && rows.length > 0}
     <div class="span-loader">
       <span class="sl-label">Load a span</span>
-      <input type="date" class="mono" bind:value={spanFrom} min={dateMin} max={dateMax} aria-label="span start" />
+      <input type="date" class="mono" bind:value={spanFrom} min={dateMin} max={spanTo || dateMax} aria-label="span start" />
       <span class="sl-arrow">→</span>
-      <input type="date" class="mono" bind:value={spanTo} min={dateMin} max={dateMax} aria-label="span end" />
-      <button class="sl-btn" disabled={!spanFrom || !spanTo || spanBusy} onclick={loadSpan}>
+      <input type="date" class="mono" bind:value={spanTo} min={spanFrom || dateMin} max={dateMax} aria-label="span end" />
+      <button class="sl-btn" disabled={!spanValid || anyBusy} onclick={loadSpan}>
         {spanBusy ? 'Loading…' : 'Load span'}
       </button>
       <span class="sl-note">loads every archived day in the range as one cross-day dataset</span>
@@ -245,7 +252,7 @@
                 <span class="mono mtext">Materializing {r.materialized}/{r.total}</span>
               </div>
             {:else if r.state === 'ready'}
-              <button class="btn load" disabled={busyDate !== null} onclick={() => load(r.date)}>
+              <button class="btn load" disabled={anyBusy} onclick={() => load(r.date)}>
                 {busyDate === r.date ? 'Loading…' : 'Load'}
               </button>
             {:else}
