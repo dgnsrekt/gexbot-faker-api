@@ -91,6 +91,14 @@
   // Single-date and span loads share one busy gate: the backend serializes load
   // jobs, so a second load queued during the first would silently replace it.
   const anyBusy = $derived(spanBusy || busyDate !== null)
+  // A row shows "Loading…" when it's the single date being loaded OR it falls inside
+  // an in-flight span load — so batch and single loads give the same per-row feedback.
+  function rowLoading(date: string): boolean {
+    return (
+      busyDate === date ||
+      (spanBusy && !!spanFrom && !!spanTo && date >= spanFrom && date <= spanTo)
+    )
+  }
   // Every loaded date badges (issue #66); the banner summarizes the whole loaded span (chronological).
   const loadedRows = $derived(rows.filter((r) => r.loaded))
   const loadedSpanLabel = $derived.by(() => {
@@ -263,7 +271,7 @@
               </div>
             {:else if r.state === 'ready'}
               <button class="btn load" disabled={anyBusy} onclick={() => load(r.date)}>
-                {busyDate === r.date ? 'Loading…' : 'Load'}
+                {rowLoading(r.date) ? 'Loading…' : 'Load'}
               </button>
             {:else}
               {#if r.job_error}
