@@ -422,6 +422,7 @@ func backfillMissedDays(ctx context.Context, cfg *config.Config, scheduler *Sche
 		checkCoverage(ctx, cfg.Output.Directory, date, notifier, logger)
 		if err := tracker.SetLastDownloadDate(date); err != nil {
 			logger.Error("failed to update tracker after backfill", zap.Error(err))
+			dstate.finishRun(false, err) // don't leave /status stuck in_progress
 			return false
 		}
 		// A backfilled download just succeeded — record it so last-success stays

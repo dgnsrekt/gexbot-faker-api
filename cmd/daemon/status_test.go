@@ -69,7 +69,16 @@ func TestDaemonStateReadyz(t *testing.T) {
 		t.Error("after setReady it should be ready")
 	}
 
+	// startRun → in_progress; every finishRun path (incl. the backfill tracker-write
+	// failure branch) must clear it, so /status never reports a run that has stopped.
+	s.startRun()
+	if !s.inProgress {
+		t.Error("startRun should mark in_progress")
+	}
 	s.finishRun(false, errors.New("EOD unavailable"))
+	if s.inProgress {
+		t.Error("finishRun must clear in_progress even on failure")
+	}
 	if !s.isReady() {
 		t.Error("a failed download is degraded, not unready — readyz must stay true")
 	}

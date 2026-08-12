@@ -64,13 +64,21 @@ func newDownloadManager(dataDir, configPath string, logger *zap.Logger) *downloa
 	// GEXBOT_API_KEY). Guarded: a missing key/invalid config leaves downloads
 	// disabled, and the UI degrades with a clear message. An explicit path makes the
 	// server load the SAME YAML the daemon does (shared DAEMON_CONFIG_PATH).
-	if cfg, err := config.Load(configPath); err == nil {
-		cfg.Output.Directory = dataDir // land downloads where the server serves them
-		m.baseCfg = cfg
-		go m.worker()
-	} else {
+	cfg, err := config.Load(configPath)
+	if err != nil {
 		logger.Info("studio downloads disabled (set GEXBOT_API_KEY / GEXBOT_DOWNLOADER_CONFIG to enable)", zap.Error(err))
+		return m
 	}
+	// Validate the effective coverage the SAME way the daemon does
+	// (config.ValidateDownloadConfig): an invalid ticker/category YAML must disable
+	// manual downloads rather than serve unconfigured coverage as authoritative (#67).
+	if verr := config.ValidateDownloadConfig(config.EffectiveTickers(cfg), cfg.Packages); verr != nil {
+		logger.Warn("studio downloads disabled (invalid downloader config)", zap.Error(verr))
+		return m
+	}
+	cfg.Output.Directory = dataDir // land downloads where the server serves them
+	m.baseCfg = cfg
+	go m.worker()
 	return m
 }
 

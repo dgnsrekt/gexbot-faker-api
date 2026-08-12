@@ -80,6 +80,23 @@ packages:
 	}
 }
 
+// An invalid downloader YAML (bad ticker/category) disables Studio downloads instead
+// of serving unconfigured coverage as authoritative — the same bar the daemon holds.
+func TestDownloadDisabledOnInvalidYAML(t *testing.T) {
+	t.Setenv("GEXBOT_API_KEY", "testkey") // key is valid; the COVERAGE is not
+	yaml := filepath.Join(t.TempDir(), "bad.yaml")
+	if err := os.WriteFile(yaml, []byte("tickers: [NOTATICKER]\npackages:\n  classic:\n    enabled: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dl := newDownloadManager(t.TempDir(), yaml, zap.NewNop())
+	if dl.enabled() {
+		t.Error("an invalid-ticker YAML must leave Studio downloads disabled")
+	}
+	if o := dl.options(); o.Enabled || o.Message == "" {
+		t.Errorf("disabled options should carry a message: %+v", o)
+	}
+}
+
 // A download request's tickers/packages are IGNORED — coverage is the server's YAML.
 // A bogus/traversal ticker in the body can't create an archive with that coverage.
 func TestDownloadIgnoresClientCoverage(t *testing.T) {
