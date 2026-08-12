@@ -139,11 +139,11 @@ func TestReadRejectsCorruptSidecar(t *testing.T) {
 		}
 	}
 
-	mut(func(b []byte) []byte { b[0] = 'X'; return b })                                 // bad magic
-	mut(func(b []byte) []byte { binary.LittleEndian.PutUint32(b[4:8], 999); return b })  // bad version
-	mut(func(b []byte) []byte { return b[:len(b)-1] })                                  // wrong length (body%8!=0)
-	mut(func(b []byte) []byte { return append(b, 0xAA, 0xBB) })                         // trailing garbage
-	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[28:36], 1<<40); return b }) // huge n
+	mut(func(b []byte) []byte { b[0] = 'X'; return b })                                          // bad magic
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint32(b[4:8], 999); return b })          // bad version
+	mut(func(b []byte) []byte { return b[:len(b)-1] })                                           // wrong length (body%8!=0)
+	mut(func(b []byte) []byte { return append(b, 0xAA, 0xBB) })                                  // trailing garbage
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[28:36], 1<<40); return b })      // huge n
 	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[28:36], ^uint64(0)); return b }) // negative n
 	// past-EOF offset (srcSize=9): set first offset to 9
 	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[headerSize:], 9); return b })
