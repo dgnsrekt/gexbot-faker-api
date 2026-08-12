@@ -48,8 +48,12 @@ type downloadManager struct {
 	queue      chan downloadReq
 	baseCfg    *config.Config // nil when downloads are disabled (no API key)
 	configPath string         // the downloader YAML path (empty = working-dir discovery)
-	dataDir    string
-	logger     *zap.Logger
+	// disabledReason is the sanitized, specific reason downloads are off (missing key
+	// vs invalid config), surfaced in the options message so the operator gets correct
+	// remediation. Empty once enabled.
+	disabledReason string
+	dataDir        string
+	logger         *zap.Logger
 }
 
 func newDownloadManager(dataDir, configPath string, logger *zap.Logger) *downloadManager {
@@ -66,13 +70,16 @@ func newDownloadManager(dataDir, configPath string, logger *zap.Logger) *downloa
 	// server load the SAME YAML the daemon does (shared DAEMON_CONFIG_PATH).
 	cfg, err := config.Load(configPath)
 	if err != nil {
+		m.disabledReason = "downloads are disabled — set GEXBOT_API_KEY (and GEXBOT_DOWNLOADER_CONFIG for the shared daemon YAML) on the server"
 		logger.Info("studio downloads disabled (set GEXBOT_API_KEY / GEXBOT_DOWNLOADER_CONFIG to enable)", zap.Error(err))
 		return m
 	}
 	// Validate the effective coverage the SAME way the daemon does
 	// (config.ValidateDownloadConfig): an invalid ticker/category YAML must disable
 	// manual downloads rather than serve unconfigured coverage as authoritative (#67).
+	// The validation error lists offending tickers/categories (no secrets) — surface it.
 	if verr := config.ValidateDownloadConfig(config.EffectiveTickers(cfg), cfg.Packages); verr != nil {
+		m.disabledReason = "downloads are disabled — the downloader config (" + m.displayConfigPath() + ") is invalid: " + verr.Error()
 		logger.Warn("studio downloads disabled (invalid downloader config)", zap.Error(verr))
 		return m
 	}
@@ -215,10 +222,14 @@ func (m *downloadManager) displayConfigPath() string {
 // categories fall back to all valid categories, mirroring GenerateTasksForDate).
 func (m *downloadManager) options() downloadOptions {
 	if !m.enabled() {
+		msg := m.disabledReason
+		if msg == "" {
+			msg = "downloads are disabled"
+		}
 		return downloadOptions{
 			Enabled:    false,
 			ConfigPath: m.displayConfigPath(),
-			Message:    "downloads are disabled — set GEXBOT_API_KEY (and GEXBOT_DOWNLOADER_CONFIG for the shared daemon YAML) on the server",
+			Message:    msg,
 		}
 	}
 	pkgs := []downloadPkg{}

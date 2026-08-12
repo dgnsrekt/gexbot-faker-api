@@ -92,8 +92,14 @@ func TestDownloadDisabledOnInvalidYAML(t *testing.T) {
 	if dl.enabled() {
 		t.Error("an invalid-ticker YAML must leave Studio downloads disabled")
 	}
-	if o := dl.options(); o.Enabled || o.Message == "" {
-		t.Errorf("disabled options should carry a message: %+v", o)
+	// The message must identify a config/validation failure, not the generic
+	// "set GEXBOT_API_KEY" remediation (both are set here; the YAML is what's wrong).
+	o := dl.options()
+	if o.Enabled {
+		t.Fatal("options should be disabled")
+	}
+	if !strings.Contains(o.Message, "invalid") || strings.Contains(o.Message, "set GEXBOT_API_KEY") {
+		t.Errorf("message should identify the invalid config, got %q", o.Message)
 	}
 }
 
