@@ -401,6 +401,18 @@
     padding: 5px 8px;
     font-size: 11.5px;
   }
+  .span-loader input:focus {
+    outline: none;
+    border-color: var(--green-border);
+  }
+  /* color-scheme:dark already darkens the popup + inverts this icon; nudge its affordance. */
+  .span-loader input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.65;
+  }
+  .span-loader input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
   .sl-arrow {
     color: var(--muted-2);
     font-size: 12px;
