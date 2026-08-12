@@ -78,9 +78,11 @@
   }
 
   const totalSize = $derived(rows.reduce((a, r) => a + r.size_bytes, 0))
-  // Bounds for the span-loader date inputs — the oldest/newest archive on disk.
-  const dateMin = $derived(rows.length ? rows.reduce((m, r) => (r.date < m ? r.date : m), rows[0].date) : '')
-  const dateMax = $derived(rows.length ? rows.reduce((m, r) => (r.date > m ? r.date : m), rows[0].date) : '')
+  // The span-loader offers only the dates that actually exist on disk (sorted
+  // chronologically), so you can't pick an empty day or scroll dead years.
+  const availDates = $derived([...new Set(rows.map((r) => r.date))].sort())
+  const dateMin = $derived(availDates[0] ?? '')
+  const dateMax = $derived(availDates[availDates.length - 1] ?? '')
   // A span is valid only when both ends are set, ordered, and within the on-disk
   // inventory — so a reversed or out-of-range span can't be submitted.
   const spanValid = $derived(isValidSpan(spanFrom, spanTo, dateMin, dateMax))
@@ -175,9 +177,15 @@
   {#if !loading && rows.length > 0}
     <div class="span-loader">
       <span class="sl-label">Load a span</span>
-      <input type="date" class="mono" bind:value={spanFrom} min={dateMin} max={spanTo || dateMax} aria-label="span start" />
+      <select class="sl-select mono" bind:value={spanFrom} aria-label="span start">
+        <option value="" disabled>from</option>
+        {#each availDates as d (d)}<option value={d}>{d}</option>{/each}
+      </select>
       <span class="sl-arrow">→</span>
-      <input type="date" class="mono" bind:value={spanTo} min={spanFrom || dateMin} max={dateMax} aria-label="span end" />
+      <select class="sl-select mono" bind:value={spanTo} aria-label="span end">
+        <option value="" disabled>to</option>
+        {#each availDates as d (d)}<option value={d}>{d}</option>{/each}
+      </select>
       <button class="sl-btn" disabled={!spanValid || anyBusy} onclick={loadSpan}>
         {spanBusy ? 'Loading…' : 'Load span'}
       </button>
@@ -393,25 +401,18 @@
     color: var(--text-2);
     font-weight: 600;
   }
-  .span-loader input {
+  .sl-select {
     background: var(--input);
     border: 1px solid var(--border-2);
     border-radius: 6px;
     color: var(--text-2);
     padding: 5px 8px;
     font-size: 11.5px;
+    cursor: pointer;
   }
-  .span-loader input:focus {
+  .sl-select:focus {
     outline: none;
     border-color: var(--green-border);
-  }
-  /* color-scheme:dark already darkens the popup + inverts this icon; nudge its affordance. */
-  .span-loader input::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    opacity: 0.65;
-  }
-  .span-loader input::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
   }
   .sl-arrow {
     color: var(--muted-2);
