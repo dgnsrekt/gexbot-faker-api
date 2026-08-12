@@ -36,7 +36,10 @@ The EOD archives on this machine. Each date shows a state — **`archived`**,
 **`ready`**, or **`loaded`** — with a **Materialize** or **Load** button. This is
 where you turn a downloaded archive into a served date; see
 [materialize & load](materialize-load.md). It also shows a coverage sparkline and
-per-row deviation badge from the daemon's coverage checks.
+per-row deviation badge from the daemon's coverage checks. A **Load a span**
+control (from/to dates) loads a contiguous multi-day range as one cross-day dataset
+in one click — every day in the span badges as **loaded**, and replay/seek cross
+day boundaries (see [multi-day range](materialize-load.md)).
 
 ### Live streams
 The five WebSocket hubs with live client counts and active groups, plus a

@@ -104,6 +104,35 @@ describe('api.load', () => {
   })
 })
 
+describe('api.loadRange', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  // The "Load span" control posts the range body and polls to done, so the loaded badges span it.
+  it('posts the span body and resolves when the job is done', async () => {
+    let posted: unknown
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, opts?: { body?: string }) => {
+        if (path === '/load') {
+          posted = JSON.parse(opts!.body!)
+          return jsonRes({ job_id: 'r1', state: 'queued' })
+        }
+        return jsonRes({ job_id: 'r1', state: 'done', dates: ['2026-08-06', '2026-08-07', '2026-08-10'] })
+      }),
+    )
+    vi.useFakeTimers()
+    const p = api.loadRange({ from: '2026-08-06', to: '2026-08-10' })
+    await vi.advanceTimersByTimeAsync(1000)
+    const j = await p
+    expect(posted).toEqual({ from: '2026-08-06', to: '2026-08-10' })
+    expect(j.state).toBe('done')
+    expect(j.dates).toHaveLength(3)
+  })
+})
+
 describe('api.daemon', () => {
   afterEach(() => vi.restoreAllMocks())
 

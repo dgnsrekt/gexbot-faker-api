@@ -40,7 +40,10 @@ Los EOD archives en esta máquina. Cada fecha muestra un estado — **`archived`
 conviertes un archive descargado en una fecha servida; ver
 [materialize & load](materialize-load.md). También muestra un sparkline de
 cobertura y una insignia de desviación por fila a partir de las verificaciones de
-cobertura del daemon.
+cobertura del daemon. Un control **Load a span** (fechas from/to) carga un rango
+contiguo de varios días como un único dataset cross-day en un clic — cada día del
+span queda marcado como **loaded**, y la reproducción/seek cruzan los límites de día
+(ver [rango multi-día](materialize-load.md)).
 
 ### Live streams
 Los cinco hubs de WebSocket con conteos de clientes en vivo y grupos activos, más

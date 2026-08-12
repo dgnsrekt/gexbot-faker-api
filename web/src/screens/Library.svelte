@@ -55,14 +55,38 @@
     }
   }
 
+  // Span loader: load a contiguous range of days as one cross-day dataset (POST /load {from,to}).
+  // The archived days in the range are materialized on demand; the loaded badges then span them all.
+  let spanFrom = $state('')
+  let spanTo = $state('')
+  let spanBusy = $state(false)
+
+  async function loadSpan() {
+    if (!spanFrom || !spanTo || spanBusy) return
+    spanBusy = true
+    error = ''
+    try {
+      await api.loadRange({ from: spanFrom, to: spanTo })
+      await refresh()
+      onchanged()
+    } catch (e) {
+      error = `Load span failed: ${e}`
+    } finally {
+      spanBusy = false
+    }
+  }
+
   const totalSize = $derived(rows.reduce((a, r) => a + r.size_bytes, 0))
-  // Every loaded date badges (issue #66); the banner summarizes the whole loaded span.
+  // Bounds for the span-loader date inputs — the oldest/newest archive on disk.
+  const dateMin = $derived(rows.length ? rows.reduce((m, r) => (r.date < m ? r.date : m), rows[0].date) : '')
+  const dateMax = $derived(rows.length ? rows.reduce((m, r) => (r.date > m ? r.date : m), rows[0].date) : '')
+  // Every loaded date badges (issue #66); the banner summarizes the whole loaded span (chronological).
   const loadedRows = $derived(rows.filter((r) => r.loaded))
-  const loadedSpanLabel = $derived(
-    loadedRows.length <= 1
-      ? (loadedRows[0]?.date ?? '')
-      : `${loadedRows[0].date} → ${loadedRows[loadedRows.length - 1].date} (${loadedRows.length} days)`,
-  )
+  const loadedSpanLabel = $derived.by(() => {
+    const ds = loadedRows.map((r) => r.date).sort()
+    if (ds.length <= 1) return ds[0] ?? ''
+    return `${ds[0]} → ${ds[ds.length - 1]} (${ds.length} days)`
+  })
   const loadedTickers = $derived([...new Set(loadedRows.flatMap((r) => r.tickers))].sort())
 
   function pct(r: LibraryRow): string {
@@ -138,6 +162,19 @@
         Currently loaded: <span class="mono">{loadedSpanLabel}</span> ·
         {loadedTickers.join(', ')} · {status?.files_loaded ?? 0} files
       </div>
+    </div>
+  {/if}
+
+  {#if !loading && rows.length > 0}
+    <div class="span-loader">
+      <span class="sl-label">Load a span</span>
+      <input type="date" class="mono" bind:value={spanFrom} min={dateMin} max={dateMax} aria-label="span start" />
+      <span class="sl-arrow">→</span>
+      <input type="date" class="mono" bind:value={spanTo} min={dateMin} max={dateMax} aria-label="span end" />
+      <button class="sl-btn" disabled={!spanFrom || !spanTo || spanBusy} onclick={loadSpan}>
+        {spanBusy ? 'Loading…' : 'Load span'}
+      </button>
+      <span class="sl-note">loads every archived day in the range as one cross-day dataset</span>
     </div>
   {/if}
 
@@ -333,6 +370,53 @@
     border-radius: 50%;
     background: var(--green);
     flex: none;
+  }
+  .span-loader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    border-radius: 10px;
+    padding: 9px 12px;
+  }
+  .sl-label {
+    font-size: 11.5px;
+    color: var(--text-2);
+    font-weight: 600;
+  }
+  .span-loader input {
+    background: var(--input);
+    border: 1px solid var(--border-2);
+    border-radius: 6px;
+    color: var(--text-2);
+    padding: 5px 8px;
+    font-size: 11.5px;
+  }
+  .sl-arrow {
+    color: var(--muted-2);
+    font-size: 12px;
+  }
+  .sl-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    background: var(--green);
+    color: var(--green-ink);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .sl-btn:disabled {
+    background: #1b1e23;
+    color: var(--dimmer);
+    cursor: default;
+  }
+  .sl-note {
+    font-size: 10.5px;
+    color: var(--dim);
+    margin-left: auto;
   }
   .error {
     border: 1px solid #4a2b2b;
