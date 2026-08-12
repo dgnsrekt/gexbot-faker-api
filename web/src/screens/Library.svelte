@@ -83,6 +83,8 @@
   const availDates = $derived([...new Set(rows.map((r) => r.date))].sort())
   const dateMin = $derived(availDates[0] ?? '')
   const dateMax = $derived(availDates[availDates.length - 1] ?? '')
+  // Newest-first for the dropdowns so the recent dates are at the top (no scrolling).
+  const availDatesDesc = $derived([...availDates].reverse())
   // A span is valid only when both ends are set, ordered, and within the on-disk
   // inventory — so a reversed or out-of-range span can't be submitted.
   const spanValid = $derived(isValidSpan(spanFrom, spanTo, dateMin, dateMax))
@@ -179,12 +181,12 @@
       <span class="sl-label">Load a span</span>
       <select class="sl-select mono" bind:value={spanFrom} aria-label="span start">
         <option value="" disabled>from</option>
-        {#each availDates as d (d)}<option value={d}>{d}</option>{/each}
+        {#each availDatesDesc as d (d)}<option value={d}>{d}</option>{/each}
       </select>
       <span class="sl-arrow">→</span>
       <select class="sl-select mono" bind:value={spanTo} aria-label="span end">
         <option value="" disabled>to</option>
-        {#each availDates as d (d)}<option value={d}>{d}</option>{/each}
+        {#each availDatesDesc as d (d)}<option value={d}>{d}</option>{/each}
       </select>
       <button class="sl-btn" disabled={!spanValid || anyBusy} onclick={loadSpan}>
         {spanBusy ? 'Loading…' : 'Load span'}
