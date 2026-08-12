@@ -1,4 +1,7 @@
 :root {
+  /* Render native controls (the date-picker popup, scrollbars, spinners) in dark
+     mode so they match the app instead of showing the browser's light default. */
+  color-scheme: dark;
   --bg: #0d0e10;
   --bg-log: #0b0c0e;
   --panel: #111214;
