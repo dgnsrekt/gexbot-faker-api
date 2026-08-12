@@ -172,6 +172,20 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// pollLoad polls /load/status to completion so a POST /load behaves synchronously for the caller
+// (a single day finishes fast; a span materializes then loads). A still-running job past the budget
+// is a timeout, not success — surfaced so the caller doesn't clear its busy state as though loaded.
+async function pollLoad(job: LoadJob): Promise<LoadJob> {
+  let j = job
+  for (let i = 0; i < 240 && j.state !== 'done' && j.state !== 'error'; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    j = await getJSON<LoadJob>(`/load/status/${job.job_id}`)
+  }
+  if (j.state === 'error') throw new Error(j.error || 'load failed')
+  if (j.state !== 'done') throw new Error('load did not finish in time (still running server-side)')
+  return j
+}
+
 export const api = {
   status: () => getJSON<Status>('/studio/api/status'),
   config: () => getJSON<SettingGroup[]>('/studio/api/config'),
@@ -181,21 +195,14 @@ export const api = {
   endpoints: () => getJSON<EndpointDoc[]>('/studio/api/endpoints'),
   tickers: () => getJSON<TickersResp>('/tickers'),
   categories: (pkg: string) => getJSON<string[]>(`/${pkg}/categories`),
-  // load kicks off the async POST /load and polls /load/status to completion, so the
-  // Library "Load" button behaves synchronously (a single-day load finishes fast).
-  load: async (date: string): Promise<LoadJob> => {
-    const job = await postJSON<LoadJob>('/load', { date })
-    let j = job
-    for (let i = 0; i < 240 && j.state !== 'done' && j.state !== 'error'; i++) {
-      await new Promise((r) => setTimeout(r, 500))
-      j = await getJSON<LoadJob>(`/load/status/${job.job_id}`)
-    }
-    if (j.state === 'error') throw new Error(j.error || 'load failed')
-    // A still-queued/running job after the poll budget is a timeout, not success — surface it so
-    // the caller doesn't clear its busy state as though the day loaded.
-    if (j.state !== 'done') throw new Error('load did not finish in time (still running server-side)')
-    return j
-  },
+  // load kicks off the async POST /load for a single day and polls to completion, so the Library
+  // "Load" button behaves synchronously (a single-day load finishes fast).
+  load: async (date: string): Promise<LoadJob> => pollLoad(await postJSON<LoadJob>('/load', { date })),
+  // loadRange loads a contiguous span ({from,to}) or an explicit {dates} list as one cross-day
+  // dataset, polling to completion — the Studio "Load span" control. The loaded badges then span
+  // every day in the range (issue #66).
+  loadRange: async (body: { from?: string; to?: string; dates?: string[] }): Promise<LoadJob> =>
+    pollLoad(await postJSON<LoadJob>('/load', body)),
   reset: () => postJSON<{ count: number }>('/reset', {}),
   materialize: (date: string) => postJSON<MaterializeJob>('/studio/api/materialize', { date }),
   downloadOptions: () => getJSON<DownloadOptions>('/studio/api/download/options'),
@@ -293,6 +300,13 @@ export function fmtBytes(n: number): string {
 
 export function fmtInt(n: number): string {
   return n.toLocaleString('en-US')
+}
+
+// isValidSpan reports whether [from,to] is a submittable span for the "Load a span"
+// control: both ends set, ordered (from <= to), and within the [min,max] inventory
+// bounds (an empty bound means unbounded). ISO YYYY-MM-DD strings compare lexically.
+export function isValidSpan(from: string, to: string, min: string, max: string): boolean {
+  return !!from && !!to && from <= to && (!min || from >= min) && (!max || to <= max)
 }
 
 // fmtLoadedSpan renders what's loaded: a single day as itself, a multi-day span as

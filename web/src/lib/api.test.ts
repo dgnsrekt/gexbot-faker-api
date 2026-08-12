@@ -1,5 +1,21 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { promToSeries, api, type PromResponse } from './api'
+import { promToSeries, isValidSpan, api, type PromResponse } from './api'
+
+describe('isValidSpan', () => {
+  const MIN = '2026-08-06'
+  const MAX = '2026-08-11'
+  it('accepts an ordered span within the inventory bounds', () => {
+    expect(isValidSpan('2026-08-06', '2026-08-10', MIN, MAX)).toBe(true)
+    expect(isValidSpan('2026-08-07', '2026-08-07', MIN, MAX)).toBe(true) // single day
+  })
+  it('rejects a missing end, a reversed span, or an out-of-bounds date', () => {
+    expect(isValidSpan('', '2026-08-10', MIN, MAX)).toBe(false)
+    expect(isValidSpan('2026-08-10', '', MIN, MAX)).toBe(false)
+    expect(isValidSpan('2026-08-10', '2026-08-06', MIN, MAX)).toBe(false) // reversed
+    expect(isValidSpan('2026-08-01', '2026-08-10', MIN, MAX)).toBe(false) // before min
+    expect(isValidSpan('2026-08-06', '2026-08-20', MIN, MAX)).toBe(false) // after max
+  })
+})
 
 function range(values: [number, string][], metric: Record<string, string> = {}): PromResponse {
   return { status: 'success', data: { resultType: 'matrix', result: [{ metric, values }] } }
@@ -101,6 +117,35 @@ describe('api.load', () => {
     const rejects = expect(p).rejects.toThrow(/did not finish/)
     await vi.advanceTimersByTimeAsync(240 * 500 + 1000)
     await rejects
+  })
+})
+
+describe('api.loadRange', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  // The "Load span" control posts the range body and polls to done, so the loaded badges span it.
+  it('posts the span body and resolves when the job is done', async () => {
+    let posted: unknown
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, opts?: { body?: string }) => {
+        if (path === '/load') {
+          posted = JSON.parse(opts!.body!)
+          return jsonRes({ job_id: 'r1', state: 'queued' })
+        }
+        return jsonRes({ job_id: 'r1', state: 'done', dates: ['2026-08-06', '2026-08-07', '2026-08-10'] })
+      }),
+    )
+    vi.useFakeTimers()
+    const p = api.loadRange({ from: '2026-08-06', to: '2026-08-10' })
+    await vi.advanceTimersByTimeAsync(1000)
+    const j = await p
+    expect(posted).toEqual({ from: '2026-08-06', to: '2026-08-10' })
+    expect(j.state).toBe('done')
+    expect(j.dates).toHaveLength(3)
   })
 })
 
