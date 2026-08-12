@@ -74,6 +74,10 @@ Edit `configs/custom.yaml` to customize:
 - **packages**: Enable/disable data packages (state, classic, orderflow)
 - **categories**: Enable/disable specific data types within each package
 
+This one YAML is the coverage authority for **both** the daemon and the Studio's
+manual downloads — point `DAEMON_CONFIG_PATH` (daemon) and `GEXBOT_DOWNLOADER_CONFIG`
+(server) at the same file so they never diverge. (Docker compose does this for you.)
+
 ### 3. Download Initial Data
 
 ```bash
@@ -351,6 +355,11 @@ just downloaded may show **Materialize** instead of **Load**:
    auto-converts it to JSONL (`auto_convert_to_jsonl`), then packs the same
    archive. The Studio worker also writes the `.eod-materialized` marker, so the
    date shows **`ready` / Load** immediately — no separate Materialize step.
+   **Coverage is YAML-authoritative:** the screen lets you pick only **dates** —
+   tickers, packages, and categories come from the same downloader YAML the daemon
+   uses (`GEXBOT_DOWNLOADER_CONFIG`, shared with `DAEMON_CONFIG_PATH`), shown
+   read-only. So a manual download covers exactly the same set as the scheduled
+   daemon, and the server ignores any ticker/package a modified request sends.
 
    > The daemon's after-hours fallback uses this **same** `/hist` path, but it
    > does **not** yet write the marker — so a daemon fallback leaves JSONL on
@@ -442,6 +451,8 @@ Subscribe to notifications at `https://ntfy.sh/my-gexbot-downloads` or use the n
 | `SYNC_BROADCAST_SYSTEM_INTERVAL` | 1s       | Position broadcast interval                 |
 | `RANGE_END_POLICY`               | clamp    | Multi-day range end: `clamp` (last row) or `error` (400) |
 | `STUDIO_AUTH_TOKEN`              | *(empty)*| Gates `/studio` **and** the mutating control routes; empty = open |
+| `GEXBOT_DOWNLOADER_CONFIG`       | *(empty)*| Downloader YAML the Studio download worker loads — point at the daemon's `DAEMON_CONFIG_PATH` so manual + scheduled downloads share one coverage authority; empty = `./configs/default.yaml` discovery |
+| `DAEMON_URL`                     | http://gex-daemon:9091 | Daemon diagnostics endpoint the Studio proxies for sanitized daemon status (Settings); empty disables the panel |
 
 ### Downloader Configuration
 
