@@ -15,7 +15,9 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -23,8 +25,9 @@ import (
 const (
 	suffix     = ".idx"
 	magic      = "GXI1"
-	version    = uint32(1)
-	headerSize = 32 // magic(4) + version(4) + srcSize(8) + srcModNano(8) + n(8)
+	version    = uint32(2)
+	headerSize = 36 // magic(4) version(4) crc32(4) srcSize(8) srcModNano(8) n(8)
+	crcCovered = 12 // crc32 covers data[12:] (srcSize + srcModNano + n + offsets)
 )
 
 // SidecarPath returns the index path for a jsonl path.
@@ -66,25 +69,43 @@ func Scan(r io.Reader) ([]int64, error) {
 // missing, stale (size/mtime differ from fi), or fails strict validation. It never
 // panics or makes an allocation sized from untrusted header bytes.
 func Read(jsonlPath string, fi os.FileInfo) ([]int64, bool) {
-	data, err := os.ReadFile(SidecarPath(jsonlPath))
+	sidecar := SidecarPath(jsonlPath)
+	srcSize := fi.Size()
+	if srcSize < 0 || srcSize > (math.MaxInt64-headerSize)/8 {
+		return nil, false
+	}
+	// Bound the allocation BEFORE reading: there can be no more non-empty lines than
+	// source bytes, so a valid sidecar is at most headerSize + srcSize*8. Reject an
+	// oversized (e.g. corrupt/sparse) sidecar so a tiny JSONL can't force a huge read.
+	maxSidecar := int64(headerSize) + srcSize*8
+	si, err := os.Stat(sidecar)
+	if err != nil || si.Size() < headerSize || si.Size() > maxSidecar {
+		return nil, false
+	}
+
+	data, err := os.ReadFile(sidecar)
 	if err != nil || len(data) < headerSize {
 		return nil, false
 	}
 	if string(data[0:4]) != magic || binary.LittleEndian.Uint32(data[4:8]) != version {
 		return nil, false
 	}
-	srcSize := int64(binary.LittleEndian.Uint64(data[8:16]))
-	srcModNano := int64(binary.LittleEndian.Uint64(data[16:24]))
-	hdrN := int64(binary.LittleEndian.Uint64(data[24:32]))
+	// CRC over everything after the crc field catches structurally-valid corruption
+	// (a bit flip that keeps offsets monotonic/in-range but off a line boundary).
+	if binary.LittleEndian.Uint32(data[8:12]) != crc32.ChecksumIEEE(data[crcCovered:]) {
+		return nil, false
+	}
+	srcSizeHdr := int64(binary.LittleEndian.Uint64(data[12:20]))
+	srcModNano := int64(binary.LittleEndian.Uint64(data[20:28]))
+	hdrN := int64(binary.LittleEndian.Uint64(data[28:36]))
 
 	// Staleness: the source must be exactly what we indexed.
-	if srcSize != fi.Size() || srcModNano != fi.ModTime().UnixNano() {
+	if srcSizeHdr != srcSize || srcModNano != fi.ModTime().UnixNano() {
 		return nil, false
 	}
 
 	// Derive the count from the real file length (no n*8 overflow risk) and require
-	// the header's n to match exactly. Also cap n by srcSize (can't have more
-	// non-empty lines than bytes) and reject trailing garbage.
+	// the header's n to match. Cap n by srcSize and reject trailing garbage.
 	body := len(data) - headerSize
 	if body < 0 || body%8 != 0 {
 		return nil, false
@@ -128,12 +149,14 @@ func WriteAtomic(jsonlPath string, offsets []int64, fi os.FileInfo) error {
 	buf := make([]byte, headerSize+len(offsets)*8)
 	copy(buf[0:4], magic)
 	binary.LittleEndian.PutUint32(buf[4:8], version)
-	binary.LittleEndian.PutUint64(buf[8:16], uint64(fi.Size()))
-	binary.LittleEndian.PutUint64(buf[16:24], uint64(fi.ModTime().UnixNano()))
-	binary.LittleEndian.PutUint64(buf[24:32], uint64(len(offsets)))
+	// buf[8:12] is the crc, filled after the rest of the buffer is written.
+	binary.LittleEndian.PutUint64(buf[12:20], uint64(fi.Size()))
+	binary.LittleEndian.PutUint64(buf[20:28], uint64(fi.ModTime().UnixNano()))
+	binary.LittleEndian.PutUint64(buf[28:36], uint64(len(offsets)))
 	for i, o := range offsets {
 		binary.LittleEndian.PutUint64(buf[headerSize+i*8:], uint64(o))
 	}
+	binary.LittleEndian.PutUint32(buf[8:12], crc32.ChecksumIEEE(buf[crcCovered:]))
 
 	if _, err := tmp.Write(buf); err != nil {
 		_ = tmp.Close()

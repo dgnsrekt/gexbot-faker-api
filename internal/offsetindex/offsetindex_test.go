@@ -139,18 +139,36 @@ func TestReadRejectsCorruptSidecar(t *testing.T) {
 		}
 	}
 
-	mut(func(b []byte) []byte { b[0] = 'X'; return b })                              // bad magic
-	mut(func(b []byte) []byte { binary.LittleEndian.PutUint32(b[4:8], 999); return b }) // bad version
-	mut(func(b []byte) []byte { return b[:len(b)-1] })                               // wrong length (body%8!=0)
-	mut(func(b []byte) []byte { return append(b, 0xAA, 0xBB) })                      // trailing garbage
-	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[24:32], 1<<40); return b }) // huge n vs derived
-	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[24:32], ^uint64(0)); return b }) // negative n
+	mut(func(b []byte) []byte { b[0] = 'X'; return b })                                 // bad magic
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint32(b[4:8], 999); return b })  // bad version
+	mut(func(b []byte) []byte { return b[:len(b)-1] })                                  // wrong length (body%8!=0)
+	mut(func(b []byte) []byte { return append(b, 0xAA, 0xBB) })                         // trailing garbage
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[28:36], 1<<40); return b }) // huge n
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[28:36], ^uint64(0)); return b }) // negative n
 	// past-EOF offset (srcSize=9): set first offset to 9
 	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[headerSize:], 9); return b })
 	// non-increasing: set 2nd offset <= 1st
 	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[headerSize+8:], 0); return b })
+	// STRUCTURALLY VALID but wrong: flip offset[1] from 2 to 1 (still 0<1<5, in-range).
+	// Only the CRC catches this — it would otherwise seek into the middle of a JSON line.
+	mut(func(b []byte) []byte { binary.LittleEndian.PutUint64(b[headerSize+8:], 1); return b })
 	// truncated header
 	mut(func(b []byte) []byte { return b[:10] })
+}
+
+// A tiny source must not permit a huge sidecar allocation: an oversized .idx is
+// rejected by the size bound before it is read.
+func TestReadRejectsOversizedSidecar(t *testing.T) {
+	p, fi := writeJSONL(t, "a\n") // srcSize 2 → max valid sidecar = headerSize + 16
+	big := make([]byte, 200000)
+	copy(big[0:4], magic)
+	binary.LittleEndian.PutUint32(big[4:8], version)
+	if err := os.WriteFile(SidecarPath(p), big, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Read(p, fi); ok {
+		t.Error("an oversized sidecar for a tiny source must be rejected (bounded before read)")
+	}
 }
 
 func TestBuildDoesNotLeavePartialOnMissingSource(t *testing.T) {
