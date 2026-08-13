@@ -9,8 +9,17 @@
   import Logs from './screens/Logs.svelte'
   import Monitoring from './screens/Monitoring.svelte'
   import Download from './screens/Download.svelte'
+  import Docs from './screens/Docs.svelte'
 
-  type ScreenId = 'download' | 'library' | 'server' | 'streams' | 'logs' | 'monitoring' | 'settings'
+  type ScreenId =
+    | 'download'
+    | 'library'
+    | 'server'
+    | 'streams'
+    | 'logs'
+    | 'monitoring'
+    | 'settings'
+    | 'docs'
 
   const nav: { id: ScreenId; label: string; glyph: string }[] = [
     { id: 'download', label: 'Download data', glyph: '↓' },
@@ -20,6 +29,7 @@
     { id: 'logs', label: 'Logs', glyph: '≡' },
     { id: 'monitoring', label: 'Monitoring', glyph: '▦' },
     { id: 'settings', label: 'Settings', glyph: '⚙' },
+    { id: 'docs', label: 'Docs', glyph: '§' },
   ]
   const titles: Record<ScreenId, [string, string]> = {
     download: ['Download data', 'Fetch historical market days from GexBot'],
@@ -29,6 +39,7 @@
     logs: ['Logs', 'Server, downloader and daemon'],
     monitoring: ['Monitoring', 'Metrics from Prometheus'],
     settings: ['Settings', 'Every environment variable, in plain language'],
+    docs: ['Docs', 'Guides and API references — embedded, offline'],
   }
 
   // Screen from the URL hash so deep-links / reloads work: /studio/#/library
@@ -165,6 +176,8 @@
         <Logs />
       {:else if screen === 'monitoring'}
         <Monitoring />
+      {:else if screen === 'docs'}
+        <Docs {baseUrl} />
       {/if}
     </div>
   </main>
