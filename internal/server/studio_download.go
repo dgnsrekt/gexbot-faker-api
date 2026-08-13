@@ -14,6 +14,7 @@ import (
 	"github.com/dgnsrekt/gexbot-downloader/internal/download"
 	"github.com/dgnsrekt/gexbot-downloader/internal/downloadjob"
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 // downloadJob is the status of a background download of one date.
@@ -126,6 +127,7 @@ func (m *downloadManager) worker() {
 		job.State = "running"
 		m.mu.Unlock()
 
+		finish := observability.TrackJob("studio_download")
 		cfg := m.cfgForDownload()
 		var res *download.BatchResult
 		// Hold the cross-process per-date lock across download→pack so a concurrent
@@ -151,6 +153,7 @@ func (m *downloadManager) worker() {
 			// two individual-download paths can't drift.
 			return downloadjob.PackAndMark(cfg, req.date)
 		})
+		finish(err)
 
 		m.mu.Lock()
 		if res != nil {

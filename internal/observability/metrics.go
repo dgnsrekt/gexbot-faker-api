@@ -2,6 +2,7 @@ package observability
 
 import (
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -68,6 +69,23 @@ var (
 	SyncBroadcasts = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "faker_sync_broadcasts_total", Help: "Sync broadcast delivery attempts.",
 	}, []string{"result"})
+
+	// Background-job metrics unify the long server-side async operations (kind =
+	// range_load | materialize | studio_download) so an operator can tell "working
+	// slowly" from "stuck": in-progress right now, throughput/errors, and duration.
+	Jobs = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "faker_jobs_total", Help: "Background job completions by kind and result.",
+	}, []string{"kind", "result"})
+	JobDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "faker_job_duration_seconds", Help: "Background job duration by kind.",
+		// Through 4h: materialize is minutes/date, a Studio download ~45m, and a multi-day
+		// range load can run hours — so the long tail doesn't collapse into +Inf and p95/p99
+		// stay meaningful. (1s … 4h)
+		Buckets: []float64{1, 5, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400},
+	}, []string{"kind"})
+	JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "faker_jobs_in_progress", Help: "Background jobs currently running by kind.",
+	}, []string{"kind"})
 
 	DaemonRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "faker_daemon_download_runs_total", Help: "Scheduled download runs.",
@@ -140,8 +158,27 @@ func RegisterServer() {
 			HTTPRequests, HTTPRequestDuration, HTTPInFlight, HTTPResponseBytes,
 			WSConnections, WSConnectionsTotal, WSActiveGroups, WSMessagesSent, WSMessageBytes, WSSendErrors, WSLastBroadcast,
 			DataLoadedTimestamp, DataDateTimestamp, Reloads, ReloadDuration, ReloadInProgress, CacheReads, CacheResets, SyncBroadcasts,
+			Jobs, JobDuration, JobsInProgress,
 		)
 	})
+}
+
+// TrackJob marks a background job of the given kind as in-progress and returns a finalizer
+// that records its duration and result. Use it as: done := TrackJob("materialize"); …;
+// done(err). Kinds are a small closed set (range_load|materialize|studio_download) so the
+// label stays bounded — never put dates, tickers, or job IDs in labels (those belong in logs).
+func TrackJob(kind string) func(err error) {
+	JobsInProgress.WithLabelValues(kind).Inc()
+	start := time.Now()
+	return func(err error) {
+		JobsInProgress.WithLabelValues(kind).Dec()
+		JobDuration.WithLabelValues(kind).Observe(time.Since(start).Seconds())
+		result := "success"
+		if err != nil {
+			result = "error"
+		}
+		Jobs.WithLabelValues(kind, result).Inc()
+	}
 }
 
 // RegisterDaemon registers only the metrics the daemon binary emits. See

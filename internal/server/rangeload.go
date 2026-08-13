@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 // loadedRange describes the span a load job loaded.
@@ -73,6 +74,7 @@ func (m *rangeLoadManager) worker() {
 		dates := append([]string(nil), job.Dates...)
 		m.mu.Unlock()
 
+		done := observability.TrackJob("range_load")
 		var failErr error
 		// Materialize each missing day, advancing progress. Detached from any request context so a
 		// client disconnect can't abort a long unpack.
@@ -97,6 +99,7 @@ func (m *rangeLoadManager) worker() {
 				failErr = err
 			}
 		}
+		done(failErr)
 
 		m.mu.Lock()
 		if failErr != nil {
