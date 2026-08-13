@@ -166,29 +166,37 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
-			updateScheduleMetrics(scheduler, tracker, nextAttempt)
-			if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
-				runCleanup(cfg, cleanupTTL, logger)
-				lastCleanup = time.Now()
-			}
-			if ready := nextAttempt.IsZero() || !time.Now().Before(nextAttempt); !ready {
-				break // still backing off from a prior failure
-			}
-			// Retry an unfilled backfill gap before today's run, so a failed past
-			// day is filled first and the tracker never advances past it.
-			if !backfillComplete {
-				if backfillComplete = backfillMissedDays(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout); !backfillComplete {
-					nextAttempt = time.Now().Add(5 * time.Minute)
-					break
+			// Wrapped so the schedule/freshness gauges update AFTER this tick's work: a
+			// fresh failure sets a 5-minute retry backoff (nextAttempt), and the deferred
+			// call reflects it immediately rather than a tick late. `return` exits this
+			// tick's work (not the daemon).
+			func() {
+				// Closure (not a bare defer) so nextAttempt is read at return time — after
+				// the work below may have set a retry backoff — not at the defer line.
+				defer func() { updateScheduleMetrics(scheduler, tracker, nextAttempt) }()
+				if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
+					runCleanup(cfg, cleanupTTL, logger)
+					lastCleanup = time.Now()
 				}
-			}
-			if shouldDownload(scheduler, tracker, logger) {
-				if runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
-					nextAttempt = time.Time{}
-				} else {
-					nextAttempt = time.Now().Add(5 * time.Minute)
+				if ready := nextAttempt.IsZero() || !time.Now().Before(nextAttempt); !ready {
+					return // still backing off from a prior failure
 				}
-			}
+				// Retry an unfilled backfill gap before today's run, so a failed past
+				// day is filled first and the tracker never advances past it.
+				if !backfillComplete {
+					if backfillComplete = backfillMissedDays(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout); !backfillComplete {
+						nextAttempt = time.Now().Add(5 * time.Minute)
+						return
+					}
+				}
+				if shouldDownload(scheduler, tracker, logger) {
+					if runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
+						nextAttempt = time.Time{}
+					} else {
+						nextAttempt = time.Now().Add(5 * time.Minute)
+					}
+				}
+			}()
 
 		case <-ctx.Done():
 			logger.Info("context cancelled, shutting down")
@@ -225,12 +233,17 @@ func updateScheduleMetrics(scheduler *Scheduler, tracker *DownloadTracker, nextA
 	if expected == "" {
 		return
 	}
-	if et, err := time.ParseInLocation("2006-01-02", expected, scheduler.Location()); err == nil {
-		observability.DaemonExpectedDate.Set(float64(et.Unix()))
+	expectedT, err := time.ParseInLocation("2006-01-02", expected, scheduler.Location())
+	if err != nil {
+		return
 	}
-	overdue := 0.0
-	if last := tracker.GetLastDownloadDate(); last == "" || last < expected { // YYYY-MM-DD sorts lexically
-		overdue = 1
+	observability.DaemonExpectedDate.Set(float64(expectedT.Unix()))
+	// Fail safe: the tracker's state file is unvalidated, so parse it as a date rather than
+	// comparing strings — empty or garbage (e.g. "9999-99-99") must count as overdue, not
+	// silently sort greater-than and report up-to-date.
+	overdue := 1.0
+	if lastT, lerr := time.ParseInLocation("2006-01-02", tracker.GetLastDownloadDate(), scheduler.Location()); lerr == nil && !lastT.Before(expectedT) {
+		overdue = 0
 	}
 	observability.DaemonDownloadOverdue.Set(overdue)
 }
