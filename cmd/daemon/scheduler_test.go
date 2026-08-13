@@ -60,3 +60,46 @@ func TestSchedulerMissedMarketDays(t *testing.T) {
 		t.Fatalf("must exclude today and later, got last=%v", last)
 	}
 }
+
+func TestSchedulerNextRunAt(t *testing.T) {
+	s := NewScheduler(17, 5, "America/New_York")
+	loc := s.Location()
+	at := func(tm time.Time) string {
+		s.now = func() time.Time { return tm }
+		return s.NextRunAt().In(loc).Format("2006-01-02 15:04")
+	}
+
+	// Fri 2026-08-07 16:00, before the 17:05 slot → today's slot.
+	if got := at(time.Date(2026, 8, 7, 16, 0, 0, 0, loc)); got != "2026-08-07 17:05" {
+		t.Errorf("Fri pre-slot next run = %s, want 2026-08-07 17:05", got)
+	}
+	// Fri 18:00, slot passed → next market day (Mon, skipping the weekend).
+	if got := at(time.Date(2026, 8, 7, 18, 0, 0, 0, loc)); got != "2026-08-10 17:05" {
+		t.Errorf("Fri post-slot next run = %s, want 2026-08-10 17:05", got)
+	}
+	// Sat → Mon.
+	if got := at(time.Date(2026, 8, 8, 12, 0, 0, 0, loc)); got != "2026-08-10 17:05" {
+		t.Errorf("Sat next run = %s, want 2026-08-10 17:05", got)
+	}
+}
+
+func TestSchedulerExpectedLatestDate(t *testing.T) {
+	s := NewScheduler(17, 5, "America/New_York")
+	loc := s.Location()
+	cases := []struct {
+		when time.Time
+		want string
+	}{
+		{time.Date(2026, 8, 7, 16, 0, 0, 0, loc), "2026-08-06"},  // Fri pre-slot → Thu (today not due yet)
+		{time.Date(2026, 8, 7, 18, 0, 0, 0, loc), "2026-08-07"},  // Fri post-slot → Fri
+		{time.Date(2026, 8, 8, 12, 0, 0, 0, loc), "2026-08-07"},  // Sat → last market day (Fri)
+		{time.Date(2026, 8, 10, 9, 0, 0, 0, loc), "2026-08-07"},  // Mon pre-slot → Fri
+		{time.Date(2026, 8, 10, 18, 0, 0, 0, loc), "2026-08-10"}, // Mon post-slot → Mon
+	}
+	for _, c := range cases {
+		s.now = func() time.Time { return c.when }
+		if got := s.ExpectedLatestDate(); got != c.want {
+			t.Errorf("ExpectedLatestDate(%s) = %s, want %s", c.when.Format("2006-01-02 15:04"), got, c.want)
+		}
+	}
+}

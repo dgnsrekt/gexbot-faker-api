@@ -155,7 +155,7 @@ func run() int {
 
 	// Main loop - check every minute
 	ticker := time.NewTicker(1 * time.Minute)
-	observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
+	updateScheduleMetrics(scheduler, tracker, nextAttempt)
 	defer ticker.Stop()
 
 	for {
@@ -166,7 +166,7 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
-			observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
+			updateScheduleMetrics(scheduler, tracker, nextAttempt)
 			if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
 				runCleanup(cfg, cleanupTTL, logger)
 				lastCleanup = time.Now()
@@ -209,6 +209,30 @@ func runCleanup(cfg *config.Config, ttl time.Duration, logger *zap.Logger) {
 	if _, err := eod.CleanupStale(cfg.Output.Directory, ttl, logger, latest); err != nil {
 		logger.Warn("materialize cleanup failed", zap.Error(err))
 	}
+}
+
+// updateScheduleMetrics publishes the truthful schedule/freshness gauges: the next
+// scheduled attempt (accounting for an active retry backoff, and market-aware — not a fixed
+// now+1min), plus the expected latest market date and whether the last download is behind it.
+func updateScheduleMetrics(scheduler *Scheduler, tracker *DownloadTracker, nextAttempt time.Time) {
+	next := scheduler.NextRunAt()
+	if !nextAttempt.IsZero() && nextAttempt.Before(next) {
+		next = nextAttempt // a pending retry fires before the next scheduled slot
+	}
+	observability.DaemonNextRun.Set(float64(next.Unix()))
+
+	expected := scheduler.ExpectedLatestDate()
+	if expected == "" {
+		return
+	}
+	if et, err := time.ParseInLocation("2006-01-02", expected, scheduler.Location()); err == nil {
+		observability.DaemonExpectedDate.Set(float64(et.Unix()))
+	}
+	overdue := 0.0
+	if last := tracker.GetLastDownloadDate(); last == "" || last < expected { // YYYY-MM-DD sorts lexically
+		overdue = 1
+	}
+	observability.DaemonDownloadOverdue.Set(overdue)
 }
 
 // shouldDownload checks if conditions are met for triggering a download
@@ -327,8 +351,8 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 // any are found. Always logs findings so they're visible even when ntfy is off;
 // never fails the run — a coverage warning is advisory, not a download failure.
 func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.Notifier, logger *zap.Logger) {
-	// Export the per-ticker snapshot count so Grafana has the raw series to trend
-	// and alert on, independent of the ntfy findings below. SetDaemonSnapshots
+	// Export the per-ticker snapshot count so Prometheus/Studio has the raw series to
+	// trend and alert on, independent of the ntfy findings below. SetDaemonSnapshots
 	// resets first so a ticker dropped from the set doesn't linger as a stale gauge.
 	if snaps, err := eod.TickerSnapshots(dataDir, date); err == nil {
 		observability.SetDaemonSnapshots(snaps)

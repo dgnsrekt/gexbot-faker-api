@@ -44,3 +44,13 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Faker dataset is more than five days old
+      - alert: FakerDaemonDownloadOverdue
+        # Market-aware freshness: the daemon owns the NYSE calendar and sets this to 1
+        # only when the last successful download is behind the latest market date whose
+        # scheduled time has passed — so it does not false-alarm over weekends/holidays.
+        # `for: 2h` clears the normal post-schedule download+retry window.
+        expr: faker_daemon_download_overdue == 1
+        for: 2h
+        labels: {severity: warning}
+        annotations:
+          summary: Daemon is behind on EOD downloads (missed a required session)

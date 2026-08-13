@@ -49,13 +49,14 @@
 
   async function load() {
     try {
-      const [lastAge, nextIn, ok, fail] = await Promise.all([
+      const [lastAge, nextIn, ok, fail, overdueQ] = await Promise.all([
         api.metricsQuery('time() - faker_daemon_last_success_timestamp_seconds{job="faker-daemon"}'),
         api.metricsQuery('faker_daemon_next_run_timestamp_seconds{job="faker-daemon"} - time()'),
         api.metricsQuery('sum(faker_daemon_download_runs_total{result="success"})'),
         api.metricsQuery('sum(faker_daemon_download_runs_total{result!="success"})'),
+        api.metricsQuery('faker_daemon_download_overdue{job="faker-daemon"}'),
       ])
-      const bad = [lastAge, nextIn, ok, fail].find((r) => r.status === 'error')
+      const bad = [lastAge, nextIn, ok, fail, overdueQ].find((r) => r.status === 'error')
       if (bad) {
         degraded = bad.error || 'Prometheus is unavailable.'
         tiles = []
@@ -66,19 +67,24 @@
       const nxt = promScalar(nextIn)
       const oks = promScalar(ok)
       const fails = promScalar(fail)
+      const overdue = promScalar(overdueQ)
       tiles = [
-        // Shown informationally (no health tone): a wall-clock threshold would
-        // false-alarm over weekends/holidays when no market-day download is due.
-        // A market-schedule-aware "download overdue" signal belongs server-side
-        // (the daemon knows its schedule + the market calendar) — a later slice.
         { label: 'Last successful download', value: age === null ? 'no data yet' : fmtAge(age), tone: '' },
+        // Market-aware freshness: the daemon owns the NYSE calendar and sets this to 1 only
+        // when it's behind the latest market date whose scheduled time has passed — so this
+        // tile stays green over weekends/holidays (no false alarm).
+        {
+          label: 'Data freshness',
+          value: overdue === null ? '—' : overdue >= 1 ? 'overdue' : 'up to date',
+          tone: overdue === null ? '' : overdue >= 1 ? 'bad' : 'ok',
+        },
         { label: 'Next scheduled run', value: nxt === null ? '—' : fmtIn(nxt), tone: '' },
-        { label: 'Successful runs', value: oks === null ? '—' : String(oks), tone: '' },
         {
           label: 'Failed runs',
           value: fails === null ? '0' : String(fails),
           tone: fails && fails > 0 ? 'bad' : 'ok',
         },
+        { label: 'Successful runs', value: oks === null ? '—' : String(oks), tone: '' },
       ]
 
       // Charts (range queries). Snapshots trend over a week; the API/WS series

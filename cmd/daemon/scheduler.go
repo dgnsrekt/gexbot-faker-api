@@ -51,6 +51,39 @@ func (s *Scheduler) TodayDate() string {
 	return s.now().In(s.location).Format("2006-01-02")
 }
 
+// NextRunAt returns the next scheduled download attempt: the configured HH:MM on the next
+// market day strictly after now (today if today is a market day and its slot is still ahead).
+// This is the truthful "next run" — unlike a fixed now+interval, it skips weekends/holidays.
+func (s *Scheduler) NextRunAt() time.Time {
+	now := s.now().In(s.location)
+	c := time.Date(now.Year(), now.Month(), now.Day(), s.hour, s.minute, 0, 0, s.location)
+	for i := 0; i < 14; i++ { // bounded: a market day always occurs within ~4 days
+		if c.After(now) && s.IsMarketDay(c.Format("2006-01-02")) {
+			return c
+		}
+		c = c.AddDate(0, 0, 1)
+		c = time.Date(c.Year(), c.Month(), c.Day(), s.hour, s.minute, 0, 0, s.location)
+	}
+	return c
+}
+
+// ExpectedLatestDate is the most recent market day whose scheduled download time has passed —
+// the latest date the daemon should already have EOD data for. Market-aware, so it does not
+// advance over weekends/holidays (avoiding the wall-clock false alarms of a fixed staleness
+// threshold). Empty only if no market day is found within a two-week look-back.
+func (s *Scheduler) ExpectedLatestDate() string {
+	now := s.now().In(s.location)
+	if today := now.Format("2006-01-02"); s.IsMarketDay(today) && s.IsScheduledOrLater() {
+		return today
+	}
+	for d := now.AddDate(0, 0, -1); d.After(now.AddDate(0, 0, -14)); d = d.AddDate(0, 0, -1) {
+		if ds := d.Format("2006-01-02"); s.IsMarketDay(ds) {
+			return ds
+		}
+	}
+	return ""
+}
+
 // IsMarketDay checks if the given date is a trading day (not weekend/holiday)
 func (s *Scheduler) IsMarketDay(dateStr string) bool {
 	// Parse as noon in the configured timezone to ensure correct date matching

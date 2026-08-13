@@ -86,11 +86,23 @@ var (
 		Name: "faker_daemon_last_success_timestamp_seconds", Help: "Unix timestamp of the last successful scheduled download.",
 	})
 	DaemonNextRun = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "faker_daemon_next_run_timestamp_seconds", Help: "Unix timestamp of the next scheduled daemon check.",
+		Name: "faker_daemon_next_run_timestamp_seconds", Help: "Unix timestamp of the next scheduled download attempt (next market day at the configured time).",
+	})
+	// DaemonExpectedDate is the latest market day the daemon should already have EOD data
+	// for (market-aware — does not advance over weekends/holidays). Compared against the
+	// last successful download to derive DaemonDownloadOverdue.
+	DaemonExpectedDate = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "faker_daemon_expected_date_timestamp_seconds", Help: "Unix timestamp of the latest market date the daemon should have downloaded.",
+	})
+	// DaemonDownloadOverdue is 1 when the last successful download is behind the expected
+	// latest market date (a genuinely missed session), else 0 — a market-aware freshness
+	// signal that, unlike a wall-clock threshold, does not false-alarm around closures.
+	DaemonDownloadOverdue = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "faker_daemon_download_overdue", Help: "1 when the last successful download is behind the expected latest market date, else 0.",
 	})
 	// DaemonSnapshots is the latest download's per-ticker intraday snapshot count
 	// (~23,400 ≈ a full 1/sec session). A sustained drop in a ticker's series is a
-	// coverage regression — Grafana can alert on deviation from a rolling median.
+	// coverage regression — Prometheus/Studio can alert on deviation from a rolling median.
 	DaemonSnapshots = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "faker_daemon_snapshots", Help: "Latest download's intraday snapshot count per ticker.",
 	}, []string{"ticker"})
@@ -138,7 +150,7 @@ func RegisterDaemon() {
 	registerDaemonOnce.Do(func() {
 		prometheus.MustRegister(
 			DaemonRuns, DaemonDuration, DaemonInProgress, DaemonFiles, DaemonLastSuccess, DaemonNextRun,
-			DaemonSnapshots, DaemonCoverageFindings,
+			DaemonExpectedDate, DaemonDownloadOverdue, DaemonSnapshots, DaemonCoverageFindings,
 		)
 	})
 }
