@@ -3,6 +3,7 @@ package eod
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -158,11 +159,44 @@ func TestMaterializeWorkers(t *testing.T) {
 			t.Errorf("%q: expected one warn about the invalid value", bad)
 		}
 	}
+	// An absurd positive override is clamped to the ceiling (4*GOMAXPROCS) with a warn.
+	t.Setenv("GEXBOT_MATERIALIZE_WORKERS", "1000000")
+	core, logs := observer.New(zap.WarnLevel)
+	ceiling := 4 * runtime.GOMAXPROCS(0)
+	if got := materializeWorkers(zap.New(core)); got != ceiling {
+		t.Errorf("oversized override = %d, want ceiling %d", got, ceiling)
+	}
+	if logs.FilterMessage("GEXBOT_MATERIALIZE_WORKERS above ceiling; clamping").Len() != 1 {
+		t.Error("expected one warn about clamping the oversized override")
+	}
 }
 
-// TestMaterializeDatePeakConcurrency proves the scheduler actually bounds concurrent
-// ticker work at the configured limit — swapping the per-ticker worker for a probe that
-// records peak simultaneous execution.
+// TestMaterializeDateDeterministicErrorOrder: with two corrupt tickers, the joined error
+// is in sorted-ticker order regardless of completion order.
+func TestMaterializeDateDeterministicErrorOrder(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	packDate(t, root, date, "AAA", "BBB", "ZZZ") // ZZZ stays healthy
+	for _, tk := range []string{"AAA", "BBB"} {
+		if err := os.WriteFile(ArchivePath(root, date, tk), []byte("not a zip"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	err := MaterializeDate(root, date, zap.NewNop())
+	if err == nil {
+		t.Fatal("expected an error from the corrupt tickers")
+	}
+	msg := err.Error()
+	iA, iB := strings.Index(msg, "AAA:"), strings.Index(msg, "BBB:")
+	if iA < 0 || iB < 0 || iA > iB {
+		t.Errorf("joined error must list AAA before BBB (sorted order): %q", msg)
+	}
+}
+
+// TestMaterializeDatePeakConcurrency proves the process-wide limiter bounds concurrent
+// ticker work at the configured limit across BOTH entry points — MaterializeDate's
+// scheduled tickers and direct MaterializeTicker callers — by swapping the shared worker
+// for a probe that records peak simultaneous execution.
 func TestMaterializeDatePeakConcurrency(t *testing.T) {
 	root := t.TempDir()
 	date := "2026-07-17"
@@ -199,9 +233,28 @@ func TestMaterializeDatePeakConcurrency(t *testing.T) {
 		return nil
 	}
 
-	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
-		t.Fatal(err)
+	// Run the date scheduler alongside several direct MaterializeTicker callers — they
+	// all share materializeSem, so peak must never exceed the limit.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+			t.Errorf("MaterializeDate: %v", err)
+		}
+	}()
+	for _, tk := range []string{"X", "Y", "Z", "W"} {
+		tk := tk
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := MaterializeTicker(root, date, tk, zap.NewNop()); err != nil {
+				t.Errorf("MaterializeTicker(%s): %v", tk, err)
+			}
+		}()
 	}
+	wg.Wait()
+
 	if p := peak.Load(); p > limit {
 		t.Errorf("peak concurrency %d exceeded the limit %d", p, limit)
 	} else if p != limit {
