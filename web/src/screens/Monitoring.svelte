@@ -16,6 +16,14 @@
 
   let tiles = $state<Tile[]>([])
   let resourceTiles = $state<Tile[]>([])
+  let jobTiles = $state<Tile[]>([])
+
+  // The long server-side async jobs (faker_jobs_* metrics). Known, bounded kinds.
+  const JOB_KINDS: [string, string][] = [
+    ['materialize', 'Materialize'],
+    ['range_load', 'Range load'],
+    ['studio_download', 'Download'],
+  ]
   let degraded = $state('') // non-empty → Prometheus unset/unreachable
   let loading = $state(true)
 
@@ -151,8 +159,32 @@
           ]
         })
         .catch(() => (resourceTiles = []))
+      // Background jobs: in-progress by kind + recent errors — the "is anything stuck?"
+      // view. Isolated so a query failure only empties this panel.
+      const jobs = Promise.all([
+        ...JOB_KINDS.map(([k]) =>
+          api.metricsQuery(`faker_jobs_in_progress{kind="${k}",job="faker-api"}`),
+        ),
+        api.metricsQuery('sum(increase(faker_jobs_total{result="error",job="faker-api"}[1h]))'),
+      ])
+        .then((rs) => {
+          const inprog = JOB_KINDS.map(([, label], i) => ({ label, n: promScalar(rs[i]) ?? 0 }))
+          const active = inprog.reduce((a, b) => a + b.n, 0)
+          const errs = promScalar(rs[JOB_KINDS.length]) ?? 0
+          jobTiles = [
+            { label: 'Active jobs', value: fmtInt(active), tone: active > 0 ? 'warn' : 'ok' },
+            ...inprog.map((x) => ({
+              label: `${x.label} running`,
+              value: fmtInt(x.n),
+              tone: (x.n > 0 ? 'warn' : '') as Tone,
+            })),
+            { label: 'Job errors (1h)', value: fmtInt(errs), tone: errs > 0 ? 'bad' : 'ok' },
+          ]
+        })
+        .catch(() => (jobTiles = []))
       await Promise.all([
         resources,
+        jobs,
         chart('faker_daemon_snapshots', 7 * 24 * 60, 3600, (s) => (snapshots = s), 'ticker'),
         chart('sum(rate(faker_http_requests_total[5m]))', 60, 60, (s) => (reqRate = s), undefined, 'requests'),
         chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
@@ -234,6 +266,18 @@
         </div>
       {/each}
     </div>
+
+    {#if jobTiles.length}
+      <div class="section mono">JOBS</div>
+      <div class="tiles">
+        {#each jobTiles as t (t.label)}
+          <div class="tile">
+            <div class="tval {t.tone}">{t.value}</div>
+            <div class="tlabel">{t.label}</div>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     {#if resourceTiles.length}
       <div class="section mono">RESOURCES</div>

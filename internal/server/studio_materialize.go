@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/eod"
+	"github.com/dgnsrekt/gexbot-downloader/internal/observability"
 )
 
 // materializeJob is the status of a materialization of one date.
@@ -56,7 +57,9 @@ func (m *materializeManager) worker() {
 
 		// MaterializeDate is idempotent and marker-gated; detached from any
 		// request context so a client disconnect can't abort a long unpack.
+		done := observability.TrackJob("materialize")
 		err := eod.MaterializeDate(m.dataDir, date, m.logger)
+		done(err)
 
 		m.mu.Lock()
 		if err != nil {
