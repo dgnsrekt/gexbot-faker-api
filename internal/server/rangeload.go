@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 
@@ -79,8 +77,9 @@ func (m *rangeLoadManager) worker() {
 		// Materialize each missing day, advancing progress. Detached from any request context so a
 		// client disconnect can't abort a long unpack.
 		for i, d := range dates {
-			datePath := filepath.Join(m.dataDir, d)
-			if _, err := os.Stat(datePath); os.IsNotExist(err) {
+			// Rebuild when the day's JSONL isn't on disk — missing dir OR present-but-empty
+			// (a partial cleanup can leave the parent). Idempotent; errors if no archive exists.
+			if !eod.HasMaterializedJSONL(m.dataDir, d) {
 				if err := eod.MaterializeDate(m.dataDir, d, m.logger); err != nil {
 					failErr = fmt.Errorf("materialize %s: %w", d, err)
 					break

@@ -92,6 +92,42 @@ func TestMaterializeRepairsMissingMarker(t *testing.T) {
 	}
 }
 
+// TestHasMaterializedJSONL guards the load-path "already materialized?" check: a missing
+// dir and a present-but-empty dir (the failure the span-load hit) both report false, while
+// a dir holding JSONL reports true.
+func TestHasMaterializedJSONL(t *testing.T) {
+	root := t.TempDir()
+	// Missing date dir → false.
+	if HasMaterializedJSONL(root, "2026-07-28") {
+		t.Error("missing date dir must report false")
+	}
+	// Present-but-empty date dir (e.g. a partial cleanup left the parent) → false.
+	if err := os.MkdirAll(filepath.Join(root, "2026-07-28", "AAPL"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if HasMaterializedJSONL(root, "2026-07-28") {
+		t.Error("empty date dir must report false (triggers re-materialize)")
+	}
+	// A stray non-JSONL file must not count.
+	if err := os.WriteFile(filepath.Join(root, "2026-07-28", "AAPL", ".DS_Store"), []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if HasMaterializedJSONL(root, "2026-07-28") {
+		t.Error("a non-JSONL file must not count as materialized")
+	}
+	// A nested JSONL → true.
+	jsonl := filepath.Join(root, "2026-07-28", "AAPL", "classic", "gex_full.jsonl")
+	if err := os.MkdirAll(filepath.Dir(jsonl), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jsonl, []byte("{}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !HasMaterializedJSONL(root, "2026-07-28") {
+		t.Error("a date dir containing JSONL must report true")
+	}
+}
+
 func TestMaterializeDateMultiTicker(t *testing.T) {
 	root := t.TempDir()
 	date := "2026-07-17"

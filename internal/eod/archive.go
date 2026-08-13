@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -187,6 +188,27 @@ func Verify(path, date, ticker, source string) (*Manifest, error) {
 		return nil, err
 	}
 	return manifest, nil
+}
+
+// HasMaterializedJSONL reports whether a date's materialized JSONL is present on disk
+// (any data/<date>/**/*.jsonl). It's the load path's "already materialized?" check: a
+// missing dir AND a present-but-empty dir (e.g. a partial cleanup left the parent) both
+// return false, so the caller re-materializes from the EOD archive instead of failing
+// later with "no JSONL files found". The walk short-circuits on the first .jsonl, so the
+// common (already-materialized) case is cheap.
+func HasMaterializedJSONL(root, date string) bool {
+	found := false
+	_ = filepath.WalkDir(filepath.Join(root, date), func(_ string, de fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !de.IsDir() && strings.HasSuffix(de.Name(), ".jsonl") {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found
 }
 
 // ensureMaterializedMarker writes the .eod-materialized marker for an already-present

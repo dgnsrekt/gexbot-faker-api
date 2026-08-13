@@ -148,9 +148,12 @@ func (rm *ReloadManager) ReloadRange(ctx context.Context, dates []string) (*Relo
 	rm.logger.Info("starting range reload", zap.Strings("dates", norm), zap.String("previousDate", previousDate))
 
 	// Materialize any day whose JSONL isn't on disk yet, then verify each is a directory.
+	// The dir may be missing entirely, or present-but-empty (a partial cleanup can leave the
+	// parent) — both must trigger a rebuild, else the loader later fails with "no JSONL files".
+	// MaterializeDate is idempotent and errors when there's no EOD archive to build from.
 	for _, d := range norm {
 		datePath := filepath.Join(rm.config.DataDir, d)
-		if _, err := os.Stat(datePath); os.IsNotExist(err) {
+		if !eod.HasMaterializedJSONL(rm.config.DataDir, d) {
 			if err := eod.MaterializeDate(rm.config.DataDir, d, rm.logger); err != nil {
 				return nil, fmt.Errorf("date not found: %s", d)
 			}
