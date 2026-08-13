@@ -90,6 +90,7 @@ func run() int {
 
 	logger.Info("data loaded", zap.Duration("duration", time.Since(start)))
 	observability.RegisterServer()
+	observability.RegisterDataVolume(cfg.DataDir)
 	observability.DataLoadedTimestamp.SetToCurrentTime()
 	if date, parseErr := time.Parse("2006-01-02", cfg.DataDate); parseErr == nil {
 		observability.DataDateTimestamp.Set(float64(date.Unix()))

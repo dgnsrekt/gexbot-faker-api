@@ -44,6 +44,20 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Faker dataset is more than five days old
+      - alert: FakerDataVolumeLow
+        # Disk exhaustion on the growing data volume is the characteristic failure mode.
+        # Warn under 10 GiB free, page (critical) under 3 GiB — before writes start failing.
+        expr: faker_data_volume_free_bytes < 10 * 1024 * 1024 * 1024
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Data volume low on free space ({{ $value | humanize1024 }}B free)"
+      - alert: FakerDataVolumeCritical
+        expr: faker_data_volume_free_bytes < 3 * 1024 * 1024 * 1024
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Data volume critically low ({{ $value | humanize1024 }}B free)"
       - alert: FakerDaemonDownloadOverdue
         # Market-aware freshness: the daemon owns the NYSE calendar and sets this to 1
         # only when the last successful download is behind the latest market date whose
