@@ -8,16 +8,22 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 )
@@ -183,7 +189,23 @@ func Verify(path, date, ticker, source string) (*Manifest, error) {
 	return manifest, nil
 }
 
+// MaterializeTicker rebuilds one ticker's JSONL from its EOD archive. It acquires the
+// process-wide semaphore so direct callers (the on-demand download handlers, the
+// downloader CLI) are bounded exactly like MaterializeDate's scheduled tickers. Callers
+// that already hold a slot — MaterializeDate's workers — call materializeTickerFn directly
+// so they never double-acquire.
 func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	sem := materializeSemaphore(logger)
+	sem <- struct{}{}
+	defer func() { <-sem }()
+	return materializeTickerFn(root, date, ticker, logger)
+}
+
+// materializeTickerInner is the unbounded per-ticker worker; the caller holds the semaphore.
+func materializeTickerInner(root, date, ticker string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -283,42 +305,138 @@ func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
 	return nil
 }
 
+// materializeTickerFn is the per-ticker worker both entry points dispatch to AFTER
+// acquiring the semaphore (MaterializeTicker for direct callers, MaterializeDate's workers
+// for scheduled tickers). It exists so tests can observe the scheduler (peak concurrency)
+// across both paths without adding a production interface; it points at the unbounded
+// materializeTickerInner in normal operation.
+var materializeTickerFn = materializeTickerInner
+
+// materializeSem bounds the number of MaterializeTicker jobs running at once
+// PROCESS-WIDE, across every MaterializeDate caller (Studio materialize, range/reload,
+// startup, CLI, on-demand handlers). Without a shared limiter, two overlapping dates
+// would run 2×N ticker jobs and blow past the intended CPU/IO budget. Sized once, lazily,
+// from materializeWorkers().
+var (
+	materializeSemMu sync.Mutex
+	materializeSem   chan struct{}
+)
+
+// materializeWorkers is the process-wide concurrency cap: GOMAXPROCS by default, or a
+// positive GEXBOT_MATERIALIZE_WORKERS override. A non-empty invalid/≤0 override is warned
+// and ignored. The result is clamped to [1, 4*GOMAXPROCS]: the lower bound so the semaphore
+// is never a zero-capacity channel (which would deadlock every acquire); the upper bound so
+// an absurd override (e.g. 1000000) can't defeat the CPU/IO safety bound — 4x GOMAXPROCS
+// still allows generous IO-bound overlap.
+func materializeWorkers(logger *zap.Logger) int {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	procs := runtime.GOMAXPROCS(0)
+	n := procs
+	if v, ok := os.LookupEnv("GEXBOT_MATERIALIZE_WORKERS"); ok && v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			n = parsed
+		} else {
+			logger.Warn("invalid GEXBOT_MATERIALIZE_WORKERS; using default",
+				zap.String("value", v), zap.Int("default", n))
+		}
+	}
+	if n < 1 {
+		n = 1
+	}
+	if ceiling := 4 * procs; ceiling >= 1 && n > ceiling {
+		logger.Warn("GEXBOT_MATERIALIZE_WORKERS above ceiling; clamping",
+			zap.Int("requested", n), zap.Int("ceiling", ceiling))
+		n = ceiling
+	}
+	return n
+}
+
+// materializeSemaphore returns the shared limiter, sizing it on first use.
+func materializeSemaphore(logger *zap.Logger) chan struct{} {
+	materializeSemMu.Lock()
+	defer materializeSemMu.Unlock()
+	if materializeSem == nil {
+		materializeSem = make(chan struct{}, materializeWorkers(logger))
+	}
+	return materializeSem
+}
+
+// MaterializeDate materializes every ticker archived for a date, running tickers
+// concurrently under the process-wide semaphore. Semantics are deliberately
+// "finish-all-scheduled, aggregate errors" — plain errgroup does not cancel, and nothing
+// threads a context into scanArray, so a failed ticker does not stop the others. This is a
+// change from the old fail-fast loop, chosen because materialize is idempotent: healthy
+// tickers that finish persist, and a retry skips them (MaterializeTicker returns early when
+// the dest exists), so completing as much as possible reduces rework. On any failure it
+// returns errors.Join of every failed ticker (deterministic, complete diagnostics).
 func MaterializeDate(root, date string, logger *zap.Logger) error {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	if !regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`).MatchString(date) {
+	if !dateRe.MatchString(date) {
 		return fmt.Errorf("invalid date %q", date)
 	}
-	tickers, err := os.ReadDir(filepath.Join(root, "eod", date))
+	entries, err := os.ReadDir(filepath.Join(root, "eod", date))
 	if err != nil {
 		return err
 	}
-	count := 0
-	for _, ticker := range tickers {
-		if ticker.IsDir() {
-			count++
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
 		}
 	}
-	if count == 0 {
+	if len(names) == 0 {
 		return nil
 	}
-	logger.Info("materializing date from EOD archive", zap.String("date", date), zap.Int("tickers", count))
+	sort.Strings(names) // deterministic input order (completion order stays nondeterministic)
+	total := len(names)
+	logger.Info("materializing date from EOD archive", zap.String("date", date), zap.Int("tickers", total))
 	start := time.Now()
-	done := 0
-	for _, ticker := range tickers {
-		if ticker.IsDir() {
-			done++
-			logger.Info("materializing ticker",
-				zap.String("date", date), zap.String("ticker", ticker.Name()),
-				zap.Int("progress", done), zap.Int("total", count))
-			if err := MaterializeTicker(root, date, ticker.Name(), logger); err != nil {
+
+	sem := materializeSemaphore(logger)
+	var g errgroup.Group // for Wait only — the real bound is sem; no WithContext (no cancellation to thread)
+	var done atomic.Int64
+	// Failures are stored by input index (no mutex — each goroutine owns one slot) so the
+	// joined error is in sorted-ticker order, deterministic across runs.
+	errs := make([]error, total)
+	for i, tk := range names {
+		i, tk := i, tk
+		g.Go(func() error {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			if err := materializeTickerFn(root, date, tk, logger); err != nil {
+				errs[i] = fmt.Errorf("%s: %w", tk, err)
+				logger.Error("materialize ticker failed",
+					zap.String("date", date), zap.String("ticker", tk),
+					zap.Int64("completed", done.Load()), zap.Int("total", total), zap.Error(err))
 				return err
 			}
+			logger.Info("materialize progress",
+				zap.String("date", date), zap.String("ticker", tk),
+				zap.Int64("done", done.Add(1)), zap.Int("total", total)) // count AFTER success
+			return nil
+		})
+	}
+	_ = g.Wait() // joined (below) carries all failures in order; g.Wait's single first-error is not used
+
+	var joined []error
+	for _, e := range errs {
+		if e != nil {
+			joined = append(joined, e)
 		}
 	}
+	if len(joined) > 0 {
+		logger.Error("materialize date failed",
+			zap.String("date", date),
+			zap.Int64("completed", done.Load()), zap.Int("total", total),
+			zap.Duration("duration", time.Since(start)))
+		return errors.Join(joined...)
+	}
 	logger.Info("materialized date from EOD archive",
-		zap.String("date", date), zap.Int("tickers", count), zap.Duration("duration", time.Since(start)))
+		zap.String("date", date), zap.Int("tickers", total), zap.Duration("duration", time.Since(start)))
 	return nil
 }
 
