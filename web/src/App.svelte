@@ -80,8 +80,27 @@
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-dot"></div>
-      <div class="brand-name">GEX Faker Studio</div>
+      <svg class="brand-mark" viewBox="0 0 96 96" aria-hidden="true" focusable="false">
+        <path
+          class="brand-mark__real"
+          d="M14 42 L34 18 L54 36 L74 12 L84 12"
+          fill="none"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <rect class="brand-mark__water" x="10" y="46.6" width="76" height="2.8" rx="1.4" />
+        <path
+          class="brand-mark__copy"
+          d="M14 54 L34 78 L54 60 L74 84 L84 84"
+          fill="none"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-dasharray="9 6"
+        />
+      </svg>
+      <div class="brand-name">GEX <b>Faker</b> <span class="brand-name__studio">Studio</span></div>
     </div>
 
     <nav class="nav">
@@ -173,16 +192,35 @@
     padding: 0 14px;
     border-bottom: 1px solid var(--border);
   }
-  .brand-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 2px;
-    background: var(--green);
+  /* The "Reflection" mark: a solid price line mirrored below a muted waterline as a
+     broken green synthetic line — the shared brand glyph from the guides site. */
+  .brand-mark {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+  .brand-mark__real {
+    stroke: var(--text);
+  }
+  .brand-mark__water {
+    fill: var(--muted-2);
+  }
+  .brand-mark__copy {
+    stroke: var(--green);
   }
   .brand-name {
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-family: var(--wordmark);
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .brand-name b {
+    font-weight: 700;
+  }
+  .brand-name__studio {
+    font-weight: 400;
+    color: var(--muted);
   }
   .nav {
     padding: 10px 8px;
@@ -207,8 +245,13 @@
     background: #1c1f24;
   }
   .nav-item.active {
-    background: #1f242a;
-    color: #fff;
+    background: var(--green-bg);
+    color: #b7e6cd;
+    font-weight: 600;
+  }
+  .nav-item.active .nav-glyph {
+    color: var(--green);
+    opacity: 1;
   }
   .nav-glyph {
     width: 18px;
