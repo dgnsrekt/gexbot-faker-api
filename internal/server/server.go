@@ -63,6 +63,10 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	// /studio/favicon.svg, so serve an unauthenticated one here for /docs and /asyncapi).
 	r.Get("/favicon.svg", faviconHandler)
 
+	// Self-hosted brand webfonts (open), referenced by @font-face from both the Studio
+	// SPA and the docs pages so nothing loads from Google Fonts — fully offline.
+	r.Get("/fonts/*", fontsHandler)
+
 	// Guides: the embedded Starlight docs site at /guides + the root
 	// llms.txt/llms-full.txt agent files. Public (no secrets), so it sits outside
 	// the Studio auth group and next to the other static docs handlers.
@@ -338,6 +342,24 @@ func faviconHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(faviconSVG))
 }
 
+// fontsHandler serves the embedded brand webfonts at /fonts/<name>.woff2. Names are
+// constrained to a bare .woff2 basename (no traversal), read from the api.Fonts embed FS.
+func fontsHandler(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/fonts/")
+	if name == "" || strings.ContainsAny(name, "/\\") || !strings.HasSuffix(name, ".woff2") {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := api.Fonts.ReadFile("fonts/" + name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "font/woff2")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	_, _ = w.Write(data)
+}
+
 func swaggerUIBundleHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=31536000")
@@ -362,12 +384,15 @@ func asyncapiUICSSHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(api.AsyncAPIUICSS)
 }
 
-// docsFontLinks loads the Studio's typefaces (Space Grotesk wordmark + JetBrains Mono)
-// so the API docs match the GEX Faker Studio shell. No CSP is applied, so external font
-// loads are unrestricted.
-const docsFontLinks = `<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">`
+// docsFontFaceCSS declares the Studio's typefaces (Space Grotesk wordmark + JetBrains
+// Mono) from the self-hosted /fonts/* routes, so the docs pages render in-brand fully
+// offline (no Google Fonts). Matches the @font-face in web/src/app.css.
+const docsFontFaceCSS = `@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/space-grotesk-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/space-grotesk-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/space-grotesk-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url('/fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2')}`
 
 // docsChromeCSS is the shared Studio palette + top-nav/brand styling used by both the
 // Swagger UI and AsyncAPI pages. The palette tokens mirror web/src/app.css verbatim.
@@ -471,8 +496,8 @@ func swaggerUIHandler(w http.ResponseWriter, r *http.Request) {
     <title>GEX Faker Studio · REST API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/swagger-ui.css">
-    ` + docsFontLinks + `
-    <style>` + docsChromeCSS + `
+    <style>` + docsFontFaceCSS + `
+` + docsChromeCSS + `
 ` + swaggerThemeCSS + `</style>
 </head>
 <body>
@@ -528,8 +553,8 @@ func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
     <title>GEX Faker Studio · WebSocket API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/asyncapi-ui.css">
-    ` + docsFontLinks + `
-    <style>` + docsChromeCSS + `
+    <style>` + docsFontFaceCSS + `
+` + docsChromeCSS + `
 ` + asyncapiThemeCSS + `</style>
 </head>
 <body>
