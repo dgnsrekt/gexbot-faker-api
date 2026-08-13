@@ -31,8 +31,10 @@ func WithStatus(provide func() any) DiagnosticsOption {
 }
 
 // WithHandler registers an extra handler on the diagnostics mux (e.g. the daemon's
-// Alertmanager→ntfy webhook bridge). The mux is internal-only (compose network), so these
-// handlers are not exposed to the LAN.
+// Alertmanager→ntfy webhook bridge). The diagnostics mux is UNAUTHENTICATED (like /metrics
+// and /status); whether it's reachable depends on deployment — the default Compose stack
+// doesn't publish the diagnostics port, but a direct run binds all interfaces. Don't expose
+// the port, and don't register anything here that must be authenticated.
 func WithHandler(path string, h http.HandlerFunc) DiagnosticsOption {
 	return func(mux *http.ServeMux) { mux.HandleFunc(path, h) }
 }
