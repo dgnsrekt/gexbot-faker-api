@@ -104,7 +104,7 @@ services:
   # Prometheus (metrics) and Loki (logs) server-side over the compose network —
   # the browser never talks to them. None are host-published.
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.13.2
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -115,7 +115,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.6
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ./observability/loki/config.yml:/etc/loki/config.yml:ro
@@ -123,7 +123,7 @@ services:
     restart: unless-stopped
 
   alloy:
-    image: grafana/alloy:latest
+    image: grafana/alloy:v1.18.1
     command: run /etc/alloy/config.alloy
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro

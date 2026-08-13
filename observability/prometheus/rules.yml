@@ -44,6 +44,29 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Faker dataset is more than five days old
+      - alert: FakerDataVolumeLow
+        # Disk exhaustion on the growing data volume is the characteristic failure mode.
+        # Warn in [3 GiB, 10 GiB) — the lower bound keeps this from firing alongside the
+        # critical alert (no Alertmanager inhibition in this stack yet).
+        expr: faker_data_volume_free_bytes < 10 * 1024 * 1024 * 1024 and faker_data_volume_free_bytes >= 3 * 1024 * 1024 * 1024
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Data volume low on free space ({{ $value | humanize1024 }}B free)"
+      - alert: FakerDataVolumeCritical
+        expr: faker_data_volume_free_bytes < 3 * 1024 * 1024 * 1024
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "Data volume critically low ({{ $value | humanize1024 }}B free)"
+      - alert: FakerDataVolumeStatfsFailing
+        # The byte/inode series are omitted on a statfs error, so watch the always-present
+        # success flag — otherwise disk monitoring goes dark while the target stays green.
+        expr: faker_data_volume_statfs_success == 0
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: Data-volume statfs is failing (disk metrics unavailable)
       - alert: FakerDaemonDownloadOverdue
         # Market-aware freshness: the daemon owns the NYSE calendar and sets this to 1
         # only when the last successful download is behind the latest market date whose

@@ -1,12 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, promScalar, promToSeries, activeAlerts, type Series, type PromAlert } from '../lib/api'
+  import {
+    api,
+    promScalar,
+    promToSeries,
+    activeAlerts,
+    fmtBytes,
+    type Series,
+    type PromAlert,
+  } from '../lib/api'
   import MetricChart from '../lib/MetricChart.svelte'
 
   type Tone = 'ok' | 'warn' | 'bad' | ''
   type Tile = { label: string; value: string; tone: Tone }
 
   let tiles = $state<Tile[]>([])
+  let resourceTiles = $state<Tile[]>([])
   let degraded = $state('') // non-empty → Prometheus unset/unreachable
   let loading = $state(true)
 
@@ -46,6 +55,12 @@
     if (s < 5400) return `in ${Math.round(s / 60)}m`
     return `in ${(s / 3600).toFixed(1)}h`
   }
+  function fmtUptime(s: number): string {
+    if (s < 3600) return `${Math.round(s / 60)}m`
+    if (s < 172800) return `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`
+    return `${Math.floor(s / 86400)}d ${Math.round((s % 86400) / 3600)}h`
+  }
+  const GiB = 1024 * 1024 * 1024
 
   async function load() {
     try {
@@ -103,7 +118,41 @@
           .metricsRange(q, minutes, step)
           .then((r) => set(promToSeries(r, label, fallback)))
           .catch(() => set([]))
+      // Resource USE (server process + data volume), isolated like the charts so a
+      // failure only empties this panel. Disk free is the one with a health tone — the
+      // repo's characteristic failure mode.
+      const resources = Promise.all([
+        api.metricsQuery('faker_data_volume_free_bytes{job="faker-api"}'),
+        api.metricsQuery('faker_data_volume_total_bytes{job="faker-api"}'),
+        api.metricsQuery('process_resident_memory_bytes{job="faker-api"}'),
+        api.metricsQuery('go_goroutines{job="faker-api"}'),
+        api.metricsQuery('process_open_fds{job="faker-api"}'),
+        api.metricsQuery('time() - process_start_time_seconds{job="faker-api"}'),
+      ])
+        .then(([free, total, rss, gor, fds, up]) => {
+          const f = promScalar(free)
+          const tt = promScalar(total)
+          const usedPct = f !== null && tt ? Math.round((1 - f / tt) * 100) : null
+          const r = promScalar(rss)
+          const g = promScalar(gor)
+          const fd = promScalar(fds)
+          const u = promScalar(up)
+          resourceTiles = [
+            {
+              label: 'Data volume free',
+              value: f === null ? '—' : fmtBytes(f),
+              tone: f === null ? '' : f < 3 * GiB ? 'bad' : f < 10 * GiB ? 'warn' : 'ok',
+            },
+            { label: 'Data volume used', value: usedPct === null ? '—' : `${usedPct}%`, tone: '' },
+            { label: 'Memory (RSS)', value: r === null ? '—' : fmtBytes(r), tone: '' },
+            { label: 'Goroutines', value: g === null ? '—' : fmtInt(g), tone: '' },
+            { label: 'Open files', value: fd === null ? '—' : fmtInt(fd), tone: '' },
+            { label: 'Uptime', value: u === null ? '—' : fmtUptime(u), tone: '' },
+          ]
+        })
+        .catch(() => (resourceTiles = []))
       await Promise.all([
+        resources,
         chart('faker_daemon_snapshots', 7 * 24 * 60, 3600, (s) => (snapshots = s), 'ticker'),
         chart('sum(rate(faker_http_requests_total[5m]))', 60, 60, (s) => (reqRate = s), undefined, 'requests'),
         chart('histogram_quantile(0.95, sum(rate(faker_http_request_duration_seconds_bucket[5m])) by (le))', 60, 60, (s) => (latency = s), undefined, 'p95'),
@@ -185,6 +234,18 @@
         </div>
       {/each}
     </div>
+
+    {#if resourceTiles.length}
+      <div class="section mono">RESOURCES</div>
+      <div class="tiles">
+        {#each resourceTiles as t (t.label)}
+          <div class="tile">
+            <div class="tval {t.tone}">{t.value}</div>
+            <div class="tlabel">{t.label}</div>
+          </div>
+        {/each}
+      </div>
+    {/if}
 
     <div class="section mono">COVERAGE</div>
     <MetricChart title="Snapshots per ticker" hint="7 days" series={snapshots} height={170} />
