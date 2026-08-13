@@ -78,7 +78,10 @@ var (
 	}, []string{"kind", "result"})
 	JobDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "faker_job_duration_seconds", Help: "Background job duration by kind.",
-		Buckets: []float64{1, 5, 15, 30, 60, 120, 300, 600},
+		// Through 4h: materialize is minutes/date, a Studio download ~45m, and a multi-day
+		// range load can run hours — so the long tail doesn't collapse into +Inf and p95/p99
+		// stay meaningful. (1s … 4h)
+		Buckets: []float64{1, 5, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400},
 	}, []string{"kind"})
 	JobsInProgress = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "faker_jobs_in_progress", Help: "Background jobs currently running by kind.",
