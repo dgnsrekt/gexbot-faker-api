@@ -3,7 +3,10 @@ package eod
 import (
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,6 +15,260 @@ import (
 
 	"github.com/dgnsrekt/gexbot-downloader/internal/offsetindex"
 )
+
+// packDate packs each ticker into an EOD archive under <root>/eod/<date> and prunes the
+// source JSONL, so a subsequent MaterializeDate must rebuild every ticker from its archive.
+func packDate(t *testing.T, root, date string, tickers ...string) {
+	t.Helper()
+	for _, tk := range tickers {
+		src := filepath.Join(root, date, tk, "classic", "gex_full.jsonl")
+		if err := os.MkdirAll(filepath.Dir(src), 0750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(src, []byte("{\"timestamp\":1}\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Pack(root, date, tk, "legacy-jsonl"); err != nil {
+			t.Fatal(err)
+		}
+		if err := PruneTicker(root, date, tk); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// assertMaterialized checks a ticker's JSONL, offset-index sidecar, and marker are present.
+func assertMaterialized(t *testing.T, root, date, ticker string) {
+	t.Helper()
+	jsonl := filepath.Join(root, date, ticker, "classic", "gex_full.jsonl")
+	if _, err := os.Stat(jsonl); err != nil {
+		t.Errorf("%s: JSONL missing: %v", ticker, err)
+	}
+	if _, err := os.Stat(offsetindex.SidecarPath(jsonl)); err != nil {
+		t.Errorf("%s: offset-index sidecar missing: %v", ticker, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, date, ticker, markerName)); err != nil {
+		t.Errorf("%s: materialize marker missing: %v", ticker, err)
+	}
+}
+
+func TestMaterializeDateMultiTicker(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	tickers := []string{"AAPL", "NVDA", "SPX", "SPY", "QQQ"}
+	packDate(t, root, date, tickers...)
+
+	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+		t.Fatalf("MaterializeDate: %v", err)
+	}
+	for _, tk := range tickers {
+		assertMaterialized(t, root, date, tk)
+	}
+	archives, err := ListArchives(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(archives) != 1 || archives[0].Materialized != len(tickers) {
+		t.Fatalf("Materialized = %d, want %d", archives[0].Materialized, len(tickers))
+	}
+}
+
+func TestMaterializeDateCorruptAmongHealthy(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	healthy := []string{"AAPL", "SPY"}
+	corrupt := "NVDA"
+	packDate(t, root, date, append(append([]string{}, healthy...), corrupt)...)
+
+	// Save the good archive so we can restore it for the retry, then corrupt it.
+	archive := ArchivePath(root, date, corrupt)
+	good, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(archive, []byte("not a zip"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	err = MaterializeDate(root, date, zap.NewNop())
+	if err == nil {
+		t.Fatal("expected an error from the corrupt ticker")
+	}
+	if !strings.Contains(err.Error(), corrupt) {
+		t.Errorf("error should name the corrupt ticker %q: %v", corrupt, err)
+	}
+	// Healthy tickers still materialized despite the failure.
+	for _, tk := range healthy {
+		assertMaterialized(t, root, date, tk)
+	}
+	// The corrupt ticker left no promoted destination...
+	if _, err := os.Stat(filepath.Join(root, date, corrupt)); !os.IsNotExist(err) {
+		t.Errorf("corrupt ticker must not have a promoted dest, err=%v", err)
+	}
+	// ...and no staging residue.
+	staging := filepath.Join(root, ".eod-staging", date)
+	if entries, err := os.ReadDir(staging); err == nil {
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), corrupt+"-") {
+				t.Errorf("corrupt ticker left staging residue: %s", e.Name())
+			}
+		}
+	}
+	archives, _ := ListArchives(root)
+	if archives[0].Materialized != len(healthy) {
+		t.Errorf("Materialized = %d, want %d (successes only)", archives[0].Materialized, len(healthy))
+	}
+
+	// Retry after replacing the archive: healthy tickers skip (dest exists), the
+	// previously-corrupt one finishes, and the date completes with no error.
+	if err := os.WriteFile(archive, good, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+		t.Fatalf("retry should complete the date: %v", err)
+	}
+	assertMaterialized(t, root, date, corrupt)
+	archives, _ = ListArchives(root)
+	if archives[0].Materialized != len(healthy)+1 {
+		t.Errorf("after retry Materialized = %d, want %d", archives[0].Materialized, len(healthy)+1)
+	}
+}
+
+func TestMaterializeWorkers(t *testing.T) {
+	// Unset → GOMAXPROCS.
+	t.Setenv("GEXBOT_MATERIALIZE_WORKERS", "")
+	os.Unsetenv("GEXBOT_MATERIALIZE_WORKERS")
+	if got := materializeWorkers(zap.NewNop()); got < 1 {
+		t.Errorf("default workers = %d, want >= 1", got)
+	}
+	// Valid override.
+	t.Setenv("GEXBOT_MATERIALIZE_WORKERS", "3")
+	if got := materializeWorkers(zap.NewNop()); got != 3 {
+		t.Errorf("override workers = %d, want 3", got)
+	}
+	// Garbage and non-positive values warn and fall back to the default (>= 1).
+	for _, bad := range []string{"foo", "0", "-4"} {
+		t.Setenv("GEXBOT_MATERIALIZE_WORKERS", bad)
+		core, logs := observer.New(zap.WarnLevel)
+		got := materializeWorkers(zap.New(core))
+		if got < 1 {
+			t.Errorf("%q: workers = %d, want >= 1 fallback", bad, got)
+		}
+		if logs.FilterMessage("invalid GEXBOT_MATERIALIZE_WORKERS; using default").Len() != 1 {
+			t.Errorf("%q: expected one warn about the invalid value", bad)
+		}
+	}
+}
+
+// TestMaterializeDatePeakConcurrency proves the scheduler actually bounds concurrent
+// ticker work at the configured limit — swapping the per-ticker worker for a probe that
+// records peak simultaneous execution.
+func TestMaterializeDatePeakConcurrency(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	// Only the eod/<date>/<ticker> dirs need to exist; the worker is stubbed.
+	for _, tk := range []string{"A", "B", "C", "D", "E", "F", "G", "H"} {
+		if err := os.MkdirAll(filepath.Join(root, "eod", date, tk), 0750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	const limit = 3
+	materializeSemMu.Lock()
+	materializeSem = make(chan struct{}, limit)
+	materializeSemMu.Unlock()
+	defer func() {
+		materializeSemMu.Lock()
+		materializeSem = nil // let later tests re-init from the default
+		materializeSemMu.Unlock()
+	}()
+
+	orig := materializeTickerFn
+	defer func() { materializeTickerFn = orig }()
+	var active, peak atomic.Int64
+	var pmu sync.Mutex
+	materializeTickerFn = func(_, _, _ string, _ *zap.Logger) error {
+		cur := active.Add(1)
+		pmu.Lock()
+		if cur > peak.Load() {
+			peak.Store(cur)
+		}
+		pmu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+		active.Add(-1)
+		return nil
+	}
+
+	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+		t.Fatal(err)
+	}
+	if p := peak.Load(); p > limit {
+		t.Errorf("peak concurrency %d exceeded the limit %d", p, limit)
+	} else if p != limit {
+		t.Errorf("peak concurrency %d never reached the limit %d", p, limit)
+	}
+}
+
+func TestMaterializeDateProgressFields(t *testing.T) {
+	root := t.TempDir()
+	date := "2026-07-17"
+	tickers := []string{"AAPL", "NVDA", "SPY"}
+	packDate(t, root, date, tickers...)
+
+	core, logs := observer.New(zap.InfoLevel)
+	if err := MaterializeDate(root, date, zap.New(core)); err != nil {
+		t.Fatal(err)
+	}
+	if n := logs.FilterMessage("materializing date from EOD archive").Len(); n != 1 {
+		t.Errorf("date-start logs = %d, want 1", n)
+	}
+	if n := logs.FilterMessage("materialized date from EOD archive").Len(); n != 1 {
+		t.Errorf("date-success logs = %d, want 1", n)
+	}
+	progress := logs.FilterMessage("materialize progress").All()
+	if len(progress) != len(tickers) {
+		t.Fatalf("progress logs = %d, want %d", len(progress), len(tickers))
+	}
+	// done values must be unique and cover 1..N — regardless of completion order.
+	var dones []int
+	for _, e := range progress {
+		dones = append(dones, int(e.ContextMap()["done"].(int64)))
+	}
+	sort.Ints(dones)
+	for i, d := range dones {
+		if d != i+1 {
+			t.Errorf("done values = %v, want 1..%d", dones, len(tickers))
+			break
+		}
+	}
+}
+
+// TestMaterializeDateConcurrentCallers stresses the process-wide limiter under overlapping
+// callers (same date and different dates at once) — run with -race.
+func TestMaterializeDateConcurrentCallers(t *testing.T) {
+	root := t.TempDir()
+	d1, d2 := "2026-07-17", "2026-07-18"
+	packDate(t, root, d1, "AAPL", "SPY", "NVDA")
+	packDate(t, root, d2, "QQQ", "IWM")
+
+	var wg sync.WaitGroup
+	run := func(date string) {
+		defer wg.Done()
+		if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+			t.Errorf("MaterializeDate(%s): %v", date, err)
+		}
+	}
+	wg.Add(4)
+	go run(d1)
+	go run(d1) // two callers, same date — promotion must stay race-free
+	go run(d2)
+	go run(d2)
+	wg.Wait()
+
+	assertMaterialized(t, root, d1, "AAPL")
+	assertMaterialized(t, root, d1, "NVDA")
+	assertMaterialized(t, root, d2, "QQQ")
+}
 
 // Materialization eagerly writes an offset-index sidecar next to each JSONL, so a
 // later stream/range load reads it instead of re-scanning.
