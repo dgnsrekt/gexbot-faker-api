@@ -16,6 +16,7 @@ var (
 	dataVolumeFreeBytes  = prometheus.NewDesc("faker_data_volume_free_bytes", "Free bytes on the filesystem holding the data directory.", nil, nil)
 	dataVolumeTotalBytes = prometheus.NewDesc("faker_data_volume_total_bytes", "Total bytes of the filesystem holding the data directory.", nil, nil)
 	dataVolumeFreeInodes = prometheus.NewDesc("faker_data_volume_free_inodes", "Free inodes on the filesystem holding the data directory.", nil, nil)
+	dataVolumeStatfsOK   = prometheus.NewDesc("faker_data_volume_statfs_success", "1 if the last statfs of the data directory succeeded, else 0.", nil, nil)
 
 	registerDataVolumeOnce sync.Once
 )
@@ -26,13 +27,19 @@ func (c dataVolumeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- dataVolumeFreeBytes
 	ch <- dataVolumeTotalBytes
 	ch <- dataVolumeFreeInodes
+	ch <- dataVolumeStatfsOK
 }
 
 func (c dataVolumeCollector) Collect(ch chan<- prometheus.Metric) {
 	var st unix.Statfs_t
 	if err := unix.Statfs(c.path, &st); err != nil {
-		return // omit the series on error rather than exporting a misleading zero
+		// Omit the byte/inode series (no misleading zero) but ALWAYS export the success
+		// flag as 0 — otherwise a failing statfs silently blanks disk monitoring while the
+		// API target still scrapes green. An alert watches this flag.
+		ch <- prometheus.MustNewConstMetric(dataVolumeStatfsOK, prometheus.GaugeValue, 0)
+		return
 	}
+	ch <- prometheus.MustNewConstMetric(dataVolumeStatfsOK, prometheus.GaugeValue, 1)
 	bsize := float64(st.Bsize)
 	ch <- prometheus.MustNewConstMetric(dataVolumeFreeBytes, prometheus.GaugeValue, float64(st.Bavail)*bsize)
 	ch <- prometheus.MustNewConstMetric(dataVolumeTotalBytes, prometheus.GaugeValue, float64(st.Blocks)*bsize)
