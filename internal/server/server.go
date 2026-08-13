@@ -52,9 +52,12 @@ func NewRouter(server *Server, wsHubs *WebSocketHubs, negotiateHandler *ws.Negot
 	r.Get("/swagger-ui.js", swaggerUIBundleHandler)
 	r.Get("/swagger-ui.css", swaggerUICSSHandler)
 
-	// AsyncAPI documentation for WebSocket endpoints
+	// AsyncAPI documentation for WebSocket endpoints (renderer vendored/embedded so the
+	// page works offline — see swagger-ui above)
 	r.Get("/asyncapi.yaml", asyncapiHandler)
 	r.Get("/asyncapi", asyncapiUIHandler)
+	r.Get("/asyncapi-ui.js", asyncapiUIBundleHandler)
+	r.Get("/asyncapi-ui.css", asyncapiUICSSHandler)
 
 	// Brand favicon for the open doc pages (the Studio's copy sits behind auth at
 	// /studio/favicon.svg, so serve an unauthenticated one here for /docs and /asyncapi).
@@ -347,6 +350,18 @@ func swaggerUICSSHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(api.SwaggerUICSS)
 }
 
+func asyncapiUIBundleHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	_, _ = w.Write(api.AsyncAPIUIBundle)
+}
+
+func asyncapiUICSSHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=31536000")
+	_, _ = w.Write(api.AsyncAPIUICSS)
+}
+
 // docsFontLinks loads the Studio's typefaces (Space Grotesk wordmark + JetBrains Mono)
 // so the API docs match the GEX Faker Studio shell. No CSP is applied, so external font
 // loads are unrestricted.
@@ -512,7 +527,7 @@ func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
     <meta charset="utf-8">
     <title>GEX Faker Studio · WebSocket API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
+    <link rel="stylesheet" href="/asyncapi-ui.css">
     ` + docsFontLinks + `
     <style>` + docsChromeCSS + `
 ` + asyncapiThemeCSS + `</style>
@@ -520,7 +535,7 @@ func asyncapiUIHandler(w http.ResponseWriter, r *http.Request) {
 <body>
     ` + docsNavBar("ws") + `
     <div id="asyncapi"></div>
-    <script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
+    <script src="/asyncapi-ui.js"></script>
     <script>
         AsyncApiStandalone.render({
             schema: {
