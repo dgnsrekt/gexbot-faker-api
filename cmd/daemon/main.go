@@ -155,7 +155,7 @@ func run() int {
 
 	// Main loop - check every minute
 	ticker := time.NewTicker(1 * time.Minute)
-	observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
+	updateScheduleMetrics(scheduler, tracker, nextAttempt)
 	defer ticker.Stop()
 
 	for {
@@ -166,29 +166,37 @@ func run() int {
 			return 0
 
 		case <-ticker.C:
-			observability.DaemonNextRun.Set(float64(time.Now().Add(time.Minute).Unix()))
-			if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
-				runCleanup(cfg, cleanupTTL, logger)
-				lastCleanup = time.Now()
-			}
-			if ready := nextAttempt.IsZero() || !time.Now().Before(nextAttempt); !ready {
-				break // still backing off from a prior failure
-			}
-			// Retry an unfilled backfill gap before today's run, so a failed past
-			// day is filled first and the tracker never advances past it.
-			if !backfillComplete {
-				if backfillComplete = backfillMissedDays(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout); !backfillComplete {
-					nextAttempt = time.Now().Add(5 * time.Minute)
-					break
+			// Wrapped so the schedule/freshness gauges update AFTER this tick's work: a
+			// fresh failure sets a 5-minute retry backoff (nextAttempt), and the deferred
+			// call reflects it immediately rather than a tick late. `return` exits this
+			// tick's work (not the daemon).
+			func() {
+				// Closure (not a bare defer) so nextAttempt is read at return time — after
+				// the work below may have set a retry backoff — not at the defer line.
+				defer func() { updateScheduleMetrics(scheduler, tracker, nextAttempt) }()
+				if cfg.Output.AutoCleanup && time.Since(lastCleanup) >= cleanupInterval {
+					runCleanup(cfg, cleanupTTL, logger)
+					lastCleanup = time.Now()
 				}
-			}
-			if shouldDownload(scheduler, tracker, logger) {
-				if runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
-					nextAttempt = time.Time{}
-				} else {
-					nextAttempt = time.Now().Add(5 * time.Minute)
+				if ready := nextAttempt.IsZero() || !time.Now().Before(nextAttempt); !ready {
+					return // still backing off from a prior failure
 				}
-			}
+				// Retry an unfilled backfill gap before today's run, so a failed past
+				// day is filled first and the tracker never advances past it.
+				if !backfillComplete {
+					if backfillComplete = backfillMissedDays(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout); !backfillComplete {
+						nextAttempt = time.Now().Add(5 * time.Minute)
+						return
+					}
+				}
+				if shouldDownload(scheduler, tracker, logger) {
+					if runDownload(ctx, cfg, scheduler, tracker, notifier, logger, runTimeout) {
+						nextAttempt = time.Time{}
+					} else {
+						nextAttempt = time.Now().Add(5 * time.Minute)
+					}
+				}
+			}()
 
 		case <-ctx.Done():
 			logger.Info("context cancelled, shutting down")
@@ -209,6 +217,35 @@ func runCleanup(cfg *config.Config, ttl time.Duration, logger *zap.Logger) {
 	if _, err := eod.CleanupStale(cfg.Output.Directory, ttl, logger, latest); err != nil {
 		logger.Warn("materialize cleanup failed", zap.Error(err))
 	}
+}
+
+// updateScheduleMetrics publishes the truthful schedule/freshness gauges: the next
+// scheduled attempt (accounting for an active retry backoff, and market-aware — not a fixed
+// now+1min), plus the expected latest market date and whether the last download is behind it.
+func updateScheduleMetrics(scheduler *Scheduler, tracker *DownloadTracker, nextAttempt time.Time) {
+	next := scheduler.NextRunAt()
+	if !nextAttempt.IsZero() && nextAttempt.Before(next) {
+		next = nextAttempt // a pending retry fires before the next scheduled slot
+	}
+	observability.DaemonNextRun.Set(float64(next.Unix()))
+
+	expected := scheduler.ExpectedLatestDate()
+	if expected == "" {
+		return
+	}
+	expectedT, err := time.ParseInLocation("2006-01-02", expected, scheduler.Location())
+	if err != nil {
+		return
+	}
+	observability.DaemonExpectedDate.Set(float64(expectedT.Unix()))
+	// Fail safe: the tracker's state file is unvalidated, so parse it as a date rather than
+	// comparing strings — empty or garbage (e.g. "9999-99-99") must count as overdue, not
+	// silently sort greater-than and report up-to-date.
+	overdue := 1.0
+	if lastT, lerr := time.ParseInLocation("2006-01-02", tracker.GetLastDownloadDate(), scheduler.Location()); lerr == nil && !lastT.Before(expectedT) {
+		overdue = 0
+	}
+	observability.DaemonDownloadOverdue.Set(overdue)
 }
 
 // shouldDownload checks if conditions are met for triggering a download
@@ -327,8 +364,8 @@ func runDownload(ctx context.Context, cfg *config.Config, scheduler *Scheduler, 
 // any are found. Always logs findings so they're visible even when ntfy is off;
 // never fails the run — a coverage warning is advisory, not a download failure.
 func checkCoverage(ctx context.Context, dataDir, date string, notifier notify.Notifier, logger *zap.Logger) {
-	// Export the per-ticker snapshot count so Grafana has the raw series to trend
-	// and alert on, independent of the ntfy findings below. SetDaemonSnapshots
+	// Export the per-ticker snapshot count so Prometheus/Studio has the raw series to
+	// trend and alert on, independent of the ntfy findings below. SetDaemonSnapshots
 	// resets first so a ticker dropped from the set doesn't linger as a stale gauge.
 	if snaps, err := eod.TickerSnapshots(dataDir, date); err == nil {
 		observability.SetDaemonSnapshots(snaps)
