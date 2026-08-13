@@ -130,6 +130,10 @@
   }
 
   onMount(() => {
+    // Deep-link filter: #/logs?q=<value> seeds the search box (e.g. "watch ↗" on a
+    // materializing row jumps here pre-filtered to that date's live tail).
+    const q = new URLSearchParams(location.hash.split('?')[1] ?? '').get('q')
+    if (q) search = q
     connect()
     fetchVolume()
     return () => es?.close()

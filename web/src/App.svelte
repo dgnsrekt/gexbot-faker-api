@@ -42,15 +42,25 @@
     docs: ['Docs', 'Guides and API references — embedded, offline'],
   }
 
-  // Screen from the URL hash so deep-links / reloads work: /studio/#/library
+  // Screen from the URL hash so deep-links / reloads work: /studio/#/library.
+  // The hash may carry a query (e.g. #/logs?q=2026-07-28) — strip it before matching.
   function screenFromHash(): ScreenId {
-    const h = location.hash.replace(/^#\/?/, '') as ScreenId
-    return nav.some((n) => n.id === h) ? h : 'server'
+    const id = location.hash.replace(/^#\/?/, '').split('?')[0] as ScreenId
+    return nav.some((n) => n.id === id) ? id : 'server'
   }
   let screen = $state<ScreenId>(screenFromHash())
   function go(id: ScreenId) {
     screen = id
     location.hash = `#/${id}`
+  }
+
+  // Deep-link into the Logs screen pre-filtered to a value (e.g. a date), so an
+  // in-progress job can be watched live from its row. The hash carries the filter,
+  // which Logs reads on mount; set the hash before the screen so Logs mounts with the
+  // fresh query.
+  function openLogs(filter: string) {
+    location.hash = `#/logs?q=${encodeURIComponent(filter)}`
+    screen = 'logs'
   }
 
   let status = $state<Status | null>(null)
@@ -165,7 +175,7 @@
       {#if screen === 'server'}
         <Server {status} {baseUrl} />
       {:else if screen === 'library'}
-        <Library {status} onchanged={refreshStatus} />
+        <Library {status} onchanged={refreshStatus} onwatchlogs={openLogs} />
       {:else if screen === 'streams'}
         <Streams {status} />
       {:else if screen === 'settings'}

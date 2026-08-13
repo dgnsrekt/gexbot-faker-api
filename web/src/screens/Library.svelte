@@ -2,7 +2,12 @@
   import { onMount } from 'svelte'
   import { api, fmtBytes, fmtInt, isValidSpan, type Status, type LibraryRow } from '../lib/api'
 
-  let { status, onchanged }: { status: Status | null; onchanged: () => void } = $props()
+  let {
+    status,
+    onchanged,
+    onwatchlogs,
+  }: { status: Status | null; onchanged: () => void; onwatchlogs: (filter: string) => void } =
+    $props()
 
   let rows = $state<LibraryRow[]>([])
   let loading = $state(true)
@@ -268,6 +273,13 @@
               <div class="materializing" title="Unpacking EOD archives to JSONL">
                 <div class="mbar"><div class="mfill" style="width:{pct(r)}"></div></div>
                 <span class="mono mtext">Materializing {r.materialized}/{r.total}</span>
+                <button
+                  class="watchlink mono"
+                  onclick={() => onwatchlogs(r.date)}
+                  title="Open the Logs, filtered to this date, to watch it unpack live"
+                >
+                  watch ↗
+                </button>
               </div>
             {:else if r.state === 'ready'}
               <button class="btn load" disabled={anyBusy} onclick={() => load(r.date)}>
@@ -570,6 +582,18 @@
   .mtext {
     font-size: 10px;
     color: var(--amber);
+  }
+  .watchlink {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--green-2);
+  }
+  .watchlink:hover {
+    color: var(--green);
+    text-decoration: underline;
   }
   .msg {
     padding: 20px 14px;
