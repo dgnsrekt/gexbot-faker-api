@@ -53,6 +53,45 @@ func assertMaterialized(t *testing.T, root, date, ticker string) {
 	}
 }
 
+// TestMaterializeRepairsMissingMarker is the 2026-07-28 regression: a ticker dir with
+// materialized JSONL but no .eod-materialized marker (e.g. created by an older build)
+// must get its marker stamped on re-materialize, so the Studio recognizes it as ready
+// instead of showing "Materialize" forever.
+func TestMaterializeRepairsMissingMarker(t *testing.T) {
+	root := t.TempDir()
+	date, ticker := "2026-07-28", "AAPL"
+	packDate(t, root, date, ticker) // archives + prunes source
+	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(root, date, ticker, markerName)
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("precondition: marker should exist after materialize: %v", err)
+	}
+	// Simulate a legacy dir: JSONL present, marker removed.
+	if err := os.Remove(marker); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := ListArchives(root); got[0].Materialized != 0 {
+		t.Fatalf("without marker, Materialized should be 0, got %d", got[0].Materialized)
+	}
+	// Re-materialize must repair the marker (not no-op).
+	if err := MaterializeDate(root, date, zap.NewNop()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Errorf("re-materialize must stamp the missing marker: %v", err)
+	}
+	if got, _ := ListArchives(root); got[0].Materialized != 1 {
+		t.Errorf("after repair, Materialized should be 1, got %d", got[0].Materialized)
+	}
+	// The JSONL must be untouched (repair only writes the marker).
+	jsonl := filepath.Join(root, date, ticker, "classic", "gex_full.jsonl")
+	if _, err := os.Stat(jsonl); err != nil {
+		t.Errorf("repair must not disturb the JSONL: %v", err)
+	}
+}
+
 func TestMaterializeDateMultiTicker(t *testing.T) {
 	root := t.TempDir()
 	date := "2026-07-17"
