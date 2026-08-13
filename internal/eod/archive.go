@@ -189,6 +189,26 @@ func Verify(path, date, ticker, source string) (*Manifest, error) {
 	return manifest, nil
 }
 
+// ensureMaterializedMarker writes the .eod-materialized marker for an already-present
+// ticker dir if it's missing (same content the normal materialize path writes). This
+// repairs legacy/pre-marker dirs so they're recognized as ready; it's a no-op when the
+// marker already exists.
+func ensureMaterializedMarker(root, date, ticker string, logger *zap.Logger) error {
+	marker := filepath.Join(root, date, ticker, markerName)
+	if _, err := os.Stat(marker); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	archive := ArchivePath(root, date, ticker)
+	if err := os.WriteFile(marker, []byte(archive+"\n"), 0600); err != nil {
+		return err
+	}
+	logger.Info("stamped missing materialize marker on existing dir",
+		zap.String("date", date), zap.String("ticker", ticker))
+	return nil
+}
+
 // MaterializeTicker rebuilds one ticker's JSONL from its EOD archive. It acquires the
 // process-wide semaphore so direct callers (the on-demand download handlers, the
 // downloader CLI) are bounded exactly like MaterializeDate's scheduled tickers. Callers
@@ -214,7 +234,12 @@ func materializeTickerInner(root, date, ticker string, logger *zap.Logger) error
 	}
 	dest := filepath.Join(root, date, ticker)
 	if info, err := os.Stat(dest); err == nil && info.IsDir() {
-		return nil
+		// Already materialized — but a dir created by an older build (or a partially
+		// completed legacy materialize) can be missing the completion marker. Without the
+		// marker the Studio shows the date as "needs materialize" forever, and this
+		// fast-path would no-op on every retry. Stamp it if absent so the dir is
+		// recognized as ready (idempotent, self-healing).
+		return ensureMaterializedMarker(root, date, ticker, logger)
 	}
 	start := time.Now()
 	archive := ArchivePath(root, date, ticker)
