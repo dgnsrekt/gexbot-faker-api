@@ -118,7 +118,8 @@ func run() int {
 	diagnostics := observability.NewDiagnostics(":9091", dstate.isReady, logger,
 		observability.WithStatus(statusProvider),
 		// Bridge Alertmanager → ntfy so Prometheus alerts reach the same destination as the
-		// daemon's download/coverage notifications (internal-only endpoint on :9091).
+		// daemon's download/coverage notifications. On the unauthenticated :9091 diagnostics
+		// mux (like /metrics, /status) — Compose keeps :9091 off the LAN; don't publish it.
 		observability.WithHandler("/alerts/ntfy", alertWebhookHandler(notifier, logger)),
 	)
 	diagnostics.Start(logger)

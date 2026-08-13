@@ -62,3 +62,27 @@ func TestAlertWebhookHandler(t *testing.T) {
 		t.Errorf("GET status = %d, want 405", rec2.Code)
 	}
 }
+
+// TestAlertWebhookRetriesOnSendFailure: a notifier error must surface as a non-2xx so
+// Alertmanager retries instead of dropping the alert.
+func TestAlertWebhookRetriesOnSendFailure(t *testing.T) {
+	h := alertWebhookHandler(failingNotifier{}, zap.NewNop())
+	body := `{"alerts":[{"status":"firing","labels":{"alertname":"X","severity":"critical"},"annotations":{"summary":"y"}}]}`
+	rec := httptest.NewRecorder()
+	h(rec, httptest.NewRequest(http.MethodPost, "/alerts/ntfy", strings.NewReader(body)))
+	if rec.Code < 500 {
+		t.Errorf("status on send failure = %d, want >= 500 so Alertmanager retries", rec.Code)
+	}
+}
+
+type failingNotifier struct{}
+
+func (failingNotifier) SendSuccess(context.Context, *download.BatchResult, string, time.Duration) error {
+	return nil
+}
+func (failingNotifier) SendFailure(context.Context, *download.BatchResult, string, time.Duration, error) error {
+	return nil
+}
+func (failingNotifier) SendAlert(context.Context, string, string, string) error {
+	return context.DeadlineExceeded
+}

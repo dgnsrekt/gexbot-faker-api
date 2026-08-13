@@ -34,7 +34,12 @@ func ntfyPriorityForSeverity(sev string) string {
 // alertWebhookHandler bridges Alertmanager → ntfy: it decodes the webhook payload and
 // forwards each alert through the daemon's existing notifier, so Prometheus alerts reach
 // the same ntfy destination as the download/coverage notifications (one channel, not two).
-// A NoopNotifier (NTFY disabled) makes this a safe no-op. Internal-only endpoint.
+// A NoopNotifier (NTFY disabled) makes this a safe no-op.
+//
+// Security: like /metrics and /status, this lives on the UNAUTHENTICATED daemon diagnostics
+// mux (:9091). The default Compose stack does not publish that port, so it stays on the
+// internal network; if you run the daemon directly, do not expose :9091 (an open endpoint
+// here could post arbitrary messages to the configured ntfy topic). See OBSERVABILITY.md.
 func alertWebhookHandler(notifier notify.Notifier, logger *zap.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -47,6 +52,7 @@ func alertWebhookHandler(notifier notify.Notifier, logger *zap.Logger) http.Hand
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		failed := 0
 		for _, a := range payload.Alerts {
 			name := a.Labels["alertname"]
 			if name == "" {
@@ -64,8 +70,16 @@ func alertWebhookHandler(notifier notify.Notifier, logger *zap.Logger) http.Hand
 				title, priority = "Resolved: "+name, "default"
 			}
 			if err := notifier.SendAlert(r.Context(), title, msg, priority); err != nil {
+				failed++
 				logger.Warn("failed to forward alert to ntfy", zap.String("alert", name), zap.Error(err))
 			}
+		}
+		// Fail the webhook if any send failed so Alertmanager retries rather than
+		// permanently losing the alert on a transient ntfy error. A retry may re-deliver
+		// the already-succeeded alerts in the batch — acceptable versus losing one.
+		if failed > 0 {
+			http.Error(w, "some alerts failed to forward to ntfy", http.StatusBadGateway)
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 	}
