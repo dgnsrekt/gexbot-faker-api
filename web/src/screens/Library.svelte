@@ -267,7 +267,21 @@
               <span class="badge corrupt">corrupt</span>
             {/if}
 
-            {#if r.state === 'loaded'}
+            {#if rowLoading(r.date)}
+              <!-- Any row actively being loaded (single or inside a span) — a span over
+                   archived days materializes them, so this can be a long job. Overrides the
+                   state UI so the row shows progress + a live-logs link regardless of state. -->
+              <div class="loadwrap">
+                <span class="mono loading-lbl">Loading…</span>
+                <button
+                  class="watchlink mono"
+                  onclick={() => onwatchlogs(r.date)}
+                  title="Open the Logs, filtered to this date, to watch it load live"
+                >
+                  watch ↗
+                </button>
+              </div>
+            {:else if r.state === 'loaded'}
               <span class="badge loaded-badge">Loaded</span>
             {:else if r.state === 'materializing'}
               <div class="materializing" title="Unpacking EOD archives to JSONL">
@@ -282,9 +296,7 @@
                 </button>
               </div>
             {:else if r.state === 'ready'}
-              <button class="btn load" disabled={anyBusy} onclick={() => load(r.date)}>
-                {rowLoading(r.date) ? 'Loading…' : 'Load'}
-              </button>
+              <button class="btn load" disabled={anyBusy} onclick={() => load(r.date)}>Load</button>
             {:else}
               {#if r.job_error}
                 <span class="failed mono" title={r.job_error}>failed</span>
@@ -582,6 +594,16 @@
   .mtext {
     font-size: 10px;
     color: var(--amber);
+  }
+  .loadwrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .loading-lbl {
+    font-size: 11px;
+    color: var(--muted-2);
   }
   .watchlink {
     background: none;
