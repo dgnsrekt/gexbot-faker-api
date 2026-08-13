@@ -30,6 +30,13 @@ func WithStatus(provide func() any) DiagnosticsOption {
 	}
 }
 
+// WithHandler registers an extra handler on the diagnostics mux (e.g. the daemon's
+// Alertmanager→ntfy webhook bridge). The mux is internal-only (compose network), so these
+// handlers are not exposed to the LAN.
+func WithHandler(path string, h http.HandlerFunc) DiagnosticsOption {
+	return func(mux *http.ServeMux) { mux.HandleFunc(path, h) }
+}
+
 func NewDiagnostics(addr string, ready func() bool, logger *zap.Logger, opts ...DiagnosticsOption) *Diagnostics {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())

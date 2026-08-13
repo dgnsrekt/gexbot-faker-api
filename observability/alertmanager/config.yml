@@ -1,0 +1,16 @@
+# Alertmanager routes every firing/resolved alert to the daemon's /alerts/ntfy webhook,
+# which formats it and pushes to ntfy using the project's existing NTFY_* config (so there
+# is one notification destination, not two). Grouping keeps a storm to one message per
+# alertname; repeat_interval re-notifies a still-firing alert every few hours.
+route:
+  receiver: ntfy
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+
+receivers:
+  - name: ntfy
+    webhook_configs:
+      - url: http://gex-daemon:9091/alerts/ntfy
+        send_resolved: true

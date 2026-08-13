@@ -13,6 +13,7 @@ monitoring ports to expose.
 | Component | Role |
 | --- | --- |
 | **Prometheus** | Scrapes API (`gex-faker-api:9090`) and daemon (`gex-daemon:9091`) metrics; retention `PROMETHEUS_RETENTION` (default `30d`). |
+| **Alertmanager** | Receives firing alerts from Prometheus and forwards them to **ntfy** via the daemon's `/alerts/ntfy` webhook bridge (`cmd/daemon/alertwebhook.go`), reusing the `NTFY_*` config — so alerts page an operator, not just render in Studio. No-op when ntfy is disabled. |
 | **Loki** | Aggregates container logs. |
 | **Grafana Alloy** | Tails containers labeled `observability.logs=true` and ships their logs to Loki. |
 
