@@ -25,6 +25,7 @@
   --blue: #7aa7e0;
   --red: #e08080;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --wordmark: 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 * {
