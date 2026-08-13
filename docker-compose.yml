@@ -114,6 +114,18 @@ services:
       - prometheus_data:/prometheus
     restart: unless-stopped
 
+  # Alertmanager delivers firing alerts to ntfy via the daemon's /alerts/ntfy webhook
+  # bridge, so the rule set actually pages an operator instead of only rendering in Studio.
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/config.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    restart: unless-stopped
+
   loki:
     image: grafana/loki:3.7.6
     command: -config.file=/etc/loki/config.yml
@@ -134,5 +146,6 @@ services:
 
 volumes:
   prometheus_data:
+  alertmanager_data:
   loki_data:
   alloy_data:
