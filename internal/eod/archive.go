@@ -232,9 +232,10 @@ func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
 			_ = out.Close()
 			return err
 		}
+		var records int
 		gz, err := gzip.NewReader(r)
 		if err == nil {
-			_, _, err = scanArray(gz, out)
+			records, _, err = scanArray(gz, out)
 			_ = gz.Close()
 		}
 		_ = r.Close()
@@ -252,6 +253,12 @@ func MaterializeTicker(root, date, ticker string, logger *zap.Logger) error {
 		if ierr := offsetindex.Build(target); ierr != nil {
 			logger.Warn("failed to build offset index at materialize", zap.String("path", target), zap.Error(ierr))
 		}
+		// Per-member progress — a materialize can take tens of seconds per ticker, so
+		// surface each unpacked package/category (with its snapshot count) as it lands.
+		logger.Info("unpacked member",
+			zap.String("date", date), zap.String("ticker", ticker),
+			zap.String("pkg", pkg), zap.String("category", category),
+			zap.Int("records", records))
 	}
 	if err := os.WriteFile(filepath.Join(tmp, markerName), []byte(archive+"\n"), 0600); err != nil {
 		return err
@@ -298,8 +305,13 @@ func MaterializeDate(root, date string, logger *zap.Logger) error {
 	}
 	logger.Info("materializing date from EOD archive", zap.String("date", date), zap.Int("tickers", count))
 	start := time.Now()
+	done := 0
 	for _, ticker := range tickers {
 		if ticker.IsDir() {
+			done++
+			logger.Info("materializing ticker",
+				zap.String("date", date), zap.String("ticker", ticker.Name()),
+				zap.Int("progress", done), zap.Int("total", count))
 			if err := MaterializeTicker(root, date, ticker.Name(), logger); err != nil {
 				return err
 			}
